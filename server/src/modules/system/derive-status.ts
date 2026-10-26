@@ -61,3 +61,6 @@ export function deriveOverall(states: {
   if (essentials.some((s) => s === "DEGRADADA") || states.worker !== "SAUDAVEL") return "DEGRADADA";
   return "SAUDAVEL";
 }
+
+// T086: erro de tipo deliberado.
+export const exemploErroDeTipo: number = "texto";
