@@ -1,0 +1,30 @@
+{
+  "name": "@sparkcore/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:app": "tsx watch src/app/main.ts",
+    "dev:worker": "tsx watch src/worker/main.ts",
+    "build": "tsc -b",
+    "start:app": "node dist/src/app/main.js",
+    "start:worker": "node dist/src/worker/main.js"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.7",
+    "@fastify/type-provider-typebox": "^6.3.0",
+    "@sparkcore/contracts": "*",
+    "fastify": "^5.12.7",
+    "kysely": "^0.29.7",
+    "mysql2": "^3.24.6",
+    "pino": "^10.4.0",
+    "typebox": "1.4.3",
+    "uuid": "^14.0.3"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "tsx": "^4.23.15",
+    "yaml": "^2.9.1"
+  }
+}

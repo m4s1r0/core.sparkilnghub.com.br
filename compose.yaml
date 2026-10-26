@@ -1,0 +1,31 @@
+name: sparkcore
+
+services:
+  mysql:
+    image: mysql:8.4
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+00:00
+      - --partial-revokes=OFF
+    ports:
+      - "${MYSQL_PORT:-3307}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?defina no .env}
+      MYSQL_MIGRATOR_PASSWORD: ${MYSQL_MIGRATOR_PASSWORD:?defina no .env}
+      MYSQL_WEB_PASSWORD: ${MYSQL_WEB_PASSWORD:?defina no .env}
+      MYSQL_WORKER_PASSWORD: ${MYSQL_WORKER_PASSWORD:?defina no .env}
+      MYSQL_PROVISIONER_PASSWORD: ${MYSQL_PROVISIONER_PASSWORD:?defina no .env}
+      MYSQL_TEST_PASSWORD: ${MYSQL_TEST_PASSWORD:?defina no .env}
+    volumes:
+      - sparkcore-mysql:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # TCP só responde depois que a inicialização (bancos e usuários) termina.
+      test: ["CMD-SHELL", 'mysqladmin ping -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD" --silent']
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+volumes:
+  sparkcore-mysql:

@@ -8,9 +8,9 @@ Componentes do `@sparkling-hub/design-system` **0.2.0**, apenas pela API públic
 | Região | Componentes do design system | Conteúdo |
 |---|---|---|
 | Raiz | contêiner `.sh-theme`; `styles.css` importado em `web/src/main.tsx` | — |
-| Cabeçalho | `Navbar` | marca aprovada (SVG de `UX/assets/logomarca/final-v1`, copiado sem alteração), nome "SparkCore" |
+| Cabeçalho | `header` com utilidades Tailwind (o `Navbar` 0.2.0 mostra "Menu" sem itens — ver `docs/design-system-updates.md`) | marca aprovada (SVG de `UX/assets/logomarca/final-v1`, copiado sem alteração), nome "SparkCore" |
 | Título | `Heading`, `Text` | "Situação do sistema", versão e ambiente |
-| Resumo | `StatsBlock` | estado geral e contagem de componentes por estado |
+| Resumo | `Text` + `Badge` (estado geral) e `StatsBlock` | contagem de componentes por estado (só números: textos longos transbordam em 360 px) |
 | Componentes | `DataTable` com coluna de `Badge` | servidor, trabalhador, `spark_core`, `spark_identity`: estado, versão de schema atual/esperada, motivo, horário da verificação |
 | Ações | `Button` (secundário) | "Atualizar situação" |
 | Rodapé | `Text` | identificador de correlação da última consulta |

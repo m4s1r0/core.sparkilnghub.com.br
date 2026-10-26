@@ -1,0 +1,12 @@
+{
+  "formatVersion": 1,
+  "artifact": "spark_identity",
+  "migrations": [
+    {
+      "version": 1,
+      "name": "0001_baseline",
+      "file": "migrations/0001_baseline.sql",
+      "sha256": "b3c5b4f8a6e22904e60276f8bb5cd535f3f995c89c4e9dae4a4539a481708c5d"
+    }
+  ]
+}

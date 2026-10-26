@@ -1,0 +1,6 @@
+/*
+ * Ordem das camadas declarada antes de qualquer CSS. O pacote do design system declara apenas
+ * theme, components e utilities; sem esta linha, a camada base (reset do Tailwind da aplicação)
+ * seria criada por último e sobreporia os componentes e utilitários.
+ */
+@layer theme, base, components, utilities;

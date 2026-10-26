@@ -1,0 +1,25 @@
+# Detecção de segredos (FR-017, US3 cenário 4). Regras padrão do gitleaks e exceções mínimas.
+title = "sparkcore"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valores de exemplo, artefatos gerados e arquivos locais ignorados pelo git"
+paths = [
+  '''(^|/)\.env$''',
+  '''(^|/)node_modules/''',
+  '''(^|/)dist/''',
+  '''(^|/)test-results/''',
+  '''(^|/)playwright-report/''',
+  '''(^|/)\.sparkcore-dev\.json$''',
+  '''package-lock\.json$''',
+  '''\.tgz$''',
+]
+# Senhas fictícias usadas só em testes e o marcador do .env.example.
+regexes = [
+  '''__defina__''',
+  '''senha-de-teste''',
+  '''segredo123''',
+  '''s3nha-local-ok''',
+]

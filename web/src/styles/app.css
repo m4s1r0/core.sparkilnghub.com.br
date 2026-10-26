@@ -1,0 +1,6 @@
+/*
+ * Utilidades de layout do SparkCore. Cores, controles e componentes vêm do design system
+ * (@sparkling-hub/design-system/styles.css, importado antes deste arquivo em main.tsx).
+ * Varredura restrita a web/src: classes do pacote já vêm compiladas.
+ */
+@import "tailwindcss" source("../");

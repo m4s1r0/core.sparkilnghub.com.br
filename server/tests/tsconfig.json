@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "paths": { "@sparkcore/contracts": ["../../packages/contracts/src/index.ts"] }
+  },
+  "include": ["**/*.ts", "../src/**/*.ts", "../seeds/**/*.ts", "../vitest.*.ts"]
+}

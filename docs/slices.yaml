@@ -1,0 +1,19 @@
+# Portão de prontidão das fatias (FR-003). Fonte única de quais decisões cada fatia exige.
+# status: especificando | pronta | em-implementacao | concluida
+# Verificado por `npm run gate` (global) e `npm run gate -- <fatia>`.
+slices:
+  - id: F00
+    status: em-implementacao
+    requires: []
+  - id: F01
+    status: especificando
+    requires: [D-01, D-02, D-04, D-05]
+  - id: F02
+    status: especificando
+    requires: [D-01, D-02, D-03, D-04, D-05]
+  - id: F03
+    status: especificando
+    requires: [D-01]
+  - id: F08-Core
+    status: especificando
+    requires: [D-01, D-02]
