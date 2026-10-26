@@ -75,7 +75,22 @@ Meta do plano: p95 ≤ 300 ms — atendida.
 | §6 Produto de referência | `ref:validate` e `reference-artifact.test.ts` verdes |
 | §8 Interface | E2E verde nas duas larguras |
 
-Pendente: cronometrar o §1 a partir de um clone limpo (CS-001) e repetir em Linux.
+### Clone limpo em Windows (CS-001)
+
+Executado pelo responsável técnico em 2026-10-26, Git Bash, a partir de `git clone` da `main`
+(`72d1073`) fora do repositório de trabalho, com o volume do MySQL apagado
+(`docker compose down -v`): `npm ci` ~20 s; `npm run dev:up` até "SparkCore saudável" em
+**22 s** (inclui criar o volume e os usuários do MySQL). Total de execução abaixo de 1 min,
+bem dentro da meta de 30 min.
+
+Defeito revelado: num clone novo, `packages/contracts/dist` não existia e o `dev:up` falhava
+com `ERR_MODULE_NOT_FOUND`; nesta medição os contratos foram compilados manualmente
+(`npm run build:contracts`). Corrigido em `68f5e80`: o `npm ci` compila os contratos
+(`postinstall`) e a falta de `.env` gera mensagem orientando a copiar o `.env.example`. O
+README passou a trazer comandos para PowerShell e bash.
+
+Pendente: repetir em Linux (Codespace ou WSL). A CI já executa migrações, integração com MySQL
+e E2E em `ubuntu-24.04`, mas não o `dev:up`.
 
 ## Defeitos encontrados e corrigidos durante a validação
 

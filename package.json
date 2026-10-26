@@ -36,7 +36,8 @@
     "check:migrations": "tsx scripts/check-migrations.ts",
     "check:upgrade": "tsx scripts/check-migration-upgrade.ts",
     "check:secrets": "tsx scripts/check-secrets.ts",
-    "verify": "tsx scripts/verify.ts"
+    "verify": "tsx scripts/verify.ts",
+    "postinstall": "npm run build:contracts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

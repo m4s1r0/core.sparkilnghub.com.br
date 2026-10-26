@@ -15,11 +15,24 @@ Estado atual: fatia **F00 — Base e decisões** (`specs/001-f00-base-decisoes/`
 
 ## Começar
 
+PowerShell:
+
 ```powershell
-Copy-Item .env.example .env   # Linux: cp .env.example .env — preencha as senhas locais
+Copy-Item .env.example .env   # depois troque cada __defina__ por uma senha local (8+ caracteres)
+npm ci                        # instala e compila packages/contracts
+npm run dev:up
+```
+
+bash (Linux, macOS ou Git Bash no Windows):
+
+```bash
+cp .env.example .env          # depois troque cada __defina__ por uma senha local (8+ caracteres)
 npm ci
 npm run dev:up
 ```
+
+As senhas do `.env` só são aplicadas quando o volume do MySQL é criado. Se você trocá-las depois,
+recrie o volume com `docker compose down -v` (apaga os dados locais, todos sintéticos).
 
 `dev:up` sobe o MySQL, aplica migrações e dados sintéticos e inicia servidor, trabalhador e
 interface. Ao terminar, mostra "SparkCore saudável" e os endereços:
