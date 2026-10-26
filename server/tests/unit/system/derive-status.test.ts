@@ -12,7 +12,7 @@ const ago = (seconds: number) => new Date(now.getTime() - seconds * 1000);
 describe("deriveWorker", () => {
   it("SAUDAVEL se algum last_seen_at ≤ 30 s", () => {
     expect(deriveWorker({ reachable: true, lastSeen: [ago(200), ago(30)] }, now)).toEqual({
-      status: "SAUDAVEL",
+      status: "DEGRADADA",
       reason: null,
     });
   });
