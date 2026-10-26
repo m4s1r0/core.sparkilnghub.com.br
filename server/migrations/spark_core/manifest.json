@@ -12,7 +12,7 @@
       "version": 2,
       "name": "0002_worker_heartbeat",
       "file": "migrations/0002_worker_heartbeat.sql",
-      "sha256": "989e695a95541a4254403adfbbc4bbb51fb63a1fbe7fd5d28c3806bbca47c8d9"
+      "sha256": "6da2aa856b027f86f67227ac990a7b7beecddf6dc10bb7e30bc8f864de6df149"
     }
   ]
 }
