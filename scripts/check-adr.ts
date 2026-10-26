@@ -1,5 +1,5 @@
 // npm run check:adr — valida todas as ADRs de docs/adr/ (data-model.md) e as transições de status
-// em relação a origin/main, quando disponível.
+// em relação à base (lib/repo.ts baseRef), quando disponível.
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -10,18 +10,18 @@ import {
   validateAdr,
   validateTransition,
 } from "./lib/adr.js";
-import { repoRoot } from "./lib/repo.js";
+import { baseRef, repoRoot } from "./lib/repo.js";
 
 function statusOnMain(file: string): AdrStatus | null {
   try {
-    const content = execFileSync("git", ["show", `origin/main:docs/adr/${file}`], {
+    const content = execFileSync("git", ["show", `${baseRef}:docs/adr/${file}`], {
       cwd: repoRoot,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
     return readAdr(content)?.status ?? null;
   } catch {
-    return null; // arquivo novo ou origin/main indisponível
+    return null; // arquivo novo ou base indisponível
   }
 }
 

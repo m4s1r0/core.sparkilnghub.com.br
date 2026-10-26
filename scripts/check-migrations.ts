@@ -1,4 +1,4 @@
-// npm run check:migrations — (1) migrações publicadas em origin/main são imutáveis e os manifestos
+// npm run check:migrations — (1) migrações publicadas na base (lib/repo.ts baseRef) são imutáveis e os manifestos
 // conferem com os arquivos (FR-019); (2) server/src não contém DROP DATABASE, exceto o validador
 // de artefatos (constituição IV, v1.1.1).
 import { execFileSync } from "node:child_process";
@@ -11,7 +11,7 @@ import {
   MIGRATION_ROOTS,
   type MigrationProblem,
 } from "./lib/check-migrations.js";
-import { repoRoot } from "./lib/repo.js";
+import { baseRef, repoRoot } from "./lib/repo.js";
 
 const git = (args: string[]) =>
   execFileSync("git", args, {
@@ -31,14 +31,14 @@ const rel = (path: string) => relative(repoRoot, path).replaceAll("\\", "/");
 
 function baseFiles(): Map<string, string> | null {
   try {
-    git(["rev-parse", "--verify", "origin/main"]);
+    git(["rev-parse", "--verify", baseRef]);
   } catch {
     return null;
   }
-  const names = git(["ls-tree", "-r", "--name-only", "origin/main", "--", ...MIGRATION_ROOTS])
+  const names = git(["ls-tree", "-r", "--name-only", baseRef, "--", ...MIGRATION_ROOTS])
     .split("\n")
     .filter(Boolean);
-  return new Map(names.map((name) => [name, git(["show", `origin/main:${name}`])]));
+  return new Map(names.map((name) => [name, git(["show", `${baseRef}:${name}`])]));
 }
 
 const problems: MigrationProblem[] = [];
@@ -51,7 +51,7 @@ const current = new Map(
 );
 const base = baseFiles();
 if (base === null)
-  console.warn("origin/main indisponível: imutabilidade não verificada (rode git fetch)");
+  console.warn(`${baseRef} indisponível: imutabilidade não verificada (rode git fetch)`);
 else problems.push(...checkImmutable(current, base));
 
 for (const dir of [
@@ -81,5 +81,5 @@ if (problems.length > 0) {
   process.exit(1);
 }
 console.log(
-  `check:migrations ok: ${current.size} arquivo(s) de migração${base ? `, ${base.size} publicado(s) em origin/main` : ""}; sem DROP DATABASE em server/src`,
+  `check:migrations ok: ${current.size} arquivo(s) de migração${base ? `, ${base.size} publicado(s) em ${baseRef}` : ""}; sem DROP DATABASE em server/src`,
 );

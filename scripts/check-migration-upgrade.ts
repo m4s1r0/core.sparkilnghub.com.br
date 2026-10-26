@@ -1,13 +1,13 @@
-// npm run check:upgrade — migra a partir da versão publicada em origin/main e compara com a
+// npm run check:upgrade — migra a partir da versão publicada na base (lib/repo.ts baseRef) e compara com a
 // migração do zero (FR-017, CS-005, constituição V). Usa o apoio dos testes (bancos t_<runid>_*,
-// guarda de ambiente). Sem migrações em origin/main: "sem versão anterior", saída 0.
+// guarda de ambiente). Sem migrações na base: "sem versão anterior", saída 0.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { EnvGuardError } from "../server/src/platform/config/env-guard.js";
 import { MysqlTestContext } from "../server/tests/support/mysql.js";
-import { repoRoot } from "./lib/repo.js";
+import { baseRef, repoRoot } from "./lib/repo.js";
 import { checkUpgradePath, loadManifest } from "./lib/upgrade.js";
 
 const git = (args: string[]) =>
@@ -17,15 +17,15 @@ const git = (args: string[]) =>
     stdio: ["ignore", "pipe", "ignore"],
   });
 
-/** Extrai server/migrations/<db> de origin/main para uma pasta temporária; null se não houver. */
+/** Extrai server/migrations/<db> da base para uma pasta temporária; null se não houver. */
 function extractBase(database: string, target: string): string | null {
   try {
-    git(["rev-parse", "--verify", "origin/main"]);
+    git(["rev-parse", "--verify", baseRef]);
   } catch {
     return null;
   }
   const prefix = `server/migrations/${database}/`;
-  const files = git(["ls-tree", "-r", "--name-only", "origin/main", "--", prefix])
+  const files = git(["ls-tree", "-r", "--name-only", baseRef, "--", prefix])
     .split("\n")
     .filter(Boolean);
   if (!files.includes(`${prefix}manifest.json`)) return null;
@@ -33,7 +33,7 @@ function extractBase(database: string, target: string): string | null {
   for (const file of files) {
     const path = join(dir, file.slice(prefix.length));
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, git(["show", `origin/main:${file}`]));
+    writeFileSync(path, git(["show", `${baseRef}:${file}`]));
   }
   return dir;
 }
@@ -49,7 +49,7 @@ async function main() {
       const base = baseDir ? await loadManifest(baseDir) : null;
       const result = await checkUpgradePath(ctx, database, base, current);
       if (!base) {
-        console.log(`${database}: sem versão anterior em origin/main (passa trivialmente)`);
+        console.log(`${database}: sem versão anterior em ${baseRef} (passa trivialmente)`);
       } else if (result.differences.length > 0) {
         failed = true;
         console.error(

@@ -11,7 +11,7 @@ export interface MigrationProblem {
 export const MIGRATION_ROOTS = ["server/migrations/", "server/reference-product/"];
 
 /**
- * Compara as migrações atuais com as publicadas em `origin/main`. Alterar ou remover arquivo
+ * Compara as migrações atuais com as publicadas na branch base (`origin/main` ou a base da PR). Alterar ou remover arquivo
  * publicado falha; acrescentar nova versão passa. Conteúdo comparado já normalizado (LF, sem BOM).
  */
 export function checkImmutable(
