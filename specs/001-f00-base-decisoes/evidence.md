@@ -23,6 +23,16 @@ MySQL 8.4 (`mysql:8.4`), Edge local para E2E. Data: 2026-10-26.
 | test:contract | 14 testes (OpenAPI × respostas reais, correlação, segurança de erros) |
 | test:e2e | 12 testes (360 e 1280 px, teclado, estados, axe sem violações sérias) |
 
+## CI no GitHub (T056)
+
+PR #1, execução [40311206343](https://github.com/m4s1r0/core.sparkilnghub.com.br/actions/runs/40311206343)
+no commit `a5ee333`: **4/4 jobs verdes** — `static` 44 s, `secrets` 12 s, `test` 48 s,
+`e2e` 73 s. Jobs em paralelo; o mais longo bem abaixo da meta de 15 min (CS-004).
+
+Ajustes feitos até ficar verde: gitleaks rodando pela mesma imagem do `check:secrets` (a
+`gitleaks-action` falhava sem apontar vazamento); runners fixados em `ubuntu-24.04`; E2E com o
+Google Chrome da imagem do runner, porque `playwright install --with-deps` travava.
+
 ## Desempenho (T084)
 
 200 requisições sequenciais a `GET /api/v1/system/status` no build de produção, com MySQL e
@@ -62,4 +72,4 @@ Pendente: cronometrar o §1 a partir de um clone limpo (CS-001) e repetir em Lin
 
 - Bundle da interface ~754 kB (o design system traz o Tiptap); proposta registrada.
 - `/api/v1/system/status` é público em F00; passa a exigir sessão em F01.
-- CI no GitHub (T056), PRs de falha deliberada (T086) e proteção de `main` dependem de push.
+- PRs de falha deliberada (T086) e proteção de `main` (configuração manual) pendentes.
