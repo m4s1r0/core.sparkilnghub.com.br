@@ -75,7 +75,14 @@ export function loadConfig(
     else credentials[role] = value;
   }
 
-  if (problems.length > 0) throw new ConfigError([...new Set(problems)]);
+  if (problems.length > 0) {
+    if (!options.env && !existsSync(join(repoRoot, ".env"))) {
+      problems.push(
+        "arquivo .env não encontrado: copie .env.example para .env e preencha as senhas",
+      );
+    }
+    throw new ConfigError([...new Set(problems)]);
+  }
   const base = converted as BaseConfig;
   return { ...base, APP_VERSION: base.APP_VERSION ?? appVersion(), credentials };
 }
