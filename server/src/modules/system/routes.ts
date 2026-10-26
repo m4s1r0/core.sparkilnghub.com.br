@@ -18,11 +18,14 @@ export function registerSystemRoutes(app: FastifyInstance, service: SystemStatus
     { schema: { response: { 200: SystemStatus, 503: SystemStatus, 500: ErrorEnvelope } } },
     async (_request, reply) => {
       const status = await service.check();
+      // T086: campo obrigatório removido da resposta, deliberadamente.
+      const body: Partial<typeof status> = { ...status };
+      delete body.version;
       if (status.status === "INDISPONIVEL") {
         void reply.header("retry-after", String(RETRY_AFTER_SECONDS));
-        return reply.status(503).send(status);
+        return reply.status(503).send(body);
       }
-      return reply.status(200).send(status);
+      return reply.status(200).send(body);
     },
   );
 }
