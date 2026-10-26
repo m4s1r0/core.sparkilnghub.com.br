@@ -1,0 +1,151 @@
+openapi: 3.1.0
+info:
+  title: SparkCore — API administrativa
+  version: 1.0.0
+  description: >
+    Contratos publicados em F00. Convenções em conventions.md.
+    Em F01, /api/v1/system/status passa a exigir sessão de administrador da plataforma;
+    /health/live permanece público e sem detalhes.
+servers:
+  - url: http://127.0.0.1:3000
+    description: Desenvolvimento local
+paths:
+  /health/live:
+    get:
+      operationId: getLiveness
+      summary: Processo HTTP em execução (sem consultar dependências)
+      responses:
+        '200':
+          description: Processo ativo
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status]
+                properties:
+                  status: { const: ok }
+  /api/v1/system/status:
+    get:
+      operationId: getSystemStatus
+      summary: Situação operacional do SparkCore
+      description: >
+        200 quando o estado geral é SAUDAVEL ou DEGRADADA; 503 com o mesmo corpo e Retry-After
+        quando INDISPONIVEL. O corpo nunca contém credenciais, nomes de usuário MySQL, SQL ou
+        stack trace.
+      parameters:
+        - $ref: '#/components/parameters/CorrelationIdHeader'
+      responses:
+        '200':
+          description: Sistema operando (total ou parcialmente)
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SystemStatus' }
+        '503':
+          description: Componente essencial indisponível
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+            Retry-After:
+              schema: { type: integer, minimum: 1 }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SystemStatus' }
+        '500':
+          description: Falha inesperada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+components:
+  parameters:
+    CorrelationIdHeader:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema: { type: string, format: uuid }
+  headers:
+    CorrelationId:
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    HealthState:
+      type: string
+      enum: [SAUDAVEL, DEGRADADA, INDISPONIVEL, DESCONHECIDA]
+    ComponentStatus:
+      type: object
+      additionalProperties: false
+      required: [name, status]
+      properties:
+        name:
+          type: string
+          enum: [server, worker, spark_core, spark_identity]
+        status: { $ref: '#/components/schemas/HealthState' }
+        schemaVersion:
+          description: Última versão aplicada, apenas para bancos
+          type: [integer, 'null']
+          minimum: 0
+        expectedSchemaVersion:
+          description: Versão esperada pelo artefato implantado, apenas para bancos
+          type: [integer, 'null']
+          minimum: 0
+        reason:
+          description: Código estável do motivo quando não SAUDAVEL
+          type: [string, 'null']
+          enum:
+            - null
+            - DB_UNREACHABLE
+            - SCHEMA_BEHIND
+            - SCHEMA_FAILED
+            - SCHEMA_CHECKSUM_MISMATCH
+            - SCHEMA_UNKNOWN_VERSION
+            - WORKER_STALE
+            - WORKER_ABSENT
+        checkedAt: { type: string, format: date-time }
+    SystemStatus:
+      type: object
+      additionalProperties: false
+      required: [service, version, environment, status, checkedAt, components]
+      properties:
+        service: { const: sparkcore }
+        version:
+          description: Versão do artefato implantado (semver)
+          type: string
+          pattern: '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$'
+        environment:
+          type: string
+          enum: [development, homologation, production]
+        status: { $ref: '#/components/schemas/HealthState' }
+        checkedAt: { type: string, format: date-time }
+        components:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items: { $ref: '#/components/schemas/ComponentStatus' }
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, field, retryable, correlationId]
+          properties:
+            code: { type: string, pattern: '^[A-Z][A-Z0-9_]+$' }
+            message: { type: string, minLength: 1 }
+            field: { type: [string, 'null'] }
+            retryable: { type: boolean }
+            correlationId: { type: string, format: uuid }
+            details:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [field, code, message]
+                properties:
+                  field: { type: string }
+                  code: { type: string }
+                  message: { type: string }

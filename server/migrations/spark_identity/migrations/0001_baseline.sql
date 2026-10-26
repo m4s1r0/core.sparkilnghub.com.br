@@ -1,0 +1,1 @@
+-- Linha de base de spark_identity. Contas, credenciais, vínculos, convites e sessões chegam em F01.

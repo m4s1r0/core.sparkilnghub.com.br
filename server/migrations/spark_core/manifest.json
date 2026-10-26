@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "artifact": "spark_core",
+  "migrations": [
+    {
+      "version": 1,
+      "name": "0001_environment_marker",
+      "file": "migrations/0001_environment_marker.sql",
+      "sha256": "66ce28c6d5d64fee0679c018bfd7e796ced27baa11b975fc827162177b4c43f5"
+    },
+    {
+      "version": 2,
+      "name": "0002_worker_heartbeat",
+      "file": "migrations/0002_worker_heartbeat.sql",
+      "sha256": "989e695a95541a4254403adfbbc4bbb51fb63a1fbe7fd5d28c3806bbca47c8d9"
+    }
+  ]
+}

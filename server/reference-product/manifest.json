@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "productCode": "sparkref",
+  "databasePrefix": "sparkref_",
+  "migrations": [
+    {
+      "version": 1,
+      "name": "0001_baseline",
+      "file": "migrations/0001_baseline.sql",
+      "sha256": "0807aed80668c0fc1fe59d6f9f84a45b5925256b893ed47ed72f3fd5d80b84db"
+    },
+    {
+      "version": 2,
+      "name": "0002_ref_item",
+      "file": "migrations/0002_ref_item.sql",
+      "sha256": "a3e1a8330c2215bf2e305a016500ef2e97a24f298e3ff84c711e640b0085e1f2"
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+name: verify
+
+# Mesmas etapas de `npm run verify` (FR-017, FR-020). A proteção de `main` exige os quatro jobs
+# (docs/CONTRIBUTING.md).
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SPARK_ENV: development
+  MYSQL_HOST: 127.0.0.1
+  MYSQL_PORT: "3306"
+  MYSQL_ROOT_PASSWORD: ci-root-${{ github.run_id }}
+  MYSQL_MIGRATOR_PASSWORD: ci-migrator-${{ github.run_id }}
+  MYSQL_WEB_PASSWORD: ci-web-${{ github.run_id }}
+  MYSQL_WORKER_PASSWORD: ci-worker-${{ github.run_id }}
+  MYSQL_PROVISIONER_PASSWORD: ci-provisioner-${{ github.run_id }}
+  MYSQL_TEST_PASSWORD: ci-test-${{ github.run_id }}
+
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build:contracts
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run test:scripts
+      - run: npm run test:component
+      - run: npm run check:adr
+      - run: npm run gate
+      - run: npm run check:ds
+      - run: npm run check:migrations
+
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # Mesma imagem e configuração do `npm run check:secrets`; varre todo o histórico do git.
+      - name: gitleaks (histórico completo)
+        run: >-
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.2
+          git /repo --config /repo/.gitleaks.toml --redact --no-banner --verbose
+
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ env.MYSQL_ROOT_PASSWORD }}
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=3s --health-timeout=3s --health-retries=40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Bancos e credenciais (docker/mysql/init)
+        run: MYSQL_INIT_HOST=127.0.0.1 MYSQL_INIT_PORT=3306 bash docker/mysql/init/01-databases-and-users.sh
+      - run: npm run build:contracts
+      - run: npm run db:migrate
+      - run: npm run db:seed
+      - run: npm run test:unit
+      - run: npm run test:integration
+      - run: npm run test:contract
+      - run: npm run check:upgrade
+      - run: npm run ref:validate
+
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ env.MYSQL_ROOT_PASSWORD }}
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=3s --health-timeout=3s --health-retries=40
+    env:
+      E2E_EXPECT_HEALTHY: "1"
+      PLAYWRIGHT_CHANNEL: chrome
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Usa o Google Chrome já presente na imagem do runner; a instalação do Chromium do
+      # Playwright travou duas vezes na CI (PR #1).
+      - name: Chrome do runner
+        run: google-chrome --version
+      - name: Bancos e credenciais (docker/mysql/init)
+        run: MYSQL_INIT_HOST=127.0.0.1 MYSQL_INIT_PORT=3306 bash docker/mysql/init/01-databases-and-users.sh
+      - run: npm run build:contracts
+      - run: npm run db:migrate
+      - run: npm run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
