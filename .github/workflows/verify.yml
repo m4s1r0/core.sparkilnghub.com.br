@@ -108,6 +108,7 @@ jobs:
           --health-interval=3s --health-timeout=3s --health-retries=40
     env:
       E2E_EXPECT_HEALTHY: "1"
+      PLAYWRIGHT_CHANNEL: chrome
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -115,9 +116,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Navegador do Playwright (Chromium + dependências)
-        run: npx playwright install --with-deps chromium
-        timeout-minutes: 6
+      # Usa o Google Chrome já presente na imagem do runner; a instalação do Chromium do
+      # Playwright travou duas vezes na CI (PR #1).
+      - name: Chrome do runner
+        run: google-chrome --version
       - name: Bancos e credenciais (docker/mysql/init)
         run: MYSQL_INIT_HOST=127.0.0.1 MYSQL_INIT_PORT=3306 bash docker/mysql/init/01-databases-and-users.sh
       - run: npm run build:contracts

@@ -2,8 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 const port = Number(process.env.HTTP_PORT ?? 3000);
 const baseURL = `http://127.0.0.1:${port}`;
-// Local: Edge instalado (como no design system). CI: Chromium do Playwright.
-const channel = process.env.CI ? undefined : (process.env.PLAYWRIGHT_CHANNEL ?? "msedge");
+// Navegador já instalado na máquina: Edge local (como no design system); na CI, o Google Chrome
+// da imagem do runner (PLAYWRIGHT_CHANNEL=chrome), sem baixar navegador.
+const channel = process.env.PLAYWRIGHT_CHANNEL ?? (process.env.CI ? undefined : "msedge");
 
 export default defineConfig({
   testDir: "./tests/e2e",
