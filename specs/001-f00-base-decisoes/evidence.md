@@ -33,6 +33,25 @@ Ajustes feitos até ficar verde: gitleaks rodando pela mesma imagem do `check:se
 `gitleaks-action` falhava sem apontar vazamento); runners fixados em `ubuntu-24.04`; E2E com o
 Google Chrome da imagem do runner, porque `playwright install --with-deps` travava.
 
+## Bloqueio por falha deliberada (T086, CS-003)
+
+PRs #2–#6 contra `001-f00-base-decisoes`, uma falha por PR:
+
+| PR | Falha | Etapa que bloqueou | Duração |
+|---|---|---|---|
+| #2 | asserção quebrada em teste | `test` → `test:unit` | 69 s |
+| #3 | erro de tipo | `static` → `typecheck` (e `e2e`, que compila o servidor) | 62 s |
+| #4 | migração publicada alterada | `static` → `check:migrations`; `test` → `check:upgrade` | 63 s |
+| #5 | segredo fictício versionado | `secrets` | 67 s |
+| #6 | campo `version` removido do status | `test` → `test:integration` (o serializador recusa a resposta sem o campo; 500) e `e2e` | 74 s |
+
+5/5 bloqueadas na etapa esperada, todas em menos de 15 min (CS-004).
+
+Defeito revelado: o job `secrets` falhou nas cinco PRs, não só na #5. Com `fetch-depth: 0` o
+checkout traz todas as branches e o modo `git` do gitleaks varre `--all`; o segredo da branch
+`t086-4` contaminou as demais. Corrigido com `--log-opts=HEAD` (verificado localmente: a
+`t086-1` passa a ficar limpa e a `t086-4` continua barrada).
+
 ## Desempenho (T084)
 
 200 requisições sequenciais a `GET /api/v1/system/status` no build de produção, com MySQL e
@@ -72,4 +91,4 @@ Pendente: cronometrar o §1 a partir de um clone limpo (CS-001) e repetir em Lin
 
 - Bundle da interface ~754 kB (o design system traz o Tiptap); proposta registrada.
 - `/api/v1/system/status` é público em F00; passa a exigir sessão em F01.
-- PRs de falha deliberada (T086) e proteção de `main` (configuração manual) pendentes.
+- Proteção de `main` (configuração manual) pendente.

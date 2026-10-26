@@ -56,11 +56,13 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      # Mesma imagem e configuração do `npm run check:secrets`; varre todo o histórico do git.
+      # Mesma imagem e configuração do `npm run check:secrets`. `--log-opts=HEAD` limita a
+      # varredura à história desta PR: com fetch-depth 0 o checkout traz todas as branches e o
+      # padrão do gitleaks (--all) faria um segredo em qualquer branch derrubar todas as PRs.
       - name: gitleaks (histórico completo)
         run: >-
           docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.2
-          git /repo --config /repo/.gitleaks.toml --redact --no-banner --verbose
+          git /repo --config /repo/.gitleaks.toml --redact --no-banner --verbose --log-opts=HEAD
 
   test:
     runs-on: ubuntu-24.04
