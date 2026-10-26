@@ -27,7 +27,7 @@ env:
 
 jobs:
   static:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -50,7 +50,7 @@ jobs:
       - run: npm run check:migrations
 
   secrets:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -63,7 +63,7 @@ jobs:
           git /repo --config /repo/.gitleaks.toml --redact --no-banner --verbose
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
       mysql:
@@ -95,7 +95,7 @@ jobs:
       - run: npm run ref:validate
 
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
       mysql:
@@ -115,7 +115,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - name: Navegador do Playwright (Chromium + dependências)
+        run: npx playwright install --with-deps chromium
+        timeout-minutes: 6
       - name: Bancos e credenciais (docker/mysql/init)
         run: MYSQL_INIT_HOST=127.0.0.1 MYSQL_INIT_PORT=3306 bash docker/mysql/init/01-databases-and-users.sh
       - run: npm run build:contracts
