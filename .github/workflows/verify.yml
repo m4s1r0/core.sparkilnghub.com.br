@@ -2,10 +2,15 @@ name: verify
 
 # Mesmas etapas de `npm run verify` (FR-017, FR-020). A proteção de `main` exige os quatro jobs
 # (docs/CONTRIBUTING.md).
+#
+# DESLIGADA TEMPORARIAMENTE (custo de Actions) — `npm run verify` cobre as mesmas etapas
+# localmente. Para reativar o gatilho automático, troque o `on:` abaixo por:
+#   on:
+#     pull_request:
+#     push:
+#       branches: [main]
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

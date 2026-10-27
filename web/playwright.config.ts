@@ -9,8 +9,9 @@ const channel = process.env.PLAYWRIGHT_CHANNEL ?? (process.env.CI ? undefined : 
 export default defineConfig({
   testDir: "./tests/e2e",
   outputDir: "../test-results/e2e",
+  // Na CI, o reporter `github` vira anotação de cada falha (legível pela API sem login).
   reporter: process.env.CI
-    ? [["list"], ["html", { open: "never", outputFolder: "../playwright-report" }]]
+    ? [["list"], ["github"], ["html", { open: "never", outputFolder: "../playwright-report" }]]
     : "list",
   fullyParallel: false,
   retries: 0,
