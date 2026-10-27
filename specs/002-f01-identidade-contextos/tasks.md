@@ -213,7 +213,7 @@ tudo, bloqueio global com prévia e pendências visíveis
 - [X] T067 [P] Atualizar `README.md` e `contracts/commands.md` com `bootstrap:admin`, `app-credential` e `access:reconcile`, e `docs/CONTRIBUTING.md` com a política de credenciais de aplicação
 - [X] T068 [P] Escrever `server/tests/integration/security/no-secrets.test.ts` (CS-008): executa bootstrap, aceite, cadastro de TOTP, login em dois passos, login de produto, criação de credencial de aplicação e troca de senha capturando a saída do pino, as linhas de `security_event` e as respostas; senha, segredo TOTP, códigos TOTP e de recuperação, `INSTANCE_TOKEN` e segredo da credencial de aplicação não aparecem em nenhum deles, exceto nas respostas de exibição única onde são esperados
 - [X] T069 Executar o roteiro de [quickstart.md](./quickstart.md) e `npm run verify`, registrando resultados, p95 (T050) e limitações em `specs/002-f01-identidade-contextos/evidence.md`
-- [ ] T070 Remover o Sync Impact Report do topo de `.specify/memory/constitution.md` antes do commit e, com a evidência de T069, marcar `F01: concluida` em `docs/slices.yaml`
+- [X] T070 Remover o Sync Impact Report do topo de `.specify/memory/constitution.md` antes do commit e, com a evidência de T069, marcar `F01: concluida` em `docs/slices.yaml`
 
 ---
 

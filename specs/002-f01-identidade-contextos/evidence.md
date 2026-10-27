@@ -2,7 +2,7 @@
 
 Ambiente de referência: Windows 10 Pro 19045, Node.js 24.18.0, npm 11.16, Docker 29.9.2,
 MySQL 8.4 (`mysql:8.4`), Edge local para E2E. Data: 2026-10-27. Branch
-`002-f01-identidade-contextos` sobre `main` (`e27ba08`), ainda sem commit.
+`002-f01-identidade-contextos` sobre `main` (`e27ba08`); integrada pela PR #8 (`7941c2a`).
 
 ## Verificação completa (`npm run verify`)
 
@@ -23,6 +23,17 @@ MySQL 8.4 (`mysql:8.4`), Edge local para E2E. Data: 2026-10-27. Branch
 | check:upgrade | `spark_core` 2 → 3 e `spark_identity` 1 → 3 a partir de `origin/main` |
 | test:contract | 23 testes (respostas reais × `contracts/openapi.yaml` 1.1.0, CSRF, cookie, idempotência) |
 | test:e2e | 20 testes (360 e 1280 px; teclado; axe sem violações sérias) |
+
+## CI no GitHub Actions (Linux)
+
+`verify` verde em Ubuntu 24.04 nas quatro jobs (`static`, `secrets`, `test`, `e2e`):
+
+| Execução | Commit | Resultado |
+|---|---|---|
+| PR #8 (`pull_request`, run 40495573072) | `8ce708c` | sucesso |
+| `main` após o merge (`push`, run 40495887864) | `7941c2a` | sucesso |
+
+Com isso a fatia foi marcada `concluida` em `docs/slices.yaml` (T070).
 
 ## Quickstart (`quickstart.md`)
 
@@ -86,8 +97,6 @@ MySQL 8.4 (`mysql:8.4`), Edge local para E2E. Data: 2026-10-27. Branch
 
 ## Limitações e pendências
 
-- **CI no GitHub ainda não executada** para F01 (sem commit/push). Linux não foi exercitado nesta
-  fatia; F00 foi validado no GitHub Actions (Ubuntu).
 - **Reautenticação de 5 min no E2E**: os E2E não esperam 5 minutos; o diálogo é coberto pelos
   testes de componente e a regra pela integração.
 - **"Último administrador" no E2E**: o banco de desenvolvimento compartilhado tem vários
