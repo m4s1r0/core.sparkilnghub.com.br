@@ -62,6 +62,12 @@ describe("GET /api/v1/system/status", () => {
       ["spark_identity", "SAUDAVEL"],
     ]);
     expect(response.headers["x-correlation-id"]).toMatch(/^[0-9a-f-]{36}$/);
+    // F02: contagens de tarefas de provisionamento, sem detalhe de instância.
+    const provisioning = response.json<{
+      provisioning: { pending: number; waitingRetry: number; failed: number };
+    }>().provisioning;
+    expect(Object.keys(provisioning).sort()).toEqual(["failed", "pending", "waitingRetry"]);
+    for (const value of Object.values(provisioning)) expect(value).toBeGreaterThanOrEqual(0);
     await app.close();
   });
 

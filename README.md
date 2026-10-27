@@ -52,13 +52,23 @@ As sementes criam as instâncias sintéticas A e B do produto de referência e a
 `ana`, `bruno` e `carla@example.test` (senha em `SEED_USER_PASSWORD` do `.env`), além de uma
 credencial de aplicação do `sparkref` impressa uma única vez pelo `db:seed`.
 
+Desde F02 as instâncias A e B são criadas **pelo provisionador** (mesmo caminho do painel) e
+ativadas pelas sementes; no painel, `Contratantes → Instâncias → Nova instância` solicita uma
+instância do produto de referência e acompanha as etapas até `PRONTA` (o trabalhador precisa estar
+rodando). Falhas que exigem procedimento: [`docs/operacao/provisionamento.md`](docs/operacao/provisionamento.md).
+
+Ao atualizar um ambiente de F01 para F02: acrescente ao `.env` a `INSTANCE_SECRET_KEY` (32 bytes
+base64, ver `.env.example`) e rode `npm run dev:reset` (as instâncias de F01 não têm a credencial
+registrada no Core; o reset as recria pelo provisionador).
+
 Ao atualizar um ambiente criado em F00: rode `npm run dev:up` (reaplica o init do MySQL e cria o
 usuário `spark_access_writer`) e acrescente ao `.env` as variáveis novas do `.env.example`
 (`MYSQL_ACCESS_WRITER_PASSWORD`, `IDENTITY_SECRET_KEY`, `PUBLIC_ORIGIN`, `SEED_USER_PASSWORD`).
 
 Roteiros de validação: F00 em
 [`specs/001-f00-base-decisoes/quickstart.md`](specs/001-f00-base-decisoes/quickstart.md) e F01 em
-[`specs/002-f01-identidade-contextos/quickstart.md`](specs/002-f01-identidade-contextos/quickstart.md).
+[`specs/002-f01-identidade-contextos/quickstart.md`](specs/002-f01-identidade-contextos/quickstart.md);
+F02 em [`specs/003-f02-catalogo-provisionamento/quickstart.md`](specs/003-f02-catalogo-provisionamento/quickstart.md).
 
 ## Comandos
 
@@ -73,6 +83,7 @@ Roteiros de validação: F00 em
 | `npm run bootstrap:admin -- <email>`             | Convite do primeiro administrador da plataforma (link exibido uma vez)  |
 | `npm run app-credential -- create\|revoke\|list` | Credenciais de aplicação dos contratos internos                         |
 | `npm run access:reconcile -- <slug>`             | Recalcula a projeção de acesso de uma instância a partir da fonte       |
+| `npm run instances:migrate-access`               | Aplica a versão vigente da projeção de acesso em todas as instâncias    |
 | `npm run verify`                                 | Todas as etapas da CI, localmente                                       |
 | `npm run test:*` / `check:*`                     | Etapas isoladas (ver `scripts/verify.ts`)                               |
 
@@ -91,5 +102,6 @@ Contrato dos comandos: [`contracts/commands.md`](contracts/commands.md).
 | `contracts/`                           | Contratos publicados (convenções, OpenAPI, capacidades, artefato, projeção de acesso, comandos) |
 | `docs/adr/`, `docs/slices.yaml`        | Decisões de arquitetura e portão de prontidão das fatias                                        |
 | `docs/escopos/`                        | Cópia versionada dos escopos de produto                                                         |
+| `docs/operacao/`                       | Procedimentos operacionais (falhas de provisionamento, chave das instâncias)                    |
 | `docs/CONTRIBUTING.md`                 | Fluxo de branches, revisão, design system e proteção de `main`                                  |
 | `.specify/memory/constitution.md`      | Constituição do SparkCore                                                                       |

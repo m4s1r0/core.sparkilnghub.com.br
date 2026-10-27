@@ -3,6 +3,19 @@
 Mudanças compatíveis mantêm a versão maior e são registradas aqui; incompatíveis exigem `/v2`
 (conventions.md §1).
 
+## v1.2 — 2026-10-27
+
+- `openapi.yaml` 1.2.0 (compatível): contratantes (`/api/v1/contractors*`), catálogo
+  (`/api/v1/products*`), solicitação, prévia e acompanhamento de instâncias
+  (`/api/v1/instances`, `/preview`, `/timezones`, `/{id}`, `/{id}/provisioning`, `/retry`,
+  `/initial-invitation/issue`). `GET /api/v1/instances` passa a ser paginado e filtrável, mantendo
+  os campos de F01.
+- Contrato interno novo: `GET /internal/v1/instances/{slug}/connection` (escopo `connection` da
+  credencial de aplicação), que entrega a conexão da instância ao produto dono.
+- Projeção de acesso v2 (compatível): `access_instance.state` aceita `pronta`.
+- `GET /api/v1/system/status` ganha o campo opcional `provisioning` (tarefas pendentes,
+  aguardando repetição e com falha), sem detalhe de instância.
+
 ## v1.1 — 2026-10-26
 
 - `openapi.yaml` 1.1.0 (compatível): identidade do painel (`/api/v1/auth/*`, `/api/v1/session`,

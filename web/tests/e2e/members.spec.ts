@@ -15,6 +15,9 @@ test("vínculos: convite, aceite, papel e revogações", async ({ browser }, tes
 
   await page.getByRole("link", { name: "Instâncias" }).click();
   await page.getByRole("link", { name: "[SINTÉTICO] Instância A" }).click();
+  // Desde F02 a lista leva ao detalhe; os vínculos ficam na aba "Vínculos".
+  await page.getByRole("tab", { name: "Vínculos" }).click();
+  await page.getByRole("link", { name: "Vínculos de [SINTÉTICO] Instância A" }).click();
   await expect(
     page.getByRole("heading", { name: "Vínculos de [SINTÉTICO] Instância A" }),
   ).toBeVisible();

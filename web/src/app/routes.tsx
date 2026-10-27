@@ -3,12 +3,20 @@ import { Link, type RouteObject } from "react-router";
 import { AccountPage } from "../pages/accounts/AccountPage";
 import { AccountsPage } from "../pages/accounts/AccountsPage";
 import { AdminsPage } from "../pages/admins/AdminsPage";
+import { ContractorFormPage } from "../pages/contractors/ContractorFormPage";
+import { ContractorPage } from "../pages/contractors/ContractorPage";
+import { ContractorsPage } from "../pages/contractors/ContractorsPage";
+import { InstancePage } from "../pages/instances/InstancePage";
 import { InstancesPage } from "../pages/instances/InstancesPage";
 import { MembersPage } from "../pages/instances/MembersPage";
+import { NewInstancePage } from "../pages/instances/NewInstancePage";
+import { ProvisioningPage } from "../pages/instances/ProvisioningPage";
 import { InvitationPage } from "../pages/invitation/InvitationPage";
 import { LoginPage } from "../pages/login/LoginPage";
 import { MfaPage } from "../pages/mfa/MfaPage";
 import { PendingPage } from "../pages/pending/PendingPage";
+import { ProductPage } from "../pages/products/ProductPage";
+import { ProductsPage } from "../pages/products/ProductsPage";
 import { PasswordResetPage } from "../pages/recovery/PasswordResetPage";
 import { RecoveryRequestPage } from "../pages/recovery/RecoveryRequestPage";
 import { TotpEnrollmentPage } from "../pages/security/TotpEnrollmentPage";
@@ -29,7 +37,7 @@ function NotFoundPage() {
   );
 }
 
-/** Rotas do painel (contracts/ui-f01.md). Autorização é sempre do servidor. */
+/** Rotas do painel (contracts/ui-f01.md, ui-f02.md). Autorização é sempre do servidor. */
 export const routes: RouteObject[] = [
   {
     element: <PublicLayout />,
@@ -65,7 +73,16 @@ export const routes: RouteObject[] = [
     children: [
       { path: "/", element: <SystemStatusPage /> },
       { path: "/administradores", element: <AdminsPage /> },
+      { path: "/contratantes", element: <ContractorsPage /> },
+      { path: "/contratantes/novo", element: <ContractorFormPage /> },
+      { path: "/contratantes/:id", element: <ContractorPage /> },
+      { path: "/contratantes/:id/editar", element: <ContractorFormPage /> },
+      { path: "/produtos", element: <ProductsPage /> },
+      { path: "/produtos/:code", element: <ProductPage /> },
       { path: "/instancias", element: <InstancesPage /> },
+      { path: "/instancias/nova", element: <NewInstancePage /> },
+      { path: "/instancias/:id", element: <InstancePage /> },
+      { path: "/instancias/:id/provisionamento", element: <ProvisioningPage /> },
       { path: "/instancias/:id/vinculos", element: <MembersPage /> },
       { path: "/contas", element: <AccountsPage /> },
       { path: "/contas/:id", element: <AccountPage /> },

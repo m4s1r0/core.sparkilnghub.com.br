@@ -6,7 +6,12 @@ import {
 } from "../src/modules/app-credentials/app-credentials.js";
 import { findAccountByEmail, insertAccount } from "../src/modules/identity/accounts.js";
 import { hashPassword } from "../src/modules/identity/password.js";
-import { type InstanceRef, registerInstanceRef } from "../src/modules/instances/instance-ref.js";
+import {
+  getInstance,
+  type Instance,
+  registerInstance,
+} from "../src/modules/instances/instances.js";
+import { activateSyntheticInstance } from "../src/modules/instances/transitions.js";
 import type { Config } from "../src/platform/config/load.js";
 import type { AppContext } from "../src/platform/context.js";
 import { binToUuid, newId, uuidToBin } from "../src/platform/ids.js";
@@ -20,6 +25,26 @@ export const SEED_INSTANCES = [
   { id: "0192f600-0000-7000-8000-00000000000a", slug: "ref-a", name: "Instância A" },
   { id: "0192f600-0000-7000-8000-00000000000b", slug: "ref-b", name: "Instância B" },
 ] as const;
+
+/** Contratante sintético dono das instâncias A e B (mesmo UUID da migração 0004 de spark_core). */
+export const SEED_CONTRACTOR_ID = "0192f600-0000-7000-8000-0000000000c1";
+
+/** Produto de referência e contratante sintético; idempotente (F02 research.md R-18). */
+export async function ensureSyntheticCatalog(ctx: AppContext): Promise<void> {
+  const now = ctx.clock();
+  await sql`INSERT IGNORE INTO product (code, name, description, status, reference_only, version,
+              created_at, updated_at)
+            VALUES ('sparkref', ${`${SYNTHETIC_PREFIX} Produto de referência`},
+                    'Produto sintético que prova os contratos do Core; não é oferecido como SaaS.',
+                    'ativo', TRUE, 1, ${now}, ${now})`.execute(ctx.core);
+  const name = `${SYNTHETIC_PREFIX} Contratante de referência`;
+  await sql`INSERT IGNORE INTO contractor (id, legal_name, display_name, name_key, person_type,
+              contact_name, email, status, version, created_at, updated_at)
+            VALUES (${uuidToBin(SEED_CONTRACTOR_ID)}, ${name}, ${name},
+                    'sintetico contratante de referencia', 'juridica',
+                    ${`${SYNTHETIC_PREFIX} Contato`}, 'contato@example.test', 'ativo', 1, ${now},
+                    ${now})`.execute(ctx.core);
+}
 
 /** Contas sintéticas (contracts/commands-f01.md); senha de SEED_USER_PASSWORD. */
 export const SEED_ACCOUNTS = [
@@ -35,7 +60,7 @@ export const SEED_ACCOUNTS = [
   },
 ] as const;
 
-const CREDENTIAL_LABEL = `${SYNTHETIC_PREFIX} sparkref (sementes)`;
+const CREDENTIAL_LABEL = `${SYNTHETIC_PREFIX} sparkref (sementes F02)`;
 
 export interface SeedF01Result {
   instances: number;
@@ -56,17 +81,26 @@ export async function seedF01(
   seedPassword: string,
 ): Promise<SeedF01Result> {
   const now = ctx.clock();
-  const instances = new Map<string, InstanceRef>();
+  await ensureSyntheticCatalog(ctx);
+  const instances = new Map<string, Instance>();
   const manifest = await loadManifest(referenceProductDir);
   for (const seed of SEED_INSTANCES) {
+    // Desde F02 as instâncias nascem pelo provisionador (seeds/f02.ts); este caminho só cria as
+    // que faltarem quando as sementes de F01 rodam sozinhas (apoio de testes).
+    const existing = await getInstance(ctx, seed.id);
+    if (existing) {
+      instances.set(seed.slug, existing);
+      continue;
+    }
     const applied = await applyArtifact(provisionConfig, manifest, {
       instanceUuid: seed.id,
       synthetic: true,
     });
     instances.set(
       seed.slug,
-      await registerInstanceRef(ctx, {
+      await registerInstance(ctx, {
         id: seed.id,
+        contractorId: SEED_CONTRACTOR_ID,
         productCode: "sparkref",
         slug: seed.slug,
         displayName: `${SYNTHETIC_PREFIX} ${seed.name}`,
@@ -85,7 +119,7 @@ export async function seedF01(
   };
 
   const passwordHash = await hashPassword(seedPassword);
-  const toReplicate: { instance: InstanceRef; membershipId: string }[] = [];
+  const toReplicate: { instance: Instance; membershipId: string }[] = [];
   for (const seed of SEED_ACCOUNTS) {
     let account = await findAccountByEmail(ctx.identity, seed.email);
     if (account) result.accounts.existing += 1;
@@ -124,6 +158,12 @@ export async function seedF01(
     });
   }
 
+  // Só com os administradores replicados a instância pronta pode ser ativada (R-18).
+  for (const instance of instances.values()) {
+    const current = await getInstance(ctx, instance.id);
+    if (current?.state === "PRONTA") await activateSyntheticInstance(ctx, instance.id);
+  }
+
   const existing = (await listAppCredentials(ctx)).find(
     (c) => c.productCode === "sparkref" && c.label === CREDENTIAL_LABEL && !c.revokedAt,
   );
@@ -131,7 +171,7 @@ export async function seedF01(
     const created = await createAppCredential(ctx, {
       productCode: "sparkref",
       label: CREDENTIAL_LABEL,
-      scopes: ["sessions", "members"],
+      scopes: ["sessions", "members", "connection"],
     });
     result.appCredential = created.value;
   }

@@ -36,7 +36,7 @@ export class AuthFlow {
   ) {}
 
   request(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PUT",
     url: string,
     options: {
       cookie?: string | undefined;

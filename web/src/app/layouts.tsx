@@ -26,6 +26,8 @@ const NAV = [
   { to: "/", label: "Situação", end: true },
   { to: "/administradores", label: "Administradores" },
   { to: "/contas", label: "Contas" },
+  { to: "/contratantes", label: "Contratantes" },
+  { to: "/produtos", label: "Produtos" },
   { to: "/instancias", label: "Instâncias" },
   { to: "/pendencias", label: "Pendências" },
 ];

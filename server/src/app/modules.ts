@@ -1,7 +1,11 @@
 import type { FastifyInstance } from "fastify";
+import { registerCatalogRoutes } from "../modules/catalog/routes.js";
+import { registerContractorRoutes } from "../modules/contractors/routes.js";
 import { registerAccountRoutes } from "../modules/identity/account-routes.js";
 import { registerAdminRoutes } from "../modules/identity/admin-routes.js";
 import { registerIdentityRoutes } from "../modules/identity/routes.js";
+import { registerInstanceRoutes } from "../modules/instances/routes.js";
+import { registerInternalConnectionRoutes } from "../modules/internal-api/connection.js";
 import { registerInternalMemberRoutes } from "../modules/internal-api/members.js";
 import { registerInternalSessionRoutes } from "../modules/internal-api/sessions.js";
 import { registerMembershipRoutes } from "../modules/memberships/routes.js";
@@ -41,4 +45,8 @@ export function registerModules(app: FastifyInstance, deps: ModuleDeps): void {
   registerMembershipRoutes(app, ctx);
   registerInternalSessionRoutes(app, ctx);
   registerInternalMemberRoutes(app, ctx);
+  registerContractorRoutes(app, ctx);
+  registerCatalogRoutes(app, ctx);
+  registerInstanceRoutes(app, ctx);
+  registerInternalConnectionRoutes(app, ctx);
 }

@@ -34,7 +34,7 @@ export interface AppliedInstance {
   created: boolean;
 }
 
-async function databaseExists(connection: Connection, name: string): Promise<boolean> {
+export async function databaseExists(connection: Connection, name: string): Promise<boolean> {
   const [rows] = await connection.query(
     "SELECT 1 FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?",
     [name],
@@ -111,7 +111,11 @@ async function applyAccessProjection(
  * instância só lê e insere logout, sem UPDATE nem DELETE (um encerramento nunca é desfeito).
  * Privilégio por tabela usa o nome literal do banco: curingas só valem em `banco.*`.
  */
-async function grantAccessProjection(admin: Connection, accessDatabase: string, user: string) {
+export async function grantAccessProjection(
+  admin: Connection,
+  accessDatabase: string,
+  user: string,
+) {
   const pattern = grantDatabaseName(accessDatabase);
   await admin.query(
     `GRANT SELECT, INSERT, UPDATE, DELETE ON \`${pattern}\`.* TO '${mysqlUser.access}'@'%'`,

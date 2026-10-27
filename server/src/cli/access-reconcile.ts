@@ -1,6 +1,6 @@
 import { sql } from "kysely";
 import { reconcileInstance } from "../modules/access-projection/reconcile.js";
-import { getInstance } from "../modules/instances/instance-ref.js";
+import { getInstance } from "../modules/instances/instances.js";
 import { loadConfig } from "../platform/config/load.js";
 import { createAppContext } from "../platform/context.js";
 import { PoolRegistry } from "../platform/db/pools.js";
@@ -24,7 +24,7 @@ async function main(): Promise<number> {
   try {
     const { rows } = await sql<{
       id: Buffer;
-    }>`SELECT id FROM instance_ref WHERE slug = ${slug}`.execute(ctx.core);
+    }>`SELECT id FROM instance WHERE slug = ${slug}`.execute(ctx.core);
     if (rows.length !== 1 || !rows[0]) {
       console.error(
         rows.length === 0

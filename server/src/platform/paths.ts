@@ -39,3 +39,6 @@ export const accessProjectionDir = join(serverRoot, "migrations", "access_projec
 
 /** Arquivos de dados versionados (ex.: lista de senhas comuns). */
 export const assetsDir = join(serverRoot, "assets");
+
+/** Palavras recusadas como identificador de acesso de instância (F02 research.md R-05). */
+export const reservedSlugsFile = join(assetsDir, "reserved-slugs.txt");

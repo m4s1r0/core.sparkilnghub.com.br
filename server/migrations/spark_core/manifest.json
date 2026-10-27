@@ -19,6 +19,12 @@
       "name": "0003_instancias_credenciais_sync",
       "file": "migrations/0003_instancias_credenciais_sync.sql",
       "sha256": "5101c8602ea2c0e9bba31db2540b5bd043ba55ea8cc09cdaf3a9abae94633a02"
+    },
+    {
+      "version": 4,
+      "name": "0004_catalogo_provisionamento",
+      "file": "migrations/0004_catalogo_provisionamento.sql",
+      "sha256": "bf8be8e83696ac8d594cdeb9d7d6d6da776516da94c61f80118d49dfcf0c48c1"
     }
   ]
 }

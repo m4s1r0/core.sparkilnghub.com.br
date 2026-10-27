@@ -6,7 +6,7 @@ import { sha256Hex, timingSafeEqualHex } from "../crypto/index.js";
 import { isUuid, uuidToBin } from "../ids.js";
 import { withIdentity } from "./identity-errors.js";
 
-export type AppScope = "sessions" | "members";
+export type AppScope = "sessions" | "members" | "connection";
 
 export interface AppCredential {
   id: string;

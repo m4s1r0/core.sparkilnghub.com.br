@@ -8,6 +8,8 @@ export class AppError extends Error {
       retryable?: boolean;
       field?: string | null;
       retryAfterSeconds?: number;
+      /** Itens do envelope (conventions.md §4), ex.: instâncias que impedem uma ação. */
+      details?: { field: string; code: string; message: string }[];
     } = {},
   ) {
     super(message);

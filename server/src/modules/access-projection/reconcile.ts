@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 import type { AppContext } from "../../platform/context.js";
 import { binToUuid, uuidToBin } from "../../platform/ids.js";
-import type { InstanceRef } from "../instances/instance-ref.js";
+import type { Instance } from "../instances/instances.js";
 import { recordSecurityEvent } from "../identity/security-events.js";
 import { instanceMemberStates, type MemberState } from "./source.js";
 import { setReconcileHandler } from "./sync.js";
@@ -27,7 +27,7 @@ const differs = (replica: ReplicaRow | undefined, source: MemberState) =>
  */
 export async function reconcileInstance(
   ctx: AppContext,
-  instance: InstanceRef,
+  instance: Instance,
 ): Promise<{ divergences: number }> {
   const now = ctx.clock();
   const source = await instanceMemberStates(ctx, instance.id);

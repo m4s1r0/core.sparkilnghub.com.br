@@ -11,6 +11,8 @@ export class ApiError extends Error {
     readonly field: string | null = null,
     /** Segundos de `Retry-After` (limitação, indisponibilidade). */
     readonly retryAfter: number | null = null,
+    /** Itens do envelope (ex.: instâncias que impedem uma inativação). */
+    readonly details: { field: string; code: string; message: string }[] = [],
   ) {
     super(message);
     this.name = "ApiError";
@@ -74,6 +76,7 @@ function toApiError(response: Response, body: unknown, correlationId: string): A
       body.error.code,
       body.error.field,
       retryAfter,
+      body.error.details ?? [],
     );
   }
   return new ApiError(
@@ -95,7 +98,7 @@ const ACTION_MESSAGE =
  * demais viram `ApiError` com a mensagem segura do servidor.
  */
 export async function requestJson<T>(
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "PUT",
   url: string,
   options: { body?: unknown; idempotencyKey?: string } = {},
 ): Promise<T> {

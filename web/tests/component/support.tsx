@@ -58,3 +58,37 @@ export function renderApp(path: string) {
   );
   return { ...view, router };
 }
+
+const INSTANCE = "0192f6b0-0000-7000-8000-0000000000bb";
+
+/** Tarefa de provisionamento para as telas de acompanhamento (contrato `ProvisioningTask`). */
+export const task = (patch: Record<string, unknown> = {}) => ({
+  id: "0192f6b0-0000-7000-8000-0000000000cc",
+  protocol: "PRV-000042",
+  instanceId: INSTANCE,
+  instanceState: "PROVISIONANDO",
+  status: "em_execucao",
+  currentStep: "aplicar_migracoes",
+  runNumber: 1,
+  attempt: 0,
+  maxAttempts: 5,
+  nextAttemptAt: null,
+  artifactVersion: 2,
+  error: null,
+  steps: [
+    {
+      step: "criar_bancos",
+      runNumber: 1,
+      attempt: 1,
+      status: "concluida",
+      startedAt: "2026-10-27T12:00:00.000Z",
+      finishedAt: "2026-10-27T12:00:01.000Z",
+      durationMs: 1000,
+      errorCode: null,
+    },
+  ],
+  createdAt: "2026-10-27T12:00:00.000Z",
+  startedAt: "2026-10-27T12:00:00.000Z",
+  finishedAt: null,
+  ...patch,
+});

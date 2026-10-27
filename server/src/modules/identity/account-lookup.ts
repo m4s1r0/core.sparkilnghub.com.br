@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 import type { AppContext } from "../../platform/context.js";
 import { binToUuid, uuidToBin } from "../../platform/ids.js";
-import { getInstances } from "../instances/instance-ref.js";
+import { getInstances } from "../instances/instances.js";
 import { type Account, findAccountByEmail, getAccount } from "./accounts.js";
 import { identityErrors } from "./errors.js";
 import { hasConfirmedFactor } from "./mfa.js";

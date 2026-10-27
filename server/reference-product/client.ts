@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { Connection } from "mysql2/promise";
+import { type Connection, createPool, type Pool } from "mysql2/promise";
 
 /**
  * Cliente do produto de referência sintético (`sparkref`): a implementação de referência do
@@ -143,4 +143,63 @@ export class ReferenceProductClient {
   ): Promise<ProductHttpResponse> {
     return this.#call(method, path, { "x-instance-session": token, ...headers }, body);
   }
+}
+
+/** Conexão entregue pelo Core (contracts/openapi.yaml `InstanceConnection`, F02). */
+export interface InstanceConnection {
+  instanceId: string;
+  state: string;
+  host: string;
+  port: number;
+  database: string;
+  accessDatabase: string;
+  user: string;
+  password: string;
+  credentialVersion: number;
+}
+
+/**
+ * Obtém a conexão da instância pelo contrato interno (escopo `connection`). O produto pode
+ * guardá-la em memória para continuar validando sessões com o Core fora do ar (T-15).
+ */
+export async function fetchInstanceConnection(
+  http: (request: ProductHttpRequest) => Promise<ProductHttpResponse>,
+  credential: string,
+  slug: string,
+): Promise<InstanceConnection> {
+  const response = await http({
+    method: "GET",
+    url: `/internal/v1/instances/${slug}/connection`,
+    headers: { authorization: `Bearer ${credential}` },
+  });
+  if (response.status !== 200) throw new Error(`conexão recusada (${response.status})`);
+  return response.body as InstanceConnection;
+}
+
+/**
+ * Pools EXCLUSIVOS da instância (constituição I): um para o banco operacional e um para o banco
+ * de acesso, cada um preso ao seu banco. Nunca `USE` em conexão compartilhada.
+ */
+export function openInstancePools(connection: InstanceConnection): {
+  operational: Pool;
+  access: Pool;
+  end(): Promise<void>;
+} {
+  const base = {
+    host: connection.host,
+    port: connection.port,
+    user: connection.user,
+    password: connection.password,
+    timezone: "Z",
+    connectionLimit: 2,
+  };
+  const operational = createPool({ ...base, database: connection.database });
+  const access = createPool({ ...base, database: connection.accessDatabase });
+  return {
+    operational,
+    access,
+    end: async () => {
+      await Promise.all([operational.end(), access.end()]);
+    },
+  };
 }

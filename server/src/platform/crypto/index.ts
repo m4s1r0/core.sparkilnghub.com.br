@@ -39,7 +39,7 @@ export class KeyRing {
     }
   }
 
-  /** Chave de `IDENTITY_SECRET_KEY` (base64) na versão `IDENTITY_SECRET_KEY_VERSION`. */
+  /** Chave em base64 (ex.: `IDENTITY_SECRET_KEY`, `INSTANCE_SECRET_KEY`) na versão indicada. */
   static fromBase64(version: number, base64: string): KeyRing {
     return new KeyRing(version, Buffer.from(base64, "base64"));
   }

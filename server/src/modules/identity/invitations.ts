@@ -88,10 +88,11 @@ export async function createInvitationTx(
   const token = randomToken();
   const expiresAt = new Date(now.getTime() + INVITATION_TTL_MS);
   const isInitial = data.isInitial ?? pending.some((row) => row.is_initial === 1);
+  // O link é exibido a quem criou o convite (D-07): `link_issued_at` marca essa exibição (F02).
   await sql`INSERT INTO invitation (id, target, instance_id, role, email_normalized, token_hash,
-              status, is_initial, expires_at, created_by, created_at)
+              status, is_initial, link_issued_at, expires_at, created_by, created_at)
             VALUES (${uuidToBin(id)}, ${data.target}, ${instance}, ${data.role}, ${email},
-                    ${sha256Hex(token)}, 'pendente', ${isInitial}, ${expiresAt},
+                    ${sha256Hex(token)}, 'pendente', ${isInitial}, ${now}, ${expiresAt},
                     ${data.createdBy ? uuidToBin(data.createdBy) : null}, ${now})`.execute(trx);
   return {
     invitation: {
@@ -203,4 +204,29 @@ export async function markInvitationRevoked(
   await sql`UPDATE invitation SET status = 'revogado', revoked_at = ${now},
               revoked_by = ${revokedBy ? uuidToBin(revokedBy) : null}, revoke_reason = ${reason}
             WHERE id = ${uuidToBin(invitationId)} AND status = 'pendente'`.execute(db);
+}
+
+/**
+ * Convite inicial preparado pela tarefa de provisionamento (F02 research.md R-12): pendente, com
+ * token aleatório descartado (só o resumo existe) e `link_issued_at` nulo — "aguardando emissão".
+ * A emissão do link reaproveita o reenvio (`createInvitationTx`). Só INSERT: o trabalhador não
+ * tem UPDATE em `spark_identity`. Idempotente: não duplica o convite inicial da instância.
+ */
+export async function prepareInitialInvitation(
+  db: Kysely<unknown>,
+  now: Date,
+  data: { instanceId: string; email: string; createdBy: string | null },
+): Promise<boolean> {
+  const instance = uuidToBin(data.instanceId);
+  const { rows } = await sql<{ id: Buffer }>`SELECT id FROM invitation
+     WHERE target = 'instancia' AND instance_id = ${instance} AND is_initial = TRUE
+     LIMIT 1`.execute(db);
+  if (rows.length > 0) return false;
+  await sql`INSERT INTO invitation (id, target, instance_id, role, email_normalized, token_hash,
+              status, is_initial, link_issued_at, expires_at, created_by, created_at)
+            VALUES (${uuidToBin(newId())}, 'instancia', ${instance}, 'administrador',
+                    ${normalizeEmail(data.email)}, ${sha256Hex(randomToken())}, 'pendente', TRUE,
+                    NULL, ${new Date(now.getTime() + INVITATION_TTL_MS)},
+                    ${data.createdBy ? uuidToBin(data.createdBy) : null}, ${now})`.execute(db);
+  return true;
 }

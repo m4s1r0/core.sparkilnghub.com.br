@@ -5,7 +5,7 @@ import {
   SyncPayloadError,
   type SyncJobKind,
 } from "../../modules/access-projection/sync.js";
-import { getInstance } from "../../modules/instances/instance-ref.js";
+import { getInstance } from "../../modules/instances/instances.js";
 import type { AppContext } from "../../platform/context.js";
 import { binToUuid } from "../../platform/ids.js";
 

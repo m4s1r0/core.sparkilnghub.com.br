@@ -2,10 +2,15 @@ name: verify
 
 # Mesmas etapas de `npm run verify` (FR-017, FR-020). A proteção de `main` exige os quatro jobs
 # (docs/CONTRIBUTING.md).
+#
+# DESLIGADA TEMPORARIAMENTE (custo de Actions) — `npm run verify` cobre as mesmas etapas
+# localmente. Para reativar o gatilho automático, troque o `on:` abaixo por:
+#   on:
+#     pull_request:
+#     push:
+#       branches: [main]
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -88,12 +93,15 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Chave de identidade efêmera (cifra os segredos TOTP dos testes)
-        run: echo "IDENTITY_SECRET_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+      - name: Chaves efêmeras (segredos TOTP e senhas operacionais das instâncias de teste)
+        run: |
+          echo "IDENTITY_SECRET_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+          echo "INSTANCE_SECRET_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
       - name: Bancos e credenciais (docker/mysql/init)
         run: MYSQL_INIT_HOST=127.0.0.1 MYSQL_INIT_PORT=3306 bash docker/mysql/init/01-databases-and-users.sh
       - run: npm run build:contracts
       - run: npm run db:migrate
+      - run: npm run instances:migrate-access
       - run: npm run db:seed
       - run: npm run test:unit
       - run: npm run test:integration
@@ -127,12 +135,15 @@ jobs:
       # Playwright travou duas vezes na CI (PR #1).
       - name: Chrome do runner
         run: google-chrome --version
-      - name: Chave de identidade efêmera (cifra os segredos TOTP dos testes)
-        run: echo "IDENTITY_SECRET_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+      - name: Chaves efêmeras (segredos TOTP e senhas operacionais das instâncias de teste)
+        run: |
+          echo "IDENTITY_SECRET_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+          echo "INSTANCE_SECRET_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
       - name: Bancos e credenciais (docker/mysql/init)
         run: MYSQL_INIT_HOST=127.0.0.1 MYSQL_INIT_PORT=3306 bash docker/mysql/init/01-databases-and-users.sh
       - run: npm run build:contracts
       - run: npm run db:migrate
+      - run: npm run instances:migrate-access
       # Instâncias sintéticas A e B usadas pela jornada de vínculos (F01).
       - run: npm run db:seed
       - run: npm run test:e2e

@@ -1,22 +1,22 @@
 # Contrato de comandos do repositório
 
-Comandos estáveis que documentação, CI e agentes usam. Executam igual em Windows (PowerShell) e
+Comandos estáveis que documentação, CI e agentes usam (F00, F01 e F02). Executam igual em Windows (PowerShell) e
 Linux; implementados como scripts Node chamados por `npm run`. Nenhum comando aceita segredo por
 argumento de linha de comando. Origem: F00 (`specs/001-f00-base-decisoes/contracts/commands.md`)
 e F01 (`specs/002-f01-identidade-contextos/contracts/commands-f01.md`).
 
 ## Ambiente e verificação (F00)
 
-| Comando                   | Efeito                                                                                                                          | Ambientes permitidos                                               | Código de saída                                   |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------- |
-| `npm run dev:up`          | Sobe MySQL (compose), reaplica o init de usuários, migra Core, carrega sementes, inicia servidor, trabalhador e interface       | `development`                                                      | 0 ao ficar saudável; ≠0 com mensagem e componente |
-| `npm run dev:down`        | Para processos e contêiner, preservando volume                                                                                  | `development`                                                      | 0                                                 |
-| `npm run dev:reset`       | Recria bancos de desenvolvimento vazios (inclusive bancos de acesso `_acc` das instâncias sintéticas), migra e carrega sementes | `development` apenas; recusa se `environment_marker` ≠ development | 0 / 2 recusado                                    |
-| `npm run db:migrate`      | Aplica migrações do Core (`spark_core`, `spark_identity`)                                                                       | todos                                                              | 0 / ≠0 com versão e motivo                        |
-| `npm run db:seed`         | Carrega dados sintéticos de forma idempotente (F01: instâncias A e B, credencial do `sparkref`, contas ana, bruno e carla)      | `development`, `homologation`                                      | 0 / 2 recusado                                    |
-| `npm run ref:validate`    | Valida o artefato do produto de referência (manifesto, checksums, construções proibidas)                                        | todos                                                              | 0 / ≠0                                            |
-| `npm run verify`          | Executa localmente as etapas da CI                                                                                              | `development`                                                      | 0 se todas passam                                 |
-| `npm run gate -- <fatia>` | Verifica se a fatia pode estar `pronta` (decisões exigidas confirmadas)                                                         | todos                                                              | 0 / 3 bloqueada, listando decisões                |
+| Comando                   | Efeito                                                                                                                                                                                                                             | Ambientes permitidos                                               | Código de saída                                   |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------- |
+| `npm run dev:up`          | Sobe MySQL (compose), reaplica o init de usuários, migra Core, carrega sementes, inicia servidor, trabalhador e interface                                                                                                          | `development`                                                      | 0 ao ficar saudável; ≠0 com mensagem e componente |
+| `npm run dev:down`        | Para processos e contêiner, preservando volume                                                                                                                                                                                     | `development`                                                      | 0                                                 |
+| `npm run dev:reset`       | Recria bancos de desenvolvimento vazios (inclusive bancos de acesso `_acc` das instâncias sintéticas), migra e carrega sementes                                                                                                    | `development` apenas; recusa se `environment_marker` ≠ development | 0 / 2 recusado                                    |
+| `npm run db:migrate`      | Aplica migrações do Core (`spark_core`, `spark_identity`)                                                                                                                                                                          | todos                                                              | 0 / ≠0 com versão e motivo                        |
+| `npm run db:seed`         | Carrega dados sintéticos de forma idempotente (F02: contratante e produto de referência; instâncias A e B **pelo provisionador**, ativadas; credencial do `sparkref` com `sessions,members,connection`; contas ana, bruno e carla) | `development`, `homologation`                                      | 0 / 2 recusado                                    |
+| `npm run ref:validate`    | Valida o artefato do produto de referência (manifesto, checksums, construções proibidas)                                                                                                                                           | todos                                                              | 0 / ≠0                                            |
+| `npm run verify`          | Executa localmente as etapas da CI                                                                                                                                                                                                 | `development`                                                      | 0 se todas passam                                 |
+| `npm run gate -- <fatia>` | Verifica se a fatia pode estar `pronta` (decisões exigidas confirmadas)                                                                                                                                                            | todos                                                              | 0 / 3 bloqueada, listando decisões                |
 
 ## Identidade e projeção de acesso (F01)
 
@@ -31,3 +31,15 @@ e F01 (`specs/002-f01-identidade-contextos/contracts/commands-f01.md`).
 Recusas por ambiente gravam uma linha de log estruturado com `event: "env_guard_refused"`,
 comando, `SPARK_ENV` e marcador encontrado. Links e segredos impressos uma única vez não ficam em
 log nem no banco (só o sha256).
+
+## Provisionamento (F02)
+
+| Comando                                                                                    | Efeito                                                                                                                                                                                                             | Ambientes | Código de saída                                                       |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | --------------------------------------------------------------------- |
+| `npm run instances:migrate-access`                                                         | Aplica a versão vigente da projeção de acesso em todas as instâncias com banco de acesso, com a credencial do provisionador; lista as inacessíveis. `dev:up`, `dev:reset` e a CI o executam depois de `db:migrate` | todos     | 0 todas atualizadas; 4 alguma inacessível (as demais são atualizadas) |
+| `npm run app-credential -- create <produto> <rótulo> --scopes sessions,members,connection` | Aceita o escopo `connection` (contrato de conexão da instância)                                                                                                                                                    | todos     | 0 / 1                                                                 |
+
+O trabalhador passa a exigir `MYSQL_PROVISIONER_PASSWORD` e `INSTANCE_SECRET_KEY` e executa as
+tarefas de provisionamento; o servidor exige `INSTANCE_SECRET_KEY` (contrato de conexão).
+Variáveis novas: `INSTANCE_SECRET_KEY`, `INSTANCE_SECRET_KEY_VERSION`, `INSTANCE_DB_HOST`,
+`INSTANCE_DB_PORT`, `PROVISIONING_MAX_ATTEMPTS` (`.env.example`).

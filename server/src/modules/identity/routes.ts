@@ -9,7 +9,7 @@ import {
 import { withIdentity } from "../../platform/http/identity-errors.js";
 import { reauthValidUntil } from "../../platform/http/reauth.js";
 import { authOf, requireSession } from "../../platform/http/session-guard.js";
-import { getInstance } from "../instances/instance-ref.js";
+import { getInstance } from "../instances/instances.js";
 import { acceptInvitation } from "./accept-invitation.js";
 import { findAccountByEmail } from "./accounts.js";
 import { endCoreSession, resolveCoreSession } from "./core-sessions.js";

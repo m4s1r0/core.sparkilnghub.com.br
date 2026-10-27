@@ -50,3 +50,19 @@ lacunas abaixo foram contornadas no produto e devem virar propostas no design sy
 - **`Navbar` e `Breadcrumb` só com `href`**: navegam recarregando a SPA. O painel usa cabeçalho
   composto com `NavLink` do roteador; o `Breadcrumb` é usado como está. Proposta: slot de link
   (ou `onNavigate`) para integração com roteadores.
+
+## Lacunas observadas na 0.2.0 em F02 (propor no design system)
+
+F02 continua na 0.2.0. Contratantes, catálogo, solicitação e acompanhamento de instâncias usam só
+a API pública; lacunas contornadas no produto:
+
+- **Seleção com busca**: escolher o contratante na criação guiada usa `Select` com a lista dos
+  contratantes ativos (até 100, paginada no servidor) e busca prévia em `/contratantes`.
+  Proposta: `Combobox` com busca assíncrona, teclado e estado de carregamento.
+- **Campo de data com calendário**: vigência e filtros de período usam `Input type="date"`
+  nativo. Proposta: `DateField` com fuso explícito e intervalo `[início, fim)`.
+- **Linha do tempo**: as transições de estado usam `ListGroup` (rótulo + descrição). Proposta:
+  `Timeline` com ator, instante e marcador por tipo de evento.
+- **`Stepper` para acompanhamento**: as etapas do provisionamento usam `StepsBlock` (só
+  `current`); falta marcar etapa com falha ou repetida. Proposta: estado por etapa
+  (`concluida`, `atual`, `falha`).

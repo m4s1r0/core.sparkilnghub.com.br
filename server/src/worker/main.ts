@@ -7,19 +7,25 @@ import { PoolRegistry } from "../platform/db/pools.js";
 import { newId, uuidToBin } from "../platform/ids.js";
 import { createLogger } from "../platform/logging/logger.js";
 import { processDueJobs } from "./jobs/access-sync.js";
+import { processDueProvisioning } from "./jobs/provisioning.js";
 
 const HEARTBEAT_MS = 10_000;
 const SYNC_POLL_MS = 5_000;
+const PROVISIONING_POLL_MS = 2_000;
 const RETENTION_HOURS = 24;
 
 const logger = createLogger({ name: "worker" });
 
 /**
  * Trabalhador de tarefas: mesmo código e artefato do servidor, processo separado (FR-009).
- * Publica o sinal de vida e, desde F01, processa a sincronização da projeção de acesso (R-10).
+ * Publica o sinal de vida, processa a sincronização da projeção de acesso (F01 R-10) e, desde
+ * F02, as tarefas de provisionamento — única peça que carrega a credencial `provisioner`.
  */
 async function main() {
-  const config = loadConfig({ credentials: ["worker", "access"] });
+  const config = loadConfig({
+    credentials: ["worker", "access", "provisioner"],
+    secrets: ["INSTANCE_SECRET_KEY"],
+  });
   const pools = new PoolRegistry(config);
   const db = pools.get("worker", "spark_core");
   const workerId = newId();
@@ -62,9 +68,24 @@ async function main() {
   };
   const syncTimer = setInterval(() => void sync(), SYNC_POLL_MS);
 
+  let provisioning = false;
+  const provision = async () => {
+    if (provisioning) return;
+    provisioning = true;
+    try {
+      await processDueProvisioning({ ctx, config, workerId });
+    } catch (error) {
+      logger.warn({ err: error }, "Falha ao processar tarefas de provisionamento");
+    } finally {
+      provisioning = false;
+    }
+  };
+  const provisioningTimer = setInterval(() => void provision(), PROVISIONING_POLL_MS);
+
   const shutdown = async (signal: string) => {
     clearInterval(timer);
     clearInterval(syncTimer);
+    clearInterval(provisioningTimer);
     logger.info({ signal, workerId }, "Encerrando trabalhador");
     await pools.closeAll();
     process.exit(0);

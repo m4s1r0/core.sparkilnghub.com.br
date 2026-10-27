@@ -16,3 +16,9 @@ local: nenhuma senha ou resumo é enviado a serviço externo.
 
 Copiado sem alteração. Para atualizar, troque o commit acima, baixe o arquivo do novo commit e
 registre o novo sha256 nesta tabela.
+
+## `reserved-slugs.txt`
+
+Palavras recusadas como identificador de acesso (slug) de instância (F02, research.md R-05):
+rotas do Core e dos produtos, nomes de produtos e termos administrativos. Lista própria do
+projeto, uma palavra por linha, em minúsculas; mudanças passam por revisão como código.

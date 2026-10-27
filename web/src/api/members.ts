@@ -4,14 +4,6 @@ import { requestJson } from "./client";
 
 export type ProductRole = "administrador" | "colaborador";
 
-export interface InstanceItem {
-  id: string;
-  productCode: string;
-  slug: string;
-  displayName: string;
-  synthetic: boolean;
-}
-
 /** Contrato `Member`. */
 export interface Member {
   membershipId: string | null;
@@ -28,16 +20,7 @@ export interface SyncOutcome {
   instances: { instanceId: string; status: "aplicada" | "pendente" }[];
 }
 
-export const INSTANCES_KEY = ["instances"] as const;
 export const membersKey = (instanceId: string) => ["members", instanceId] as const;
-
-export function useInstances() {
-  return useQuery({
-    queryKey: INSTANCES_KEY,
-    queryFn: () => requestJson<{ items: InstanceItem[] }>("GET", "/api/v1/instances"),
-    retry: false,
-  });
-}
 
 export function useMembers(instanceId: string) {
   return useQuery({

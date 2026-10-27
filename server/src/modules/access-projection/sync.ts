@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 import type { AppContext } from "../../platform/context.js";
 import { newId, uuidToBin } from "../../platform/ids.js";
-import type { InstanceRef } from "../instances/instance-ref.js";
+import type { Instance } from "../instances/instances.js";
 import { readAccountState, readMemberState } from "./source.js";
 import {
   type CoreEndReason,
@@ -28,13 +28,13 @@ export interface SyncTarget {
   /** Identificadores da fonte; nunca define a instância alvo (data-model). */
   payload: Record<string, unknown>;
   /** Aplicação imediata; padrão: `runSyncJob`, a mesma rotina do trabalhador. */
-  apply?: (instance: InstanceRef) => Promise<void>;
+  apply?: (instance: Instance) => Promise<void>;
 }
 
 /** Reconciliação registrada aqui para evitar dependência circular com reconcile.ts. */
-let reconcileHandler: ((ctx: AppContext, instance: InstanceRef) => Promise<unknown>) | undefined;
+let reconcileHandler: ((ctx: AppContext, instance: Instance) => Promise<unknown>) | undefined;
 export function setReconcileHandler(
-  handler: (ctx: AppContext, instance: InstanceRef) => Promise<unknown>,
+  handler: (ctx: AppContext, instance: Instance) => Promise<unknown>,
 ): void {
   reconcileHandler = handler;
 }
@@ -50,7 +50,7 @@ const text = (value: unknown, name: string): string => {
  */
 export async function runSyncJob(
   ctx: AppContext,
-  instance: InstanceRef,
+  instance: Instance,
   kind: SyncJobKind,
   payload: Record<string, unknown>,
 ): Promise<void> {
@@ -122,7 +122,7 @@ export function safeError(error: unknown): string {
  */
 export async function syncToInstances(
   ctx: AppContext,
-  instances: readonly InstanceRef[],
+  instances: readonly Instance[],
   target: SyncTarget,
 ): Promise<SyncOutcome> {
   const outcome: SyncOutcome = { instances: [] };

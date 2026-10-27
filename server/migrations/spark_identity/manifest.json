@@ -19,6 +19,12 @@
       "name": "0003_vinculos_convites_sessoes",
       "file": "migrations/0003_vinculos_convites_sessoes.sql",
       "sha256": "023a79cf540d57387681ede3016401c315a8e2723dc025b93117e7a418988b6d"
+    },
+    {
+      "version": 4,
+      "name": "0004_convite_emissao",
+      "file": "migrations/0004_convite_emissao.sql",
+      "sha256": "b31b73aaccd5545fa6beb180ab92b9530ed6b15ee070e5b661368a25daea1adc"
     }
   ]
 }
