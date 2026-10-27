@@ -7,7 +7,7 @@ import { requireRecentMfa } from "../../platform/http/reauth.js";
 import { authOf, requireSession } from "../../platform/http/session-guard.js";
 import { identityErrors } from "../identity/errors.js";
 import { requestInfo } from "../identity/routes.js";
-import { getInstance, listInstances } from "../instances/instance-ref.js";
+import { getInstance } from "../instances/instances.js";
 import {
   changeMemberRole,
   inviteMember,
@@ -43,15 +43,7 @@ export function registerMembershipRoutes(app: FastifyInstance, ctx: AppContext):
     return instance;
   };
 
-  app.get("/api/v1/instances", { preHandler: session }, async () => ({
-    items: (await withIdentity(() => listInstances(ctx))).map((i) => ({
-      id: i.id,
-      productCode: i.productCode,
-      slug: i.slug,
-      displayName: i.displayName,
-      synthetic: i.synthetic,
-    })),
-  }));
+  // A lista de instâncias (GET /api/v1/instances) passou para o módulo de instâncias em F02.
 
   app.get(
     "/api/v1/instances/:instanceId/members",

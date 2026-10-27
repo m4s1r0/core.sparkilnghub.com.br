@@ -67,6 +67,7 @@ async function main() {
 
   await run("npm", ["run", "-s", "build:contracts"]);
   await run("npm", ["run", "-s", "db:migrate"]);
+  await run("npm", ["run", "-s", "instances:migrate-access"]);
   await run("npm", ["run", "-s", "db:seed"]);
 
   const children: ChildProcess[] = [

@@ -11,19 +11,19 @@ import { isUuid } from "../platform/ids.js";
 import { createLogger } from "../platform/logging/logger.js";
 import { runCli } from "./run.js";
 
-// npm run app-credential -- create <produto> <rótulo> --scopes sessions,members
+// npm run app-credential -- create <produto> <rótulo> --scopes sessions,members,connection
 // npm run app-credential -- revoke <id>
 // npm run app-credential -- list
 // Credenciais dos contratos internos (R-09, contracts/commands-f01.md). O segredo é exibido uma
 // única vez, na criação. Permitido em todos os ambientes.
 const USAGE = [
   "Uso:",
-  "  npm run app-credential -- create <produto> <rótulo> --scopes sessions,members",
+  "  npm run app-credential -- create <produto> <rótulo> --scopes sessions,members,connection",
   "  npm run app-credential -- revoke <id>",
   "  npm run app-credential -- list",
 ].join("\n");
 
-const SCOPES: readonly AppScope[] = ["sessions", "members"];
+const SCOPES: readonly AppScope[] = ["sessions", "members", "connection"];
 
 function parseScopes(args: string[]): AppScope[] {
   const index = args.indexOf("--scopes");

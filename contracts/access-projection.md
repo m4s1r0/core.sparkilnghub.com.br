@@ -1,8 +1,12 @@
-# Contrato de dados — projeção de acesso da instância, v1
+# Contrato de dados — projeção de acesso da instância, v2
 
 Decisão D-04; constituição v1.2.0, princípios I, II e III. Este é o contrato que o SparkPet (e,
 em F01, o produto de referência) usa para validar cada requisição **sem chamar o Core**. Mudança
-incompatível exige `v2` e convivência com `v1` (convenções §1).
+incompatível exige nova versão maior e convivência com a anterior (convenções §1).
+
+**Versões**: v1 (F01) — tabelas e regra de validação. v2 (F02, compatível) — `access_instance.state`
+ganha `pronta` (instância provisionada e ainda não ativada); a regra normativa não muda, então um
+produto que só conhece a v1 continua negando sessões em instância pronta.
 
 ## Onde fica
 
@@ -73,12 +77,12 @@ Logout pelo produto: `INSERT IGNORE INTO access_session_logout (id_hash, ended_a
 
 ### `access_instance` (linha única)
 
-| Coluna                   | Tipo                                    | Significado                          |
-| ------------------------ | --------------------------------------- | ------------------------------------ |
-| `instance_id`            | `BINARY(16)` PK                         | UUID da instância                    |
-| `state`                  | `ENUM('ativa','suspensa','manutencao')` | F01 grava `ativa`; F03 usa os demais |
-| `authorization_revision` | `INT UNSIGNED`                          | incrementa em suspensão/reativação   |
-| `updated_at`             | `DATETIME(6)` UTC                       |                                      |
+| Coluna                   | Tipo                                             | Significado                                                                   |
+| ------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `instance_id`            | `BINARY(16)` PK                                  | UUID da instância                                                             |
+| `state`                  | `ENUM('pronta','ativa','suspensa','manutencao')` | `pronta` no provisionamento (v2, F02); `ativa` na ativação; F03 usa os demais |
+| `authorization_revision` | `INT UNSIGNED`                                   | incrementa em suspensão/reativação                                            |
+| `updated_at`             | `DATETIME(6)` UTC                                |                                                                               |
 
 ## Regra de validação (normativa)
 

@@ -85,6 +85,41 @@ describe("loadConfig (FR-010)", () => {
     expect(problems).not.toMatch(/curta/);
   });
 
+  it("provisionamento (F02): chave das instâncias, endereço entregue aos produtos e tentativas", () => {
+    const key = Buffer.alloc(32, 9).toString("base64");
+    const config = loadConfig({
+      env: { SPARK_ENV: "development", INSTANCE_SECRET_KEY: key, INSTANCE_DB_PORT: "3308" },
+      secrets: ["INSTANCE_SECRET_KEY"],
+    });
+    expect(config.secrets.INSTANCE_SECRET_KEY).toBe(key);
+    expect(config.INSTANCE_SECRET_KEY_VERSION).toBe(1);
+    expect(config.INSTANCE_DB_PORT).toBe(3308);
+    expect(config.INSTANCE_DB_HOST).toBeUndefined();
+    expect(config.PROVISIONING_MAX_ATTEMPTS).toBe(5);
+
+    const short = Buffer.alloc(31, 1).toString("base64");
+    let error: unknown;
+    try {
+      loadConfig({
+        env: {
+          SPARK_ENV: "development",
+          INSTANCE_SECRET_KEY: short,
+          PROVISIONING_MAX_ATTEMPTS: "0",
+        },
+        secrets: ["INSTANCE_SECRET_KEY"],
+      });
+    } catch (e) {
+      error = e;
+    }
+    const problems = (error as ConfigError).problems.join("\n");
+    expect(problems).toMatch(/INSTANCE_SECRET_KEY inválida \(deve ter 32 bytes/);
+    expect(problems).toMatch(/PROVISIONING_MAX_ATTEMPTS/);
+    expect(problems).not.toContain(short);
+    expect(() =>
+      loadConfig({ env: { SPARK_ENV: "development" }, secrets: ["INSTANCE_SECRET_KEY"] }),
+    ).toThrow(/INSTANCE_SECRET_KEY ausente/);
+  });
+
   it("recusa PUBLIC_ORIGIN com caminho ou esquema inválido", () => {
     expect(() =>
       loadConfig({ env: { SPARK_ENV: "development", PUBLIC_ORIGIN: "ftp://x/y" } }),

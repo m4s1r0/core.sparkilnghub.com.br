@@ -21,6 +21,8 @@ export interface AppContext {
   /** Pool exclusivo do banco de acesso de uma instância (um pool por banco, sem `USE`). */
   access(accessDatabase: string): Kysely<unknown>;
   keyRing: KeyRing;
+  /** Chave da senha operacional das instâncias (F02 R-09); servidor e trabalhador. */
+  instanceKeyRing: KeyRing;
   clock: () => Date;
   logger: Logger;
 }
@@ -41,6 +43,7 @@ export function createAppContext(
 ): AppContext {
   const role = options.role ?? "web";
   let ring: KeyRing | undefined;
+  let instanceRing: KeyRing | undefined;
   return {
     config,
     pools,
@@ -53,6 +56,12 @@ export function createAppContext(
       if (!key) throw new Error("IDENTITY_SECRET_KEY não carregada nesta configuração");
       ring ??= KeyRing.fromBase64(config.IDENTITY_SECRET_KEY_VERSION, key);
       return ring;
+    },
+    get instanceKeyRing() {
+      const key = config.secrets.INSTANCE_SECRET_KEY;
+      if (!key) throw new Error("INSTANCE_SECRET_KEY não carregada nesta configuração");
+      instanceRing ??= KeyRing.fromBase64(config.INSTANCE_SECRET_KEY_VERSION, key);
+      return instanceRing;
     },
     clock: options.clock ?? (() => new Date()),
     logger: options.logger ?? createLogger({ name: "sparkcore" }),

@@ -9,7 +9,10 @@ import { registerModules } from "./modules.js";
 const logger = createLogger({ name: "app" });
 
 async function main() {
-  const config = loadConfig({ credentials: ["web", "access"], secrets: ["IDENTITY_SECRET_KEY"] });
+  const config = loadConfig({
+    credentials: ["web", "access"],
+    secrets: ["IDENTITY_SECRET_KEY", "INSTANCE_SECRET_KEY"],
+  });
   const pools = new PoolRegistry(config);
   const app = await buildApp({
     config,

@@ -4,7 +4,7 @@ import type { AppContext } from "../../platform/context.js";
 import { retryOnDeadlock } from "../../platform/db/retry.js";
 import { binToUuid, uuidToBin } from "../../platform/ids.js";
 import type { SyncOutcome } from "../access-projection/sync.js";
-import { getInstances } from "../instances/instance-ref.js";
+import { getInstances } from "../instances/instances.js";
 import { bumpAuthRevision, getAccount } from "./accounts.js";
 import { endAccountCoreSessions } from "./core-sessions.js";
 import { identityErrors, type RequestInfo } from "./errors.js";

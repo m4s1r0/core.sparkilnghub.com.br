@@ -38,7 +38,9 @@ Cobertura percentual não é critério de aceite; a evidência é por requisito 
 ## Credenciais de aplicação (contratos internos)
 
 - Cada produto chama `/internal/v1` com uma credencial própria (`npm run app-credential --
-create <produto> <rótulo> --scopes sessions,members`), com o menor escopo necessário. O segredo
+create <produto> <rótulo> --scopes sessions,members,connection`), com o menor escopo necessário.
+  O escopo `connection` (F02) entrega a senha operacional da instância: só o processo do produto
+  que abre as conexões deve tê-lo. O segredo
   aparece uma única vez; guarde-o no cofre do ambiente, nunca no repositório, em log ou em ticket.
 - A credencial define o produto: instâncias de outro produto são tratadas como inexistentes.
 - Rotação sem parada: crie a nova, implante no produto, confirme o uso (`app-credential -- list`

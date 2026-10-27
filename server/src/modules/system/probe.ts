@@ -133,12 +133,35 @@ export class SystemStatusService {
     };
   }
 
+  /** Tarefas de provisionamento pendentes, aguardando repetição e com falha (F02, R-20). */
+  async #provisioningCounts(): Promise<SystemStatus["provisioning"]> {
+    try {
+      const db = this.pools.get<Record<string, never>>("web", this.databases.spark_core);
+      const { rows } = await withTimeout(
+        sql<{ pending: number | null; waiting: number | null; failed: number | null }>`
+          SELECT SUM(status IN ('pendente', 'em_execucao')) AS pending,
+                 SUM(status = 'aguardando_repeticao') AS waiting,
+                 SUM(status = 'falhou') AS failed
+            FROM admin_task`.execute(db),
+      );
+      const row = rows[0];
+      return {
+        pending: Number(row?.pending ?? 0),
+        waitingRetry: Number(row?.waiting ?? 0),
+        failed: Number(row?.failed ?? 0),
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
   async check(): Promise<SystemStatus> {
     const manifests = await this.#loadManifests();
-    const [core, identity, worker] = await Promise.all([
+    const [core, identity, worker, provisioning] = await Promise.all([
       this.#probeDatabase("spark_core", manifests.spark_core),
       this.#probeDatabase("spark_identity", manifests.spark_identity),
       this.#probeWorker(),
+      this.#provisioningCounts(),
     ]);
     const checkedAt = this.now().toISOString();
     const server: ComponentStatus = { name: "server", status: "SAUDAVEL", reason: null, checkedAt };
@@ -154,6 +177,7 @@ export class SystemStatusService {
       }),
       checkedAt,
       components: [server, worker, core, identity],
+      ...(provisioning ? { provisioning } : {}),
     };
   }
 }

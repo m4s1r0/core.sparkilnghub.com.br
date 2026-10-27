@@ -2,7 +2,7 @@ import { sql, type Kysely } from "kysely";
 import type { AppContext } from "../../platform/context.js";
 import { randomToken, sha256Hex } from "../../platform/crypto/index.js";
 import { uuidToBin } from "../../platform/ids.js";
-import type { InstanceRef } from "../instances/instance-ref.js";
+import type { Instance } from "../instances/instances.js";
 import type { AccountState, MemberState } from "./source.js";
 import { validateInstanceSession, type ValidatedSession } from "./validate.js";
 
@@ -19,7 +19,7 @@ export type CoreEndReason = "senha_trocada" | "bloqueio" | "vinculo_revogado" | 
  * Escrita da projeção de acesso de UMA instância: cada chamada usa o pool exclusivo do banco
  * `<instância>_acc` com a credencial `access` — nunca troca de banco numa conexão (princípio I).
  */
-const db = (ctx: AppContext, instance: InstanceRef): Kysely<unknown> =>
+const db = (ctx: AppContext, instance: Instance): Kysely<unknown> =>
   ctx.access(instance.accessDatabaseName);
 
 async function upsert(trx: Kysely<unknown>, member: MemberState, now: Date): Promise<void> {
@@ -43,7 +43,7 @@ async function upsert(trx: Kysely<unknown>, member: MemberState, now: Date): Pro
 
 export async function upsertMember(
   ctx: AppContext,
-  instance: InstanceRef,
+  instance: Instance,
   member: MemberState,
 ): Promise<void> {
   await upsert(db(ctx, instance), member, ctx.clock());
@@ -56,7 +56,7 @@ export async function upsertMember(
  */
 export async function createProductSession(
   ctx: AppContext,
-  instance: InstanceRef,
+  instance: Instance,
   member: MemberState,
 ): Promise<{ token: string; expiresAt: Date }> {
   const now = ctx.clock();
@@ -79,7 +79,7 @@ export async function createProductSession(
 /** Revoga o vínculo na réplica e encerra as sessões dele (garantia 2 do contrato). */
 export async function revokeMember(
   ctx: AppContext,
-  instance: InstanceRef,
+  instance: Instance,
   member: MemberState,
 ): Promise<void> {
   const now = ctx.clock();
@@ -100,7 +100,7 @@ export async function revokeMember(
  */
 export async function updateAccountState(
   ctx: AppContext,
-  instance: InstanceRef,
+  instance: Instance,
   account: AccountState,
   reason: CoreEndReason | null,
 ): Promise<void> {
@@ -122,10 +122,23 @@ export async function updateAccountState(
 }
 
 /** Revisão de autorização da instância (suspensão e reativação chegam em F03). */
-export async function setInstanceRevision(ctx: AppContext, instance: InstanceRef): Promise<void> {
+export async function setInstanceRevision(ctx: AppContext, instance: Instance): Promise<void> {
   await sql`UPDATE access_instance
                SET authorization_revision = GREATEST(authorization_revision, ${instance.authorizationRevision}),
                    updated_at = ${ctx.clock()}`.execute(db(ctx, instance));
+}
+
+/** Estado da instância na projeção v2 (`pronta` no provisionamento; `ativa` na ativação). */
+export type ProjectionState = "pronta" | "ativa" | "suspensa" | "manutencao";
+
+export async function setProjectionState(
+  ctx: AppContext,
+  instance: Pick<Instance, "accessDatabaseName">,
+  state: ProjectionState,
+): Promise<void> {
+  await sql`UPDATE access_instance SET state = ${state}, updated_at = ${ctx.clock()}`.execute(
+    ctx.access(instance.accessDatabaseName),
+  );
 }
 
 /**
@@ -134,7 +147,7 @@ export async function setInstanceRevision(ctx: AppContext, instance: InstanceRef
  */
 export async function touchProductSession(
   ctx: AppContext,
-  instance: InstanceRef,
+  instance: Instance,
   token: string,
 ): Promise<ValidatedSession | null> {
   const now = ctx.clock();
@@ -150,7 +163,7 @@ export async function touchProductSession(
 /** Validação feita pelo Core (contrato de vínculos locais), com o relógio do Core. */
 export function validateForInstance(
   ctx: AppContext,
-  instance: InstanceRef,
+  instance: Instance,
   token: string,
 ): Promise<ValidatedSession | null> {
   return validateInstanceSession(db(ctx, instance), token, ctx.clock());
@@ -159,7 +172,7 @@ export function validateForInstance(
 /** Linhas de vínculo presentes na réplica (reconciliação). */
 export async function replicaMembers(
   ctx: AppContext,
-  instance: InstanceRef,
+  instance: Instance,
 ): Promise<
   {
     membership_id: Buffer;
@@ -189,7 +202,7 @@ export async function replicaMembers(
 /** Vínculos que existem na réplica sem existir na fonte: revogados e sessões encerradas. */
 export async function revokeOrphanMember(
   ctx: AppContext,
-  instance: InstanceRef,
+  instance: Instance,
   membershipId: Buffer,
 ): Promise<void> {
   const now = ctx.clock();

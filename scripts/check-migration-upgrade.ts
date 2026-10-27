@@ -43,7 +43,7 @@ async function main() {
   const temp = mkdtempSync(join(tmpdir(), "sparkcore-upgrade-"));
   let failed = false;
   try {
-    for (const database of ["spark_core", "spark_identity"]) {
+    for (const database of ["spark_core", "spark_identity", "access_projection"]) {
       const baseDir = extractBase(database, temp);
       const current = await loadManifest(join(repoRoot, "server", "migrations", database));
       const base = baseDir ? await loadManifest(baseDir) : null;

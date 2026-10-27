@@ -16,7 +16,7 @@ import {
   throttleRules,
   throttleStatus,
 } from "../identity/throttle.js";
-import { findInstanceBySlug, type InstanceRef } from "../instances/instance-ref.js";
+import { findInstanceBySlug, type Instance } from "../instances/instances.js";
 import type { AppContext } from "../../platform/context.js";
 import {
   type AppCredential,
@@ -43,7 +43,7 @@ export async function instanceForCredential(
   ctx: AppContext,
   credential: AppCredential,
   slug: string,
-): Promise<InstanceRef | null> {
+): Promise<Instance | null> {
   return findInstanceBySlug(ctx, credential.productCode, slug);
 }
 
@@ -56,7 +56,7 @@ const sessionToken = (request: FastifyRequest): string => {
  * Login de produto (US3, D-04): o Core confere senha, vínculo ativo, conta ativa e instância, e
  * grava a sessão só no banco de acesso daquela instância. Qualquer recusa — sem vínculo, senha
  * errada, conta bloqueada, administrador da plataforma (FR-035), instância de outro produto —
- * recebe a mesma resposta. A origem limitada é o IP do usuário informado pelo produto.
+ * recebe a mesma resposta, assim como instância que ainda não está ATIVA. A origem limitada é o IP do usuário informado pelo produto.
  */
 async function productLogin(
   ctx: AppContext,
@@ -82,7 +82,9 @@ async function productLogin(
     : (await burnPasswordCheck(input.password), false);
 
   let membershipId: string | null = null;
-  if (passwordOk && account && instance && account.status === "ativa") {
+  // Instância ainda não ativa (PRONTA, em provisionamento ou em falha): nenhuma sessão é criada
+  // e a recusa é a mesma das credenciais inválidas (F02 FR-028, CA-SC-007).
+  if (passwordOk && account && instance?.state === "ATIVA" && account.status === "ativa") {
     const { rows } = await sql<{ id: Buffer }>`SELECT id FROM membership
        WHERE account_id = ${uuidToBin(account.id)} AND instance_id = ${uuidToBin(instance.id)}
          AND status = 'ativo'`.execute(ctx.identity);

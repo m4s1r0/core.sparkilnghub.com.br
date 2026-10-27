@@ -7,6 +7,12 @@
       "name": "0001_projecao_v1",
       "file": "migrations/0001_projecao_v1.sql",
       "sha256": "e8199c456d476dfda4a2e17558a05642548fc11d6fce99cf206bf341ca80a469"
+    },
+    {
+      "version": 2,
+      "name": "0002_estado_pronta",
+      "file": "migrations/0002_estado_pronta.sql",
+      "sha256": "a8a7634e63bd877cf98fe40ee650c1ade240fd8a8ae8adc93b885fee6337becf"
     }
   ]
 }

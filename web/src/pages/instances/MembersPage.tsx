@@ -16,6 +16,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { adminsApi, type OneTimeLink } from "../../api/admins";
+import { useInstance } from "../../api/instances";
 import { ApiError } from "../../api/client";
 import {
   type Member,
@@ -24,7 +25,6 @@ import {
   pendingText,
   type ProductRole,
   type SyncOutcome,
-  useInstances,
   useMembers,
 } from "../../api/members";
 import { OneTimeLinkDialog } from "../../components/OneTimeLinkDialog";
@@ -53,7 +53,7 @@ const message = (error: unknown) =>
 export function MembersPage() {
   const { id = "" } = useParams();
   const client = useQueryClient();
-  const instances = useInstances();
+  const instance = useInstance(id);
   const members = useMembers(id);
   const reauth = useReauth();
   const latest = useRef<Member[]>([]);
@@ -74,8 +74,7 @@ export function MembersPage() {
   const [roleDialog, setRoleDialog] = useState(false);
   const [notice, setNotice] = useState<{ tone: "success" | "warning"; text: string } | null>(null);
 
-  const instance = instances.data?.items.find((i) => i.id === id);
-  const instanceName = instance?.displayName ?? "instância";
+  const instanceName = instance.data?.displayName ?? "instância";
   const refresh = () => client.invalidateQueries({ queryKey: membersKey(id) });
 
   const done = async (text: string, outcome?: SyncOutcome) => {

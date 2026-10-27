@@ -10,7 +10,7 @@ import { validateForInstance } from "../access-projection/writer.js";
 import { identityErrors } from "../identity/errors.js";
 import { revokeInvitation } from "../identity/platform-admins.js";
 import { requestInfo } from "../identity/routes.js";
-import type { InstanceRef } from "../instances/instance-ref.js";
+import type { Instance } from "../instances/instances.js";
 import {
   changeMemberRole,
   inviteMember,
@@ -32,7 +32,7 @@ const sessionInvalid = () =>
 async function localAdmin(
   ctx: AppContext,
   request: FastifyRequest,
-): Promise<{ instance: InstanceRef; accountId: string }> {
+): Promise<{ instance: Instance; accountId: string }> {
   const { slug } = request.params as { slug: string };
   const instance = await withIdentity(() =>
     instanceForCredential(ctx, credentialOf(request), slug),

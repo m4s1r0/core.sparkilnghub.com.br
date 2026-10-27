@@ -9,6 +9,9 @@ test.describe.configure({ timeout: 240_000 });
 async function inviteTo(page: Page, instance: string, email: string): Promise<string> {
   await page.goto("/instancias");
   await page.getByRole("link", { name: instance }).click();
+  // Desde F02 a lista leva ao detalhe; os vínculos ficam na aba "Vínculos".
+  await page.getByRole("tab", { name: "Vínculos" }).click();
+  await page.getByRole("link", { name: `Vínculos de ${instance}` }).click();
   await page.getByRole("button", { name: "Convidar", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("E-mail").fill(email);

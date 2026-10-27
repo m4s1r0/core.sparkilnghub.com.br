@@ -5,7 +5,7 @@ import { retryOnDeadlock } from "../../platform/db/retry.js";
 import { binToUuid, newId, uuidToBin } from "../../platform/ids.js";
 import { syncToInstances, type SyncOutcome } from "../access-projection/sync.js";
 import { accountInstanceIds } from "../access-projection/source.js";
-import { getInstances } from "../instances/instance-ref.js";
+import { getInstances } from "../instances/instances.js";
 import {
   bumpAuthRevision,
   findAccountByEmail,

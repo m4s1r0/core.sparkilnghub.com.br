@@ -63,3 +63,16 @@ cadastradas (constituição, princípio VII; `SC-009`).
 - Aplicar v1 e depois v2 produz a mesma estrutura que aplicar v1+v2 num banco vazio (verificado
   por comparação de `information_schema`).
 - Uma versão por vez; falha registra `status = falha` e interrompe.
+- No provisionamento (F02), o aplicador grava em `_spark_instance` o `owner_task_uuid` da tarefa
+  e fixa o resumo do manifesto na tarefa: artefato trocado no meio do provisionamento falha com
+  `PROVISIONING_ARTIFACT_CHANGED`, sem misturar versões.
+- Uma versão interrompida no meio (linha `falha` no histórico) não é repetida automaticamente:
+  o MySQL não desfaz DDL; a instância fica em falha e segue procedimento operacional
+  (`docs/operacao/provisionamento.md`). Prefira versões curtas.
+
+## Prontidão (F02)
+
+Uma instância do produto está **pronta** quando: o marcador `_spark_instance` tem o UUID da
+instância; o histórico `_spark_schema_history` está na última versão do manifesto, sem linha
+`falha`; e a credencial operacional consegue ler o marcador (e não consegue criar tabela nem
+banco). Verificações próprias do produto entram como evolução versionada deste contrato.

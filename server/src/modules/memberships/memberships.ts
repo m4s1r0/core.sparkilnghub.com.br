@@ -10,7 +10,7 @@ import { identityErrors, type RequestInfo } from "../identity/errors.js";
 import { createInvitationTx, invitationLink, type Invitation } from "../identity/invitations.js";
 import { setInstanceRevokeGuard } from "../identity/platform-admins.js";
 import { recordSecurityEvent } from "../identity/security-events.js";
-import { getInstance, type InstanceRef } from "../instances/instance-ref.js";
+import { getInstance, type Instance } from "../instances/instances.js";
 
 export type ProductRole = "administrador" | "colaborador";
 
@@ -90,7 +90,7 @@ export async function listInstanceMembers(
 export async function inviteMember(
   ctx: AppContext,
   actorId: string,
-  instance: InstanceRef,
+  instance: Instance,
   data: { email: string; role: ProductRole; initial?: boolean },
   info: RequestInfo,
 ): Promise<{ link: string; expiresAt: string }> {
@@ -177,7 +177,7 @@ const remainingPaths = (paths: { admins: Buffer[]; initialInvites: Buffer[] }, r
 export async function changeMemberRole(
   ctx: AppContext,
   actorId: string,
-  instance: InstanceRef,
+  instance: Instance,
   membershipId: string,
   data: { role: ProductRole; reason: string; version: number },
   info: RequestInfo,
@@ -226,7 +226,7 @@ export async function changeMemberRole(
 export async function revokeMembership(
   ctx: AppContext,
   actorId: string,
-  instance: InstanceRef,
+  instance: Instance,
   membershipId: string,
   data: { reason: string; version: number },
   info: RequestInfo,

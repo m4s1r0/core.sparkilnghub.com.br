@@ -29,9 +29,38 @@ export function instanceDatabaseName(prefix: string, uuid: string): string {
   return `${prefix}${uuid.replaceAll("-", "").toLowerCase()}`;
 }
 
-/** Usuário MySQL operacional da instância (máximo 32 caracteres). */
+const BASE32 = "abcdefghijklmnopqrstuvwxyz234567";
+
+/** Base32 (RFC 4648, minúsculas, sem preenchimento): 16 bytes → 26 caracteres. */
+function base32(bytes: Buffer): string {
+  let bits = 0;
+  let value = 0;
+  let out = "";
+  for (const byte of bytes) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      out += BASE32[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) out += BASE32[(value << (5 - bits)) & 31];
+  return out;
+}
+
+/**
+ * Usuário MySQL operacional da instância: `inst_` + UUID inteiro em base32 (31 caracteres, limite
+ * de 32 do MySQL). Sem perda: dois UUIDs nunca compartilham o usuário. A versão anterior truncava
+ * o UUID em 24 caracteres hexadecimais e fazia instâncias com UUIDs próximos (as sementes A e B)
+ * dividirem a mesma credencial (F02, defeito corrigido).
+ */
 export function instanceUserName(uuid: string): string {
   if (!isUuid(uuid)) throw new TypeError("UUID de instância inválido");
+  return `inst_${base32(uuidToBin(uuid))}`;
+}
+
+/** Nome do usuário até F01 (truncado); só para a limpeza de desenvolvimento. */
+export function legacyInstanceUserName(uuid: string): string {
   return `inst_${uuid.replaceAll("-", "").toLowerCase().slice(0, 24)}`;
 }
 

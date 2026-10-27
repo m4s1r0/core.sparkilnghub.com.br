@@ -48,6 +48,18 @@ export const SystemStatus = Type.Object(
     status: HealthState,
     checkedAt: Type.String({ format: "date-time" }),
     components: Type.Array(ComponentStatus, { minItems: 4, maxItems: 4 }),
+    // F02 (research.md R-20): tarefas de provisionamento, sem detalhe de instância. Opcional:
+    // ausente quando a contagem não pôde ser lida.
+    provisioning: Type.Optional(
+      Type.Object(
+        {
+          pending: Type.Integer({ minimum: 0 }),
+          waitingRetry: Type.Integer({ minimum: 0 }),
+          failed: Type.Integer({ minimum: 0 }),
+        },
+        { additionalProperties: false },
+      ),
+    ),
   },
   { additionalProperties: false },
 );

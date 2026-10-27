@@ -30,6 +30,7 @@ export const SecurityEventTypes = [
   "logout_produto",
   "credencial_aplicacao",
   "projecao_reconciliada",
+  "conexao_entregue",
 ] as const;
 export type SecurityEventType = (typeof SecurityEventTypes)[number];
 

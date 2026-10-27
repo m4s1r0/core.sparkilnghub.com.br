@@ -43,13 +43,20 @@ export const mysqlUser: Record<CredentialRole, string> = {
 };
 
 /** Segredos que não são credenciais MySQL; cada processo pede só os que usa. */
-export const SecretNames = ["IDENTITY_SECRET_KEY", "SEED_USER_PASSWORD"] as const;
+export const SecretNames = [
+  "IDENTITY_SECRET_KEY",
+  "INSTANCE_SECRET_KEY",
+  "SEED_USER_PASSWORD",
+] as const;
 export type SecretName = (typeof SecretNames)[number];
 
 /** Validação de cada segredo; devolve a mensagem do problema ou `null`. */
 export const secretProblem: Record<SecretName, (value: string) => string | null> = {
   // Chave AES-256 do segredo TOTP (research.md R-03): 32 bytes em base64.
   IDENTITY_SECRET_KEY: (value) =>
+    Buffer.from(value, "base64").length === 32 ? null : "deve ter 32 bytes em base64",
+  // Chave AES-256 da senha operacional das instâncias (F02 research.md R-09): 32 bytes em base64.
+  INSTANCE_SECRET_KEY: (value) =>
     Buffer.from(value, "base64").length === 32 ? null : "deve ter 32 bytes em base64",
   // Senha das contas sintéticas das sementes; segue a política de senha (FR-003).
   SEED_USER_PASSWORD: (value) => (value.length >= 12 ? null : "mínimo de 12 caracteres"),
@@ -72,6 +79,14 @@ export const BaseConfigSchema = Type.Object({
   }),
   // Versão da IDENTITY_SECRET_KEY gravada junto de cada segredo cifrado (research.md R-03).
   IDENTITY_SECRET_KEY_VERSION: Type.Integer({ minimum: 1, maximum: 255, default: 1 }),
+  // Versão da INSTANCE_SECRET_KEY gravada junto da senha operacional cifrada (F02 R-09).
+  INSTANCE_SECRET_KEY_VERSION: Type.Integer({ minimum: 1, maximum: 255, default: 1 }),
+  // Endereço do MySQL entregue aos produtos pelo contrato de conexão (F02 R-10); ausente = o do
+  // Core.
+  INSTANCE_DB_HOST: Type.Optional(Type.String({ minLength: 1 })),
+  INSTANCE_DB_PORT: Type.Optional(Type.Integer({ minimum: 1, maximum: 65535 })),
+  // Tentativas por etapa de provisionamento em cada execução (F02 R-08).
+  PROVISIONING_MAX_ATTEMPTS: Type.Integer({ minimum: 1, maximum: 20, default: 5 }),
 });
 
 export type BaseConfig = Static<typeof BaseConfigSchema>;

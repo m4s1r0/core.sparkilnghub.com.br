@@ -63,6 +63,7 @@ export function registerErrorHandling(
         message: error.message,
         field: error.options.field ?? null,
         retryable: error.options.retryable ?? false,
+        ...(error.options.details ? { details: error.options.details } : {}),
       });
     }
 

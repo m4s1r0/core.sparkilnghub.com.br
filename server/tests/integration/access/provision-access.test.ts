@@ -47,6 +47,7 @@ describe("banco de acesso da instância (R-07, FR-034)", () => {
     const history = await readHistory(conn, "_spark_access_history");
     expect(history.map((h) => [h.version, h.artifact, h.status])).toEqual([
       [1, "access_projection", "aplicada"],
+      [2, "access_projection", "aplicada"],
     ]);
     const [rows] = await conn.query("SELECT state, authorization_revision FROM access_instance");
     expect(rows).toEqual([{ state: "ativa", authorization_revision: 1 }]);

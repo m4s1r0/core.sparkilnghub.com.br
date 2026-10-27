@@ -6,17 +6,39 @@ import { errorBody, fullSession, json, renderApp, stubFetch } from "./support";
 afterEach(() => vi.unstubAllGlobals());
 
 const INSTANCE = "0192f600-0000-7000-8000-00000000000a";
-const instances = {
-  items: [
-    {
-      id: INSTANCE,
-      productCode: "sparkref",
-      slug: "ref-a",
-      displayName: "[SINTÉTICO] Instância A",
-      synthetic: true,
-    },
-  ],
+const summary = {
+  id: INSTANCE,
+  contractorId: "0192f600-0000-7000-8000-0000000000c1",
+  contractorName: "[SINTÉTICO] Contratante de referência",
+  productCode: "sparkref",
+  slug: "ref-a",
+  displayName: "[SINTÉTICO] Instância A",
+  state: "ATIVA",
+  synthetic: true,
+  lastTask: null,
+  validityExpired: false,
+  createdAt: "2026-10-26T12:00:00.000Z",
 };
+// Desde F02 a lista é paginada e o detalhe tem endpoint próprio (MembersPage usa o detalhe).
+const instances = { items: [summary], pageInfo: { page: 1, pageSize: 20, total: 1 } };
+const detail = {
+  ...summary,
+  timezone: "America/Sao_Paulo",
+  initialAdminEmail: "",
+  schemaVersion: 2,
+  notes: null,
+  validFrom: null,
+  validUntil: null,
+  version: 1,
+  initialInvitation: { status: "inexistente", expiresAt: null },
+  transitions: [],
+};
+const instanceStub = (url: string) =>
+  url.includes("/api/v1/instances?")
+    ? json(instances)
+    : url.endsWith(`/api/v1/instances/${INSTANCE}`)
+      ? json(detail)
+      : null;
 const carla = {
   membershipId: "0192f6b0-0000-7000-8000-0000000000c1",
   invitationId: null,
@@ -43,16 +65,14 @@ async function openActions(name: string) {
 }
 
 describe("InstancesPage e MembersPage (US4)", () => {
-  it("lista instâncias com link para os vínculos", async () => {
-    stubFetch(({ url }) =>
-      url.endsWith("/api/v1/instances") ? json(instances) : json(fullSession),
-    );
+  it("lista instâncias com link para o detalhe, de onde se chega aos vínculos", async () => {
+    stubFetch(({ url }) => instanceStub(url) ?? json(fullSession));
     renderApp("/instancias");
     expect(await screen.findByRole("link", { name: "[SINTÉTICO] Instância A" })).toHaveAttribute(
       "href",
-      `/instancias/${INSTANCE}/vinculos`,
+      `/instancias/${INSTANCE}`,
     );
-    expect(screen.getByText("Sintética")).toBeInTheDocument();
+    expect(within(screen.getByRole("table")).getByText("Ativa")).toBeInTheDocument();
   });
 
   it("vínculos e convites pendentes; conflito de versão mantém o motivo digitado", async () => {
@@ -66,7 +86,8 @@ describe("InstancesPage e MembersPage (US4)", () => {
         );
       }
       if (url.endsWith("/members")) return json({ items: [carla, pending] });
-      if (url.endsWith("/api/v1/instances")) return json(instances);
+      const instance = instanceStub(url);
+      if (instance) return instance;
       return json(fullSession);
     });
     renderApp(`/instancias/${INSTANCE}/vinculos`);
@@ -96,7 +117,8 @@ describe("InstancesPage e MembersPage (US4)", () => {
       if (url.endsWith("/revoke"))
         return json({ instances: [{ instanceId: INSTANCE, status: "pendente" }] });
       if (url.endsWith("/members")) return json({ items: [carla] });
-      if (url.endsWith("/api/v1/instances")) return json(instances);
+      const instance = instanceStub(url);
+      if (instance) return instance;
       return json(fullSession);
     });
     renderApp(`/instancias/${INSTANCE}/vinculos`);

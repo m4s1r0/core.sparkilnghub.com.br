@@ -1,6 +1,10 @@
 import { sql } from "kysely";
 import { PASSWORD_PARAMS_VERSION, hashPassword } from "../../src/modules/identity/password.js";
-import { type InstanceRef, registerInstanceRef } from "../../src/modules/instances/instance-ref.js";
+import {
+  type Instance,
+  type InstanceState,
+  registerInstance,
+} from "../../src/modules/instances/instances.js";
 import { createLogger } from "../../src/platform/logging/logger.js";
 import { type AppContext, createAppContext } from "../../src/platform/context.js";
 import { PoolRegistry } from "../../src/platform/db/pools.js";
@@ -11,6 +15,9 @@ import { loadManifest } from "../../src/platform/migrations/manifest.js";
 import { migrate } from "../../src/platform/migrations/migrator.js";
 import { migrationsDir, referenceProductDir } from "../../src/platform/paths.js";
 import { MysqlTestContext } from "./mysql.js";
+
+/** Contratante sintético criado em todo ambiente de teste (dono das instâncias de apoio). */
+export const TEST_CONTRACTOR_ID = "0192f600-0000-7000-8000-0000000000c2";
 
 /** Relógio controlado pelo teste (expiração de sessões, janelas de limitação, TOTP). */
 export class TestClock {
@@ -52,6 +59,22 @@ export class F01TestEnv {
     }
     const pools = new PoolRegistry({ ...mysql.config, DB_POOL_GLOBAL_LIMIT: 500 });
     const clock = new TestClock();
+    // Catálogo e contratante sintéticos do banco t_<run>_core (F02): toda instância tem dono.
+    const core = await mysql.connect("test", databases.core);
+    await core.query(
+      `INSERT INTO product (code, name, description, status, reference_only, version, created_at,
+                            updated_at)
+       VALUES ('sparkref', '[SINTÉTICO] Produto de referência', 'Testes', 'ativo', TRUE, 1,
+               UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))`,
+    );
+    await core.query(
+      `INSERT INTO contractor (id, legal_name, display_name, name_key, person_type, contact_name,
+                               email, status, version, created_at, updated_at)
+       VALUES (?, '[SINTÉTICO] Contratante de teste', '[SINTÉTICO] Contratante de teste',
+               'sintetico contratante de teste', 'juridica', 'Contato', 'contato@example.test',
+               'ativo', 1, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))`,
+      [uuidToBin(TEST_CONTRACTOR_ID)],
+    );
     const ctx = createAppContext(mysql.config, pools, {
       identityDatabase: databases.identity,
       coreDatabase: databases.core,
@@ -81,7 +104,7 @@ export class F01TestEnv {
   }
 
   /** Retira (ou devolve) o DML do escritor no banco de acesso: instância "inacessível". */
-  async setWriterAccess(instance: InstanceRef, allowed: boolean): Promise<void> {
+  async setWriterAccess(instance: Instance, allowed: boolean): Promise<void> {
     const provisioner = await this.mysql.connect("provisioner");
     const pattern = grantDatabaseName(instance.accessDatabaseName);
     await provisioner.query(
@@ -106,8 +129,9 @@ export class F01TestEnv {
     this.mysql.trackInstanceDatabase(applied.accessDatabase);
     this.mysql.trackUser(applied.user);
     if (!applied.password) throw new Error("usuário da instância deveria ser novo");
-    const ref = await registerInstanceRef(this.ctx, {
+    const ref = await registerInstance(this.ctx, {
       id,
+      contractorId: TEST_CONTRACTOR_ID,
       productCode: "sparkref",
       slug,
       displayName,
@@ -115,7 +139,29 @@ export class F01TestEnv {
       accessDatabaseName: applied.accessDatabase,
       synthetic: true,
     });
-    return { ...ref, user: applied.user, password: applied.password };
+    // Instância de apoio já utilizável: estado ATIVA na fonte e na projeção (fixture de teste;
+    // a aplicação só ativa pelo serviço de transições).
+    await sql`UPDATE instance SET state = 'ATIVA' WHERE id = ${uuidToBin(id)}`.execute(
+      this.ctx.core,
+    );
+    return { ...ref, state: "ATIVA", user: applied.user, password: applied.password };
+  }
+
+  /** Só a linha da instância em `spark_core`, sem bancos (testes de estado e consulta). */
+  async insertInstanceRow(
+    options: { state?: InstanceState; slug?: string; contractorId?: string } = {},
+  ): Promise<string> {
+    const id = newId();
+    const hex = id.replaceAll("-", "");
+    const now = this.clock.now();
+    await sql`INSERT INTO instance (id, contractor_id, product_code, slug, display_name, timezone,
+                state, database_name, access_database_name, authorization_revision, synthetic,
+                version, created_at, updated_at)
+              VALUES (${uuidToBin(id)}, ${uuidToBin(options.contractorId ?? TEST_CONTRACTOR_ID)},
+                      'sparkref', ${options.slug ?? `t-${hex.slice(-10)}`}, '[SINTÉTICO] Linha',
+                      'America/Sao_Paulo', ${options.state ?? "CADASTRADA"}, ${`sparkref_${hex}`},
+                      ${`sparkref_${hex}_acc`}, 1, TRUE, 1, ${now}, ${now})`.execute(this.ctx.core);
+    return id;
   }
 
   /** Conta gravada direto na fonte (sem passar pelo fluxo de convite). */
@@ -171,4 +217,4 @@ export class F01TestEnv {
   }
 }
 
-export type TestInstance = InstanceRef & { user: string; password: string };
+export type TestInstance = Instance & { user: string; password: string };

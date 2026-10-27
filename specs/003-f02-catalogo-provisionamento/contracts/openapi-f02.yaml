@@ -1,0 +1,894 @@
+openapi: 3.1.0
+info:
+  title: SparkCore — catálogo e provisionamento (F02)
+  version: 1.2.0
+  description: >
+    Acrescenta ao contrato publicado (contracts/openapi.yaml v1.1.0) as rotas de F02. Na implementação, estes caminhos e esquemas são incorporados ao arquivo publicado (versão 1.2.0, mudança compatível: rotas novas, campos novos em respostas e parâmetros opcionais novos em GET /api/v1/instances). Convenções em contracts/conventions.md (envelope de erro, correlação, idempotência, não revelação). Ações marcadas "reautenticação" exigem TOTP confirmado nos últimos 5 minutos (F01 FR-008) e respondem 403 AUTH_REAUTH_REQUIRED caso contrário. Nenhuma resposta de /api/v1 contém senha, nome de usuário MySQL, SQL ou caminho de arquivo.
+components:
+  securitySchemes:
+    coreSession:
+      type: apiKey
+      in: cookie
+      name: sparkcore_session
+    appCredential:
+      type: http
+      scheme: bearer
+      description: "<id>.<segredo> de app_credential; /connection exige o escopo `connection`"
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+    ContractorId:
+      name: contractorId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    InstanceId:
+      name: instanceId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ProductCode:
+      name: code
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[a-z][a-z0-9]{2,15}$" }
+    InstanceSlug:
+      name: slug
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[a-z][a-z0-9-]{1,61}[a-z0-9]$" }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+  schemas:
+    Reason: { type: string, minLength: 3, maxLength: 500 }
+    Version:
+      type: integer
+      minimum: 1
+      description: Versão otimista; enviada de volta na edição (COM-027)
+    PageInfo:
+      type: object
+      additionalProperties: false
+      required: [ page, pageSize, total ]
+      properties:
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+    Address:
+      type: object
+      additionalProperties: false
+      properties:
+        cep: { type: string, pattern: "^[0-9]{8}$" }
+        logradouro: { type: string, maxLength: 120 }
+        numero: { type: string, maxLength: 20 }
+        complemento: { type: string, maxLength: 60 }
+        bairro: { type: string, maxLength: 80 }
+        cidade: { type: string, maxLength: 80 }
+        uf: { type: string, pattern: "^[A-Z]{2}$" }
+    ContractorInput:
+      type: object
+      additionalProperties: false
+      required: [ legalName, displayName, personType, contactName, email ]
+      properties:
+        legalName: { type: string, minLength: 2, maxLength: 200 }
+        displayName: { type: string, minLength: 2, maxLength: 120 }
+        personType: { type: string, enum: [ fisica, juridica ] }
+        document:
+          type: [ string, "null" ]
+          maxLength: 18
+          description: CPF ou CNPJ (numérico ou alfanumérico), com ou sem pontuação
+        contactName: { type: string, minLength: 2, maxLength: 120 }
+        email: { type: string, format: email, maxLength: 254 }
+        phone: { type: [ string, "null" ], maxLength: 20 }
+        address: { oneOf: [ { $ref: "#/components/schemas/Address" }, { type: "null" } ] }
+    Contractor:
+      type: object
+      additionalProperties: false
+      required: [ id, legalName, displayName, personType, document, contactName, email, phone, address, status, version, createdAt, updatedAt ]
+      properties:
+        id: { type: string, format: uuid }
+        legalName: { type: string }
+        displayName: { type: string }
+        personType: { type: string, enum: [ fisica, juridica ] }
+        document: { type: [ string, "null" ], description: normalizado (sem pontuação) }
+        contactName: { type: string }
+        email: { type: string }
+        phone: { type: [ string, "null" ] }
+        address: { oneOf: [ { $ref: "#/components/schemas/Address" }, { type: "null" } ] }
+        status: { type: string, enum: [ ativo, inativo ] }
+        version: { $ref: "#/components/schemas/Version" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ContractorSummary:
+      type: object
+      additionalProperties: false
+      required: [ id, displayName, legalName, personType, document, status, products, instanceCount ]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        legalName: { type: string }
+        personType: { type: string, enum: [ fisica, juridica ] }
+        document: { type: [ string, "null" ] }
+        status: { type: string, enum: [ ativo, inativo ] }
+        products: { type: array, items: { type: string } }
+        instanceCount: { type: integer }
+    SimilarContractor:
+      type: object
+      additionalProperties: false
+      required: [ id, displayName, legalName, document, status, match ]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        legalName: { type: string }
+        document: { type: [ string, "null" ] }
+        status: { type: string, enum: [ ativo, inativo ] }
+        match: { type: string, enum: [ documento, nome ] }
+    Product:
+      type: object
+      additionalProperties: false
+      required: [ code, name, description, status, provisioner, deployedVersion, supportedSchemaVersion, provisionable, notProvisionableReason, version ]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [ ativo, inativo ] }
+        provisioner: { type: [ string, "null" ] }
+        deployedVersion: { type: [ integer, "null" ] }
+        supportedSchemaVersion: { type: [ integer, "null" ] }
+        provisionable: { type: boolean }
+        notProvisionableReason:
+          type: [ string, "null" ]
+          enum: [ SEM_PROVISIONADOR, ARTEFATO_INVALIDO, PRODUTO_INATIVO, AMBIENTE_NAO_PERMITIDO, null ]
+        version: { $ref: "#/components/schemas/Version" }
+    InstanceState:
+      type: string
+      enum: [ CADASTRADA, PROVISIONANDO, FALHA_PROVISIONAMENTO, PRONTA, ATIVA, SUSPENSA, MANUTENCAO, ENCERRADA ]
+    InstanceRequest:
+      type: object
+      additionalProperties: false
+      required: [ contractorId, productCode, displayName, slug, timezone, initialAdminEmail ]
+      properties:
+        contractorId: { type: string, format: uuid }
+        productCode: { type: string }
+        displayName: { type: string, minLength: 2, maxLength: 120 }
+        slug: { type: string, minLength: 1, maxLength: 80, description: normalizado no servidor }
+        timezone: { type: string, default: America/Sao_Paulo }
+        initialAdminEmail: { type: string, format: email, maxLength: 254 }
+        notes: { type: [ string, "null" ], maxLength: 4000 }
+        validFrom: { type: [ string, "null" ], format: date }
+        validUntil: { type: [ string, "null" ], format: date }
+    InstanceSummary:
+      type: object
+      additionalProperties: false
+      required: [ id, contractorId, contractorName, productCode, slug, displayName, state, synthetic, lastTask, validityExpired, createdAt ]
+      properties:
+        id: { type: string, format: uuid }
+        contractorId: { type: string, format: uuid }
+        contractorName: { type: string }
+        productCode: { type: string }
+        slug: { type: string }
+        displayName: { type: string }
+        state: { $ref: "#/components/schemas/InstanceState" }
+        synthetic: { type: boolean }
+        lastTask:
+          oneOf:
+            - type: "null"
+            - type: object
+              additionalProperties: false
+              required: [ protocol, status ]
+              properties:
+                protocol: { type: string, pattern: "^PRV-[0-9]{6,}$" }
+                status: { $ref: "#/components/schemas/TaskStatus" }
+        validityExpired: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    InitialInvitationStatus:
+      type: string
+      enum: [ aguardando_emissao, emitido, expirado, aceito, revogado, inexistente ]
+    InstanceDetail:
+      type: object
+      additionalProperties: false
+      description: Detalhe da instância
+      required:
+        - id
+        - contractorId
+        - contractorName
+        - productCode
+        - slug
+        - displayName
+        - state
+        - synthetic
+        - lastTask
+        - validityExpired
+        - createdAt
+        - timezone
+        - initialAdminEmail
+        - schemaVersion
+        - notes
+        - validFrom
+        - validUntil
+        - version
+        - initialInvitation
+        - transitions
+      properties:
+        id:
+          type: string
+          format: uuid
+        contractorId:
+          type: string
+          format: uuid
+        contractorName:
+          type: string
+        productCode:
+          type: string
+        slug:
+          type: string
+        displayName:
+          type: string
+        state:
+          $ref: "#/components/schemas/InstanceState"
+        synthetic:
+          type: boolean
+        lastTask:
+          oneOf:
+            - type: "null"
+            - type: object
+              additionalProperties: false
+              required:
+                - protocol
+                - status
+              properties:
+                protocol:
+                  type: string
+                  pattern: ^PRV-[0-9]{6,}$
+                status:
+                  $ref: "#/components/schemas/TaskStatus"
+        validityExpired:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+        initialAdminEmail:
+          type: string
+        schemaVersion:
+          type:
+            - integer
+            - "null"
+        notes:
+          type:
+            - string
+            - "null"
+        validFrom:
+          type:
+            - string
+            - "null"
+          format: date
+        validUntil:
+          type:
+            - string
+            - "null"
+          format: date
+        version:
+          $ref: "#/components/schemas/Version"
+        initialInvitation:
+          type: object
+          required:
+            - status
+            - expiresAt
+          properties:
+            status:
+              $ref: "#/components/schemas/InitialInvitationStatus"
+            expiresAt:
+              type:
+                - string
+                - "null"
+              format: date-time
+        transitions:
+          type: array
+          items:
+            type: object
+            required:
+              - from
+              - to
+              - actorKind
+              - actorName
+              - reason
+              - at
+            properties:
+              from:
+                oneOf:
+                  - $ref: "#/components/schemas/InstanceState"
+                  - type: "null"
+              to:
+                $ref: "#/components/schemas/InstanceState"
+              actorKind:
+                type: string
+                enum:
+                  - usuario
+                  - sistema
+              actorName:
+                type: string
+              reason:
+                type:
+                  - string
+                  - "null"
+              at:
+                type: string
+                format: date-time
+    TaskStatus:
+      type: string
+      enum: [ pendente, em_execucao, aguardando_repeticao, concluida, falhou ]
+    StepName:
+      type: string
+      enum: [ validar, reservar, criar_bancos, criar_credencial, aplicar_migracoes, configurar, preparar_convite, verificar, concluir ]
+    ProvisioningTask:
+      type: object
+      additionalProperties: false
+      required: [ id, protocol, instanceId, instanceState, status, currentStep, runNumber, attempt, maxAttempts, nextAttemptAt, artifactVersion, error, steps, createdAt, startedAt, finishedAt ]
+      properties:
+        id: { type: string, format: uuid }
+        protocol: { type: string, pattern: "^PRV-[0-9]{6,}$" }
+        instanceId: { type: string, format: uuid }
+        instanceState: { $ref: "#/components/schemas/InstanceState" }
+        status: { $ref: "#/components/schemas/TaskStatus" }
+        currentStep: { oneOf: [ { $ref: "#/components/schemas/StepName" }, { type: "null" } ] }
+        runNumber: { type: integer }
+        attempt: { type: integer }
+        maxAttempts: { type: integer }
+        nextAttemptAt: { type: [ string, "null" ], format: date-time }
+        artifactVersion: { type: integer }
+        error:
+          oneOf:
+            - type: "null"
+            - type: object
+              additionalProperties: false
+              required: [ code, message, step, retryable ]
+              properties:
+                code:
+                  type: string
+                  description: >
+                    PROVISIONING_RESOURCE_CONFLICT, PROVISIONING_MIGRATION_FAILED, PROVISIONING_MIGRATION_INTERRUPTED, PROVISIONING_PRIVILEGE_MISSING, PROVISIONING_ARTIFACT_INVALID, PROVISIONING_ARTIFACT_CHANGED, PROVISIONING_DEPENDENCY_UNAVAILABLE, PROVISIONING_VERIFICATION_FAILED
+                message: { type: string }
+                step: { $ref: "#/components/schemas/StepName" }
+                retryable:
+                  type: boolean
+                  description: true quando "Repetir" pode resolver sem procedimento operacional
+        steps:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [ step, runNumber, attempt, status, startedAt, finishedAt, durationMs, errorCode ]
+            properties:
+              step: { $ref: "#/components/schemas/StepName" }
+              runNumber: { type: integer }
+              attempt: { type: integer }
+              status: { type: string, enum: [ em_execucao, concluida, falhou, interrompida, ignorada ] }
+              startedAt: { type: string, format: date-time }
+              finishedAt: { type: [ string, "null" ], format: date-time }
+              durationMs: { type: [ integer, "null" ] }
+              errorCode: { type: [ string, "null" ] }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: [ string, "null" ], format: date-time }
+        finishedAt: { type: [ string, "null" ], format: date-time }
+    InstanceCreated:
+      type: object
+      additionalProperties: false
+      required: [ instance, task ]
+      properties:
+        instance: { $ref: "#/components/schemas/InstanceSummary" }
+        task:
+          type: object
+          required: [ id, protocol, status ]
+          properties:
+            id: { type: string, format: uuid }
+            protocol: { type: string }
+            status: { $ref: "#/components/schemas/TaskStatus" }
+    OneTimeLink:
+      type: object
+      additionalProperties: false
+      required: [ link, expiresAt ]
+      properties:
+        link: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+    InstanceConnection:
+      type: object
+      additionalProperties: false
+      required: [ instanceId, state, host, port, database, accessDatabase, user, password, credentialVersion ]
+      properties:
+        instanceId: { type: string, format: uuid }
+        state: { $ref: "#/components/schemas/InstanceState" }
+        host: { type: string }
+        port: { type: integer }
+        database: { type: string }
+        accessDatabase: { type: string }
+        user: { type: string }
+        password: { type: string, description: "Segredo; nunca registrar em log" }
+        credentialVersion: { type: integer }
+    ContractorDetail:
+      type: object
+      additionalProperties: false
+      description: Contratante com suas instâncias
+      required:
+        - id
+        - legalName
+        - displayName
+        - personType
+        - document
+        - contactName
+        - email
+        - phone
+        - address
+        - status
+        - version
+        - createdAt
+        - updatedAt
+        - instances
+      properties:
+        id:
+          type: string
+          format: uuid
+        legalName:
+          type: string
+        displayName:
+          type: string
+        personType:
+          type: string
+          enum:
+            - fisica
+            - juridica
+        document:
+          type:
+            - string
+            - "null"
+          description: normalizado (sem pontuação)
+        contactName:
+          type: string
+        email:
+          type: string
+        phone:
+          type:
+            - string
+            - "null"
+        address:
+          oneOf:
+            - $ref: "#/components/schemas/Address"
+            - type: "null"
+        status:
+          type: string
+          enum:
+            - ativo
+            - inativo
+        version:
+          $ref: "#/components/schemas/Version"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        instances:
+          type: array
+          items:
+            $ref: "#/components/schemas/InstanceSummary"
+    ContractorUpdate:
+      type: object
+      additionalProperties: false
+      required:
+        - legalName
+        - displayName
+        - personType
+        - contactName
+        - email
+        - version
+      properties:
+        legalName:
+          type: string
+          minLength: 2
+          maxLength: 200
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 120
+        personType:
+          type: string
+          enum:
+            - fisica
+            - juridica
+        document:
+          type:
+            - string
+            - "null"
+          maxLength: 18
+          description: CPF ou CNPJ (numérico ou alfanumérico), com ou sem pontuação
+        contactName:
+          type: string
+          minLength: 2
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          type:
+            - string
+            - "null"
+          maxLength: 20
+        address:
+          oneOf:
+            - $ref: "#/components/schemas/Address"
+            - type: "null"
+        version:
+          $ref: "#/components/schemas/Version"
+paths:
+  /api/v1/contractors:
+    get:
+      operationId: listContractors
+      security: [ { coreSession: [] } ]
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 120 }, description: nome, documento ou contato }
+        - { name: status, in: query, schema: { type: string, enum: [ ativo, inativo ] } }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Contratantes paginados com produtos e quantidade de instâncias
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ items, pageInfo ]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/ContractorSummary" } }
+                  pageInfo: { $ref: "#/components/schemas/PageInfo" }
+    post:
+      operationId: createContractor
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/IdempotencyKey" } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ContractorInput" } } }
+      responses:
+        "201": { description: Criado, content: { application/json: { schema: { $ref: "#/components/schemas/Contractor" } } } }
+        "409": { description: CONFLICT_DOCUMENT_TAKEN (field /document; details com o contratante existente) ou CONFLICT_IDEMPOTENCY_MISMATCH }
+        "422": { description: VALIDATION_FAILED (documento inválido, tipo incompatível, telefone, UF) }
+  /api/v1/contractors/similar:
+    get:
+      operationId: findSimilarContractors
+      security: [ { coreSession: [] } ]
+      parameters:
+        - { name: legalName, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: document, in: query, schema: { type: string, maxLength: 18 } }
+      responses:
+        "200":
+          description: Até 10 possíveis homônimos ou mesmo documento; nada é fundido (SC-005)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ items ]
+                properties:
+                  items: { type: array, maxItems: 10, items: { $ref: "#/components/schemas/SimilarContractor" } }
+  /api/v1/contractors/{contractorId}:
+    get:
+      operationId: getContractor
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/ContractorId" } ]
+      responses:
+        "200":
+          description: Contratante com suas instâncias
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractorDetail"
+        "404": { description: NOT_FOUND }
+    put:
+      operationId: updateContractor
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/ContractorId" } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContractorUpdate"
+      responses:
+        "200": { description: Atualizado, content: { application/json: { schema: { $ref: "#/components/schemas/Contractor" } } } }
+        "409": { description: CONFLICT_VERSION (recarregar) ou CONFLICT_DOCUMENT_TAKEN }
+        "422": { description: VALIDATION_FAILED }
+  /api/v1/contractors/{contractorId}/inactivate:
+    post:
+      operationId: inactivateContractor
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/ContractorId" } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [ reason, version ]
+              properties:
+                reason: { $ref: "#/components/schemas/Reason" }
+                version: { $ref: "#/components/schemas/Version" }
+      responses:
+        "200": { description: Inativado, content: { application/json: { schema: { $ref: "#/components/schemas/Contractor" } } } }
+        "409":
+          description: >
+            CONFLICT_CONTRACTOR_HAS_ACTIVE_INSTANCES (error.details lista {field: "/instances", code: instanceId, message: nome de exibição}) ou CONFLICT_VERSION
+  /api/v1/contractors/{contractorId}/reactivate:
+    post:
+      operationId: reactivateContractor
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/ContractorId" } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [ reason, version ]
+              properties:
+                reason: { $ref: "#/components/schemas/Reason" }
+                version: { $ref: "#/components/schemas/Version" }
+      responses:
+        "200": { description: Reativado, content: { application/json: { schema: { $ref: "#/components/schemas/Contractor" } } } }
+        "409": { description: CONFLICT_VERSION }
+  /api/v1/products:
+    get:
+      operationId: listProducts
+      security: [ { coreSession: [] } ]
+      responses:
+        "200":
+          description: Catálogo; em produção não inclui produtos de referência
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ items ]
+                properties: { items: { type: array, items: { $ref: "#/components/schemas/Product" } } }
+  /api/v1/products/{code}:
+    get:
+      operationId: getProduct
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/ProductCode" } ]
+      responses:
+        "200": { description: Produto, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }
+        "404": { description: NOT_FOUND (inclusive produto de referência em produção) }
+    put:
+      operationId: updateProduct
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/ProductCode" } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [ name, description, version ]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                description: { type: string, maxLength: 280 }
+                version: { $ref: "#/components/schemas/Version" }
+      responses:
+        "200": { description: Atualizado, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }
+        "409": { description: CONFLICT_VERSION }
+        "422": { description: VALIDATION_FAILED (campos desconhecidos, como código ou provisionador, são recusados) }
+  /api/v1/products/{code}/inactivate:
+    post:
+      operationId: inactivateProduct
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/ProductCode" } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [ reason, version ]
+              properties:
+                reason: { $ref: "#/components/schemas/Reason" }
+                version: { $ref: "#/components/schemas/Version" }
+      responses:
+        "200": { description: Inativado; instâncias existentes não mudam (SC-008) }
+        "409": { description: CONFLICT_VERSION }
+  /api/v1/products/{code}/reactivate:
+    post:
+      operationId: reactivateProduct
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/ProductCode" } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [ reason, version ]
+              properties:
+                reason: { $ref: "#/components/schemas/Reason" }
+                version: { $ref: "#/components/schemas/Version" }
+      responses:
+        "200": { description: Reativado }
+        "409": { description: CONFLICT_VERSION }
+  /api/v1/instances:
+    get:
+      operationId: listInstances
+      description: >
+        Substitui a listagem mínima de F01 (mesmos campos de antes, mais os novos). Sem filtros e sem paginação explícita, devolve a primeira página de 25 (compatível com a interface F01).
+      security: [ { coreSession: [] } ]
+      parameters:
+        - { name: contractorId, in: query, schema: { type: string, format: uuid } }
+        - { name: productCode, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { $ref: "#/components/schemas/InstanceState" } }
+        - { name: createdFrom, in: query, schema: { type: string, format: date } }
+        - { name: createdTo, in: query, schema: { type: string, format: date }, description: "inclusivo: datas civis em America/Sao_Paulo, intervalo [createdFrom, createdTo + 1 dia)" }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Instâncias paginadas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ items, pageInfo ]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InstanceSummary" } }
+                  pageInfo: { $ref: "#/components/schemas/PageInfo" }
+    post:
+      operationId: requestInstance
+      description: >
+        Reautenticação. Cria a instância (CADASTRADA) e a tarefa de provisionamento numa transação; não espera a tarefa (SC-020). Mesma Idempotency-Key e mesmo corpo → mesma resposta (201); corpo diferente → 409 (T-01).
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/IdempotencyKey" } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/InstanceRequest" } } }
+      responses:
+        "201": { description: Solicitação aceita, content: { application/json: { schema: { $ref: "#/components/schemas/InstanceCreated" } } } }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409":
+          description: >
+            CONFLICT_SLUG_TAKEN (field /slug), CONFLICT_CONTRACTOR_INACTIVE, CONFLICT_PRODUCT_NOT_PROVISIONABLE (com o motivo), CONFLICT_IDEMPOTENCY_MISMATCH
+        "422": { description: VALIDATION_FAILED (slug reservado ou inválido, fuso, e-mail, vigência) }
+  /api/v1/instances/preview:
+    post:
+      operationId: previewInstance
+      description: Normaliza e confere o slug e os dados, sem reservar nada.
+      security: [ { coreSession: [] } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/InstanceRequest" } } }
+      responses:
+        "200":
+          description: Resumo sem credenciais
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ slug, slugAvailable, contractor, product, timezone, initialAdminEmail ]
+                properties:
+                  slug: { type: string }
+                  slugAvailable: { type: boolean }
+                  contractor: { $ref: "#/components/schemas/ContractorSummary" }
+                  product: { $ref: "#/components/schemas/Product" }
+                  timezone: { type: string }
+                  initialAdminEmail: { type: string }
+        "422": { description: VALIDATION_FAILED }
+  /api/v1/instances/timezones:
+    get:
+      operationId: listTimezones
+      security: [ { coreSession: [] } ]
+      responses:
+        "200":
+          description: Fusos suportados (D-09), padrão America/Sao_Paulo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ items, default ]
+                properties:
+                  items: { type: array, items: { type: string } }
+                  default: { type: string }
+  /api/v1/instances/{instanceId}:
+    get:
+      operationId: getInstance
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/InstanceId" } ]
+      responses:
+        "200": { description: Detalhe, content: { application/json: { schema: { $ref: "#/components/schemas/InstanceDetail" } } } }
+        "404": { description: NOT_FOUND }
+    put:
+      operationId: updateInstance
+      description: Só nome de exibição, anotações e vigência; slug, produto e contratante são recusados (422).
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/InstanceId" } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [ displayName, notes, validFrom, validUntil, version ]
+              properties:
+                displayName: { type: string, minLength: 2, maxLength: 120 }
+                notes: { type: [ string, "null" ], maxLength: 4000 }
+                validFrom: { type: [ string, "null" ], format: date }
+                validUntil: { type: [ string, "null" ], format: date }
+                version: { $ref: "#/components/schemas/Version" }
+      responses:
+        "200": { description: Atualizado, content: { application/json: { schema: { $ref: "#/components/schemas/InstanceDetail" } } } }
+        "409": { description: CONFLICT_VERSION }
+        "422": { description: VALIDATION_FAILED }
+  /api/v1/instances/{instanceId}/provisioning:
+    get:
+      operationId: getProvisioning
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/InstanceId" } ]
+      responses:
+        "200": { description: Tarefa e etapas, content: { application/json: { schema: { $ref: "#/components/schemas/ProvisioningTask" } } } }
+        "404": { description: NOT_FOUND }
+  /api/v1/instances/{instanceId}/provisioning/retry:
+    post:
+      operationId: retryProvisioning
+      description: Reautenticação. Só em FALHA_PROVISIONAMENTO; retoma da última etapa válida (SC-023).
+      security: [ { coreSession: [] } ]
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [ reason ]
+              properties: { reason: { $ref: "#/components/schemas/Reason" } }
+      responses:
+        "202": { description: Nova execução agendada, content: { application/json: { schema: { $ref: "#/components/schemas/ProvisioningTask" } } } }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409": { description: CONFLICT_STATE (instância não está em falha) ou CONFLICT_IDEMPOTENCY_MISMATCH }
+  /api/v1/instances/{instanceId}/initial-invitation/issue:
+    post:
+      operationId: issueInitialInvitation
+      description: >
+        Reautenticação. Só com a instância PRONTA (F03 amplia para ATIVA sem administrador). Gera link de uso único exibido uma vez (D-07), válido por 48 h; o anterior deixa de valer.
+      security: [ { coreSession: [] } ]
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201": { description: Link exibido uma vez, content: { application/json: { schema: { $ref: "#/components/schemas/OneTimeLink" } } } }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409": { description: CONFLICT_STATE (não pronta) ou CONFLICT_INITIAL_INVITATION_ACCEPTED }
+  /internal/v1/instances/{slug}/connection:
+    get:
+      operationId: getInstanceConnection
+      description: >
+        Conexão da instância para o produto dono da credencial (escopo `connection`). Instância de outro produto ou inexistente → 404 idêntico. Resposta com Cache-Control no-store; nunca registrada em log. O produto pode mantê-la em memória (T-15).
+      security: [ { appCredential: [] } ]
+      parameters: [ { $ref: "#/components/parameters/InstanceSlug" } ]
+      responses:
+        "200":
+          description: Conexão
+          headers: { Cache-Control: { schema: { type: string, const: no-store } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/InstanceConnection" } } }
+        "401": { description: "AUTH_APP_CREDENTIAL_INVALID (ausente, revogada, vencida ou sem o escopo connection, como em F01)" }
+        "404": { description: NOT_FOUND }
+        "409": { description: INSTANCE_NOT_READY (CADASTRADA, PROVISIONANDO ou FALHA_PROVISIONAMENTO) }
