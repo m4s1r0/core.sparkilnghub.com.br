@@ -13,6 +13,12 @@
       "name": "0002_worker_heartbeat",
       "file": "migrations/0002_worker_heartbeat.sql",
       "sha256": "989e695a95541a4254403adfbbc4bbb51fb63a1fbe7fd5d28c3806bbca47c8d9"
+    },
+    {
+      "version": 3,
+      "name": "0003_instancias_credenciais_sync",
+      "file": "migrations/0003_instancias_credenciais_sync.sql",
+      "sha256": "5101c8602ea2c0e9bba31db2540b5bd043ba55ea8cc09cdaf3a9abae94633a02"
     }
   ]
 }

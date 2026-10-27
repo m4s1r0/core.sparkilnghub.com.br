@@ -35,6 +35,18 @@ Cobertura percentual não é critério de aceite; a evidência é por requisito 
   reexecutar os testes de interface. `npm run check:ds` falha se o `.tgz` mudar sem essa entrada.
 - Componente ou bloco que falte é proposto no design system, não copiado para cá.
 
+## Credenciais de aplicação (contratos internos)
+
+- Cada produto chama `/internal/v1` com uma credencial própria (`npm run app-credential --
+create <produto> <rótulo> --scopes sessions,members`), com o menor escopo necessário. O segredo
+  aparece uma única vez; guarde-o no cofre do ambiente, nunca no repositório, em log ou em ticket.
+- A credencial define o produto: instâncias de outro produto são tratadas como inexistentes.
+- Rotação sem parada: crie a nova, implante no produto, confirme o uso (`app-credential -- list`
+  mostra o último uso) e então revogue a antiga (`app-credential -- revoke <id>`).
+- Suspeita de vazamento: revogue imediatamente; a revogação vale na requisição seguinte.
+- Em desenvolvimento, a credencial do `sparkref` criada pelo `db:seed` só vale para as instâncias
+  sintéticas e fica apenas no `.env` local (`SPARKREF_APP_CREDENTIAL`).
+
 ## Proteção de `main` (configuração manual no GitHub)
 
 Em **Settings → Branches → Branch protection rules** para `main`:

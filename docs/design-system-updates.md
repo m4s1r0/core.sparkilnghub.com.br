@@ -30,3 +30,23 @@ tiver entrada com seu sha256 aqui.
   (`web/src/styles/layers.css`). Proposta: o pacote declarar a ordem completa.
 - **Tamanho do bundle**: importar qualquer componente traz o editor Tiptap (~750 kB de JS
   minificado na página base). Proposta: entrada separada para o `RichTextEditor`.
+
+## Lacunas observadas na 0.2.0 em F01 (propor no design system)
+
+F01 continua na 0.2.0 (sem troca de versão). As telas de identidade usam só a API pública; as
+lacunas abaixo foram contornadas no produto e devem virar propostas no design system:
+
+- **Campo de código de verificação**: não há componente para códigos de 6 dígitos (TOTP). As
+  telas usam `Input` com `inputMode="numeric"`, `autoComplete="one-time-code"` e `maxLength`.
+  Proposta: `OtpInput` com colagem, teclado numérico e anúncio de erro.
+- **Gerador de QR code**: não há componente. A interface acrescentou a dependência
+  `qrcode` 1.5 (MIT) em `web/` e gera o QR do URI `otpauth://` como SVG (sem canvas), exibido em
+  `<img>` com texto alternativo e com o segredo também em texto. Proposta: componente de QR com
+  alternativa textual embutida.
+- **`Dialog` sempre exige `trigger`**: diálogos abertos pela aplicação (reautenticação pedida
+  pela API, link exibido uma vez, confirmação ao sair sem guardar códigos) recebem um
+  `<span hidden />` como trigger e são controlados por `open`. Proposta: `trigger` opcional no
+  modo controlado.
+- **`Navbar` e `Breadcrumb` só com `href`**: navegam recarregando a SPA. O painel usa cabeçalho
+  composto com `NavLink` do roteador; o `Breadcrumb` é usado como está. Proposta: slot de link
+  (ou `onNavigate`) para integração com roteadores.

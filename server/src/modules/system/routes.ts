@@ -1,5 +1,5 @@
 import { ErrorEnvelope, Liveness, SystemStatus } from "@sparkcore/contracts";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, preHandlerAsyncHookHandler } from "fastify";
 import type { SystemStatusService } from "./probe.js";
 
 export const RETRY_AFTER_SECONDS = 10;
@@ -8,14 +8,21 @@ export const RETRY_AFTER_SECONDS = 10;
  * `GET /health/live` (público, sem dependências) e `GET /api/v1/system/status`
  * (contracts/openapi.yaml). Em F01 a situação detalhada passa a exigir sessão de administrador.
  */
-export function registerSystemRoutes(app: FastifyInstance, service: SystemStatusService): void {
+export function registerSystemRoutes(
+  app: FastifyInstance,
+  service: SystemStatusService,
+  options: { preHandler?: preHandlerAsyncHookHandler } = {},
+): void {
   app.get("/health/live", { schema: { response: { 200: Liveness } } }, () => ({
     status: "ok" as const,
   }));
 
   app.get(
     "/api/v1/system/status",
-    { schema: { response: { 200: SystemStatus, 503: SystemStatus, 500: ErrorEnvelope } } },
+    {
+      ...(options.preHandler ? { preHandler: options.preHandler } : {}),
+      schema: { response: { 200: SystemStatus, 503: SystemStatus, 500: ErrorEnvelope } },
+    },
     async (_request, reply) => {
       const status = await service.check();
       if (status.status === "INDISPONIVEL") {

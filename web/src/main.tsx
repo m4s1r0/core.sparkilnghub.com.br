@@ -5,13 +5,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
-import { SystemStatusPage } from "./pages/system-status/SystemStatusPage";
+import { routes } from "./app/routes";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });
 
-const router = createBrowserRouter([{ path: "/", element: <SystemStatusPage /> }]);
+const router = createBrowserRouter(routes);
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Elemento #root ausente");

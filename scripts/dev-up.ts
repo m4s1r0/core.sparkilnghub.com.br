@@ -4,7 +4,8 @@ import type { ChildProcess } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadConfig } from "../server/src/platform/config/load.js";
-import { openAdminConnection } from "../server/src/platform/db/pools.js";
+import { SystemStatusService } from "../server/src/modules/system/probe.js";
+import { openAdminConnection, PoolRegistry } from "../server/src/platform/db/pools.js";
 import {
   killTree,
   mysqlContainerHealth,
@@ -44,6 +45,16 @@ async function main() {
   console.log("Subindo MySQL (docker compose)…");
   await run("docker", ["compose", "up", "-d", "mysql"]);
   await waitFor("MySQL saudável", () => Promise.resolve(mysqlContainerHealth() === "healthy"));
+  // O entrypoint só roda o init com volume vazio; reaplicá-lo (idempotente) cria usuários e
+  // privilégios acrescentados em fatias posteriores, como o escritor da projeção de F01.
+  await run("docker", [
+    "compose",
+    "exec",
+    "-T",
+    "mysql",
+    "bash",
+    "/docker-entrypoint-initdb.d/01-databases-and-users.sh",
+  ]);
 
   const connection = await openAdminConnection(config, "migrator");
   const [rows] = await connection.query("SELECT VERSION() AS version");
@@ -82,14 +93,21 @@ async function main() {
     });
   }
 
-  const statusUrl = `http://${config.HTTP_HOST}:${config.HTTP_PORT}/api/v1/system/status`;
-  await waitFor("situação SAUDAVEL", async () => {
-    const response = await fetch(statusUrl);
-    return response.ok && ((await response.json()) as { status: string }).status === "SAUDAVEL";
-  });
+  // Desde F01 /api/v1/system/status exige sessão de administrador: o processo responde em
+  // /health/live e a situação é conferida com a mesma sonda, em processo.
+  const liveUrl = `http://${config.HTTP_HOST}:${config.HTTP_PORT}/health/live`;
+  await waitFor("servidor em /health/live", async () => (await fetch(liveUrl)).ok);
+  const pools = new PoolRegistry(config);
+  try {
+    const probe = new SystemStatusService(config, pools);
+    await waitFor("situação SAUDAVEL", async () => (await probe.check()).status === "SAUDAVEL");
+  } finally {
+    await pools.closeAll();
+  }
   console.log("\nSparkCore saudável");
   console.log(`  Interface: http://127.0.0.1:${webPort}/`);
-  console.log(`  API:       http://${config.HTTP_HOST}:${config.HTTP_PORT}/api/v1/system/status`);
+  console.log(`  API:       http://${config.HTTP_HOST}:${config.HTTP_PORT}/health/live`);
+  console.log("  Primeiro acesso: npm run bootstrap:admin -- <seu-email>");
   console.log("  Ctrl+C para encerrar; `npm run dev:down` para parar o MySQL.\n");
 }
 

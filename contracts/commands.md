@@ -1,0 +1,33 @@
+# Contrato de comandos do repositório
+
+Comandos estáveis que documentação, CI e agentes usam. Executam igual em Windows (PowerShell) e
+Linux; implementados como scripts Node chamados por `npm run`. Nenhum comando aceita segredo por
+argumento de linha de comando. Origem: F00 (`specs/001-f00-base-decisoes/contracts/commands.md`)
+e F01 (`specs/002-f01-identidade-contextos/contracts/commands-f01.md`).
+
+## Ambiente e verificação (F00)
+
+| Comando                   | Efeito                                                                                                                          | Ambientes permitidos                                               | Código de saída                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------- |
+| `npm run dev:up`          | Sobe MySQL (compose), reaplica o init de usuários, migra Core, carrega sementes, inicia servidor, trabalhador e interface       | `development`                                                      | 0 ao ficar saudável; ≠0 com mensagem e componente |
+| `npm run dev:down`        | Para processos e contêiner, preservando volume                                                                                  | `development`                                                      | 0                                                 |
+| `npm run dev:reset`       | Recria bancos de desenvolvimento vazios (inclusive bancos de acesso `_acc` das instâncias sintéticas), migra e carrega sementes | `development` apenas; recusa se `environment_marker` ≠ development | 0 / 2 recusado                                    |
+| `npm run db:migrate`      | Aplica migrações do Core (`spark_core`, `spark_identity`)                                                                       | todos                                                              | 0 / ≠0 com versão e motivo                        |
+| `npm run db:seed`         | Carrega dados sintéticos de forma idempotente (F01: instâncias A e B, credencial do `sparkref`, contas ana, bruno e carla)      | `development`, `homologation`                                      | 0 / 2 recusado                                    |
+| `npm run ref:validate`    | Valida o artefato do produto de referência (manifesto, checksums, construções proibidas)                                        | todos                                                              | 0 / ≠0                                            |
+| `npm run verify`          | Executa localmente as etapas da CI                                                                                              | `development`                                                      | 0 se todas passam                                 |
+| `npm run gate -- <fatia>` | Verifica se a fatia pode estar `pronta` (decisões exigidas confirmadas)                                                         | todos                                                              | 0 / 3 bloqueada, listando decisões                |
+
+## Identidade e projeção de acesso (F01)
+
+| Comando                                                                         | Efeito                                                                                                                                                                         | Ambientes                                          | Código de saída                                                                                                           |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `npm run bootstrap:admin -- <email>`                                            | Gera o convite do primeiro administrador da plataforma (48 h) e imprime o link uma única vez; recusa se já houver administrador ativo ou convite de plataforma pendente válido | todos (produção pelo responsável pela implantação) | 0 com link; 3 recusado; 1 uso inválido                                                                                    |
+| `npm run app-credential -- create <produto> <rótulo> --scopes sessions,members` | Cria credencial de aplicação e imprime `<id>.<segredo>` uma única vez                                                                                                          | todos                                              | 0 / 1                                                                                                                     |
+| `npm run app-credential -- revoke <id>`                                         | Revoga credencial (efeito imediato)                                                                                                                                            | todos                                              | 0                                                                                                                         |
+| `npm run app-credential -- list`                                                | Lista credenciais sem segredos                                                                                                                                                 | todos                                              | 0                                                                                                                         |
+| `npm run access:reconcile -- <slug>`                                            | Recalcula a projeção de acesso da instância a partir de `spark_identity` e registra as divergências corrigidas (FR-033)                                                        | todos                                              | 0 sem divergência ou com correções (contagem impressa); 2 instância inexistente ou ambígua; 4 banco de acesso inacessível |
+
+Recusas por ambiente gravam uma linha de log estruturado com `event: "env_guard_refused"`,
+comando, `SPARK_ENV` e marcador encontrado. Links e segredos impressos uma única vez não ficam em
+log nem no banco (só o sha256).

@@ -3,8 +3,19 @@ import { type LoadedManifest, MigrationError, type MigrationErrorCode } from "./
 
 export const HISTORY_TABLE = "_spark_schema_history";
 
-const CREATE_HISTORY = `
-CREATE TABLE IF NOT EXISTS ${HISTORY_TABLE} (
+const HISTORY_NAME = /^_spark_[a-z_]{1,48}$/;
+
+/** Nome da tabela de histórico; validado porque entra no SQL sem parâmetro. */
+function historyName(table: string | undefined): string {
+  const name = table ?? HISTORY_TABLE;
+  if (!HISTORY_NAME.test(name)) {
+    throw new MigrationError("MANIFEST_INVALID", `Nome de tabela de histórico inválido: ${name}`);
+  }
+  return name;
+}
+
+const createHistory = (table: string) => `
+CREATE TABLE IF NOT EXISTS ${table} (
   version INT UNSIGNED NOT NULL PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
   checksum CHAR(64) NOT NULL,
@@ -86,10 +97,14 @@ function hasStatements(sql: string): boolean {
   );
 }
 
-export async function readHistory(connection: Connection): Promise<HistoryRow[]> {
+export async function readHistory(
+  connection: Connection,
+  historyTable?: string,
+): Promise<HistoryRow[]> {
+  const table = historyName(historyTable);
   try {
     const [rows] = await connection.query(
-      `SELECT version, name, checksum, artifact, status FROM ${HISTORY_TABLE} ORDER BY version`,
+      `SELECT version, name, checksum, artifact, status FROM ${table} ORDER BY version`,
     );
     return rows as HistoryRow[];
   } catch (error) {
@@ -104,6 +119,11 @@ export interface MigrateOptions {
   afterVersion?: (version: number, connection: Connection) => Promise<void>;
   /** Para em uma versão específica (usado em testes de atualização). */
   targetVersion?: number;
+  /**
+   * Tabela de histórico (padrão `_spark_schema_history`). Artefatos do Core aplicados em banco de
+   * instância usam outra, ex.: `_spark_access_history` da projeção de acesso (F01 R-07).
+   */
+  historyTable?: string;
 }
 
 /**
@@ -116,8 +136,9 @@ export async function migrate(
   loaded: LoadedManifest,
   options: MigrateOptions,
 ): Promise<{ applied: number[] }> {
-  await connection.query(CREATE_HISTORY);
-  const check = checkHistory(await readHistory(connection), loaded);
+  const table = historyName(options.historyTable);
+  await connection.query(createHistory(table));
+  const check = checkHistory(await readHistory(connection, table), loaded);
   if (check.problem) {
     throw new MigrationError(
       check.problem,
@@ -134,7 +155,7 @@ export async function migrate(
   const appliedBy = options.appliedBy.slice(0, 64);
   for (const migration of loaded.migrations.slice(check.appliedVersion, target)) {
     await connection.query(
-      `INSERT INTO ${HISTORY_TABLE} (version, name, checksum, artifact, status, started_at, applied_by)
+      `INSERT INTO ${table} (version, name, checksum, artifact, status, started_at, applied_by)
        VALUES (?, ?, ?, ?, 'falha', UTC_TIMESTAMP(6), ?)`,
       [migration.version, migration.name, migration.sha256, loaded.artifact, appliedBy],
     );
@@ -143,7 +164,7 @@ export async function migrate(
       if (options.afterVersion) await options.afterVersion(migration.version, connection);
     } catch (error) {
       await connection
-        .query(`UPDATE ${HISTORY_TABLE} SET finished_at = UTC_TIMESTAMP(6) WHERE version = ?`, [
+        .query(`UPDATE ${table} SET finished_at = UTC_TIMESTAMP(6) WHERE version = ?`, [
           migration.version,
         ])
         .catch(() => undefined);
@@ -155,7 +176,7 @@ export async function migrate(
       );
     }
     await connection.query(
-      `UPDATE ${HISTORY_TABLE} SET status = 'aplicada', finished_at = UTC_TIMESTAMP(6) WHERE version = ?`,
+      `UPDATE ${table} SET status = 'aplicada', finished_at = UTC_TIMESTAMP(6) WHERE version = ?`,
       [migration.version],
     );
     applied.push(migration.version);

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Cria os bancos lógicos do Core e uma credencial por papel (research.md R-06).
-# Executado uma única vez pelo entrypoint da imagem mysql:8.4, com o volume vazio.
-# Também usado pela CI para preparar o service container.
+# Executado pelo entrypoint da imagem mysql:8.4 com o volume vazio, pela CI para preparar o
+# service container e pelo `npm run dev:up` em volumes já existentes. Idempotente.
 set -euo pipefail
 
 MYSQL_CMD=(mysql --protocol=socket -uroot "-p${MYSQL_ROOT_PASSWORD}")
@@ -23,9 +23,15 @@ CREATE USER IF NOT EXISTS 'spark_core_web'@'%' IDENTIFIED BY '${MYSQL_WEB_PASSWO
 GRANT SELECT, INSERT, UPDATE, DELETE ON spark_core.* TO 'spark_core_web'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON spark_identity.* TO 'spark_core_web'@'%';
 
--- Trabalhador: só DML em spark_core.
+-- Trabalhador: só DML em spark_core; em spark_identity lê a fonte dos vínculos para
+-- sincronizar e reconciliar a projeção de acesso e grava eventos de segurança (F01, R-10).
 CREATE USER IF NOT EXISTS 'spark_core_worker'@'%' IDENTIFIED BY '${MYSQL_WORKER_PASSWORD}';
 GRANT SELECT, INSERT, UPDATE, DELETE ON spark_core.* TO 'spark_core_worker'@'%';
+GRANT SELECT, INSERT ON spark_identity.* TO 'spark_core_worker'@'%';
+
+-- Escritor da projeção de acesso (F01, R-07): nenhum privilégio global. O provisionador concede
+-- DML em cada <instância>_acc ao criar a instância.
+CREATE USER IF NOT EXISTS 'spark_access_writer'@'%' IDENTIFIED BY '${MYSQL_ACCESS_WRITER_PASSWORD}';
 
 -- Provisionamento: cria usuários e opera apenas bancos de produto.
 CREATE USER IF NOT EXISTS 'spark_provisioner'@'%' IDENTIFIED BY '${MYSQL_PROVISIONER_PASSWORD}';

@@ -23,7 +23,8 @@ export class MysqlTestContext {
 
   static async create(): Promise<MysqlTestContext> {
     const config = loadConfig({
-      credentials: ["migrator", "web", "worker", "provisioner", "test"],
+      credentials: ["migrator", "web", "worker", "provisioner", "access", "test"],
+      secrets: ["IDENTITY_SECRET_KEY"],
     });
     await assertEnvironment(["development"], "test-harness", {
       config,

@@ -7,12 +7,15 @@ import {
   type BaseConfig,
   type CredentialRole,
   credentialVariable,
+  type SecretName,
+  secretProblem,
   SecretSchema,
 } from "./schema.js";
 
 export interface Config extends BaseConfig {
   APP_VERSION: string;
   credentials: Partial<Record<CredentialRole, string>>;
+  secrets: Partial<Record<SecretName, string>>;
 }
 
 export class ConfigError extends Error {
@@ -44,7 +47,11 @@ function appVersion(): string {
  * usa valor padrão para segredo (FR-010). Cada processo pede só as credenciais que usa.
  */
 export function loadConfig(
-  options: { credentials?: readonly CredentialRole[]; env?: NodeJS.ProcessEnv } = {},
+  options: {
+    credentials?: readonly CredentialRole[];
+    secrets?: readonly SecretName[];
+    env?: NodeJS.ProcessEnv;
+  } = {},
 ): Config {
   if (!options.env) loadEnvFile();
   const env = options.env ?? process.env;
@@ -75,6 +82,18 @@ export function loadConfig(
     else credentials[role] = value;
   }
 
+  const secrets: Partial<Record<SecretName, string>> = {};
+  for (const name of options.secrets ?? []) {
+    const value = env[name];
+    if (value === undefined || value === "") problems.push(`${name} ausente`);
+    else if (value === "__defina__") problems.push(`${name} inválida (valor de exemplo)`);
+    else {
+      const problem = secretProblem[name](value);
+      if (problem) problems.push(`${name} inválida (${problem})`);
+      else secrets[name] = value;
+    }
+  }
+
   if (problems.length > 0) {
     if (!options.env && !existsSync(join(repoRoot, ".env"))) {
       problems.push(
@@ -84,5 +103,5 @@ export function loadConfig(
     throw new ConfigError([...new Set(problems)]);
   }
   const base = converted as BaseConfig;
-  return { ...base, APP_VERSION: base.APP_VERSION ?? appVersion(), credentials };
+  return { ...base, APP_VERSION: base.APP_VERSION ?? appVersion(), credentials, secrets };
 }

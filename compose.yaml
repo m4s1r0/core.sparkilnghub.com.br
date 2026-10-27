@@ -16,6 +16,7 @@ services:
       MYSQL_WEB_PASSWORD: ${MYSQL_WEB_PASSWORD:?defina no .env}
       MYSQL_WORKER_PASSWORD: ${MYSQL_WORKER_PASSWORD:?defina no .env}
       MYSQL_PROVISIONER_PASSWORD: ${MYSQL_PROVISIONER_PASSWORD:?defina no .env}
+      MYSQL_ACCESS_WRITER_PASSWORD: ${MYSQL_ACCESS_WRITER_PASSWORD:?defina no .env}
       MYSQL_TEST_PASSWORD: ${MYSQL_TEST_PASSWORD:?defina no .env}
     volumes:
       - sparkcore-mysql:/var/lib/mysql
