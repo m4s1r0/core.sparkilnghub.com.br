@@ -57,6 +57,7 @@ else problems.push(...checkImmutable(current, base));
 for (const dir of [
   "server/migrations/spark_core",
   "server/migrations/spark_identity",
+  "server/migrations/access_projection",
   "server/reference-product",
 ]) {
   try {

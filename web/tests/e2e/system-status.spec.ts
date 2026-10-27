@@ -39,22 +39,24 @@ function body(status: "SAUDAVEL" | "INDISPONIVEL" = "SAUDAVEL") {
 const fulfill = (route: Route, status: number, json: unknown) =>
   route.fulfill({ status, json, headers: { "x-correlation-id": CORRELATION } });
 
+// Desde F01 a página exige sessão; aqui a sessão é simulada e só a apresentação é testada. A
+// situação real, com login de verdade, está em auth.spec.ts.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/v1/session", (route) =>
+    fulfill(route, 200, {
+      account: { id: CORRELATION, displayName: "[SINTÉTICO] Ana", email: "ana@example.test" },
+      mfa: { enrolled: true, confirmed: true, reauthValidUntil: null },
+      platformRole: "administrador",
+    }),
+  );
+});
+
 async function expectNoHorizontalScroll(page: Page) {
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
 }
-
-test("situação real servida pelo SparkCore", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: "Situação do sistema" })).toBeVisible();
-  await expect(page.getByRole("table")).toBeVisible();
-  if (process.env.E2E_EXPECT_HEALTHY === "1") {
-    await expect(page.getByText(/Situação atualizada às/)).toBeVisible();
-  }
-  await expectNoHorizontalScroll(page);
-});
 
 test("carregando: texto e região ocupada, sem números", async ({ page }) => {
   let release!: () => void;
@@ -76,8 +78,11 @@ test("sucesso, teclado e foco visível", async ({ page }) => {
   await page.route(STATUS_URL, (route) => fulfill(route, 200, body()));
   await page.goto("/");
   await expect(page.getByRole("table")).toBeVisible();
-  await page.keyboard.press("Tab");
+  // Navegação do painel e "Sair" vêm antes no cabeçalho (F01); segue por Tab até o botão.
   const refresh = page.getByRole("button", { name: "Atualizar situação" });
+  for (let i = 0; i < 10 && !(await refresh.evaluate((el) => el === document.activeElement)); i++) {
+    await page.keyboard.press("Tab");
+  }
   await expect(refresh).toBeFocused();
   const outline = await refresh.evaluate((el) => getComputedStyle(el).outlineStyle);
   expect(outline).not.toBe("none");

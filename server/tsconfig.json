@@ -6,6 +6,6 @@
     "outDir": "dist",
     "types": ["node"]
   },
-  "include": ["src", "seeds"],
+  "include": ["src", "seeds", "reference-product"],
   "references": [{ "path": "../packages/contracts" }]
 }

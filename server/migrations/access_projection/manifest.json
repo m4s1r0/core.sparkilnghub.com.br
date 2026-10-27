@@ -1,0 +1,12 @@
+{
+  "formatVersion": 1,
+  "artifact": "access_projection",
+  "migrations": [
+    {
+      "version": 1,
+      "name": "0001_projecao_v1",
+      "file": "migrations/0001_projecao_v1.sql",
+      "sha256": "e8199c456d476dfda4a2e17558a05642548fc11d6fce99cf206bf341ca80a469"
+    }
+  ]
+}

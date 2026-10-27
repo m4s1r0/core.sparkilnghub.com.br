@@ -68,6 +68,35 @@ describe("migrate", () => {
     ]);
   });
 
+  it("histórico com outro nome convive com o padrão no mesmo banco", async () => {
+    writeArtifact([["0001_a", V1]]);
+    const conn = await freshDatabase("outro_historico");
+    const loaded = await loadManifest(artifactDir);
+    const result = await migrate(conn, loaded, {
+      appliedBy: "teste",
+      historyTable: "_spark_access_history",
+    });
+    expect(result.applied).toEqual([1]);
+    expect((await readHistory(conn, "_spark_access_history")).map((h) => h.version)).toEqual([1]);
+    expect(await readHistory(conn)).toEqual([]);
+    const again = await migrate(conn, loaded, {
+      appliedBy: "teste",
+      historyTable: "_spark_access_history",
+    });
+    expect(again.applied).toEqual([]);
+  });
+
+  it("recusa nome de tabela de histórico fora do padrão", async () => {
+    writeArtifact([["0001_a", V1]]);
+    const conn = await freshDatabase("historico_invalido");
+    await expect(
+      migrate(conn, await loadManifest(artifactDir), {
+        appliedBy: "teste",
+        historyTable: "x; DROP TABLE a",
+      }),
+    ).rejects.toThrow(/tabela de histórico/);
+  });
+
   it("reaplicação não faz nada", async () => {
     writeArtifact([["0001_a", V1]]);
     const conn = await freshDatabase("reapply");

@@ -6,7 +6,7 @@ slices:
     status: em-implementacao
     requires: []
   - id: F01
-    status: especificando
+    status: em-implementacao
     requires: [D-01, D-02, D-04, D-05]
   - id: F02
     status: especificando

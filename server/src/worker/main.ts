@@ -1,21 +1,25 @@
 import { hostname } from "node:os";
 import { sql } from "kysely";
+import "../modules/access-projection/reconcile.js";
 import { loadConfig } from "../platform/config/load.js";
+import { createAppContext } from "../platform/context.js";
 import { PoolRegistry } from "../platform/db/pools.js";
 import { newId, uuidToBin } from "../platform/ids.js";
 import { createLogger } from "../platform/logging/logger.js";
+import { processDueJobs } from "./jobs/access-sync.js";
 
 const HEARTBEAT_MS = 10_000;
+const SYNC_POLL_MS = 5_000;
 const RETENTION_HOURS = 24;
 
 const logger = createLogger({ name: "worker" });
 
 /**
  * Trabalhador de tarefas: mesmo código e artefato do servidor, processo separado (FR-009).
- * Em F00 só publica o sinal de vida; tarefas persistentes chegam em F02.
+ * Publica o sinal de vida e, desde F01, processa a sincronização da projeção de acesso (R-10).
  */
 async function main() {
-  const config = loadConfig({ credentials: ["worker"] });
+  const config = loadConfig({ credentials: ["worker", "access"] });
   const pools = new PoolRegistry(config);
   const db = pools.get("worker", "spark_core");
   const workerId = newId();
@@ -42,8 +46,25 @@ async function main() {
   };
   const timer = setInterval(() => void beat(), HEARTBEAT_MS);
 
+  const ctx = createAppContext(config, pools, { role: "worker", logger });
+  let syncing = false;
+  const sync = async () => {
+    if (syncing) return;
+    syncing = true;
+    try {
+      const processed = await processDueJobs(ctx);
+      if (processed > 0) logger.info({ processed }, "Sincronização da projeção de acesso");
+    } catch (error) {
+      logger.warn({ err: error }, "Falha ao processar sincronização da projeção");
+    } finally {
+      syncing = false;
+    }
+  };
+  const syncTimer = setInterval(() => void sync(), SYNC_POLL_MS);
+
   const shutdown = async (signal: string) => {
     clearInterval(timer);
+    clearInterval(syncTimer);
     logger.info({ signal, workerId }, "Encerrando trabalhador");
     await pools.closeAll();
     process.exit(0);

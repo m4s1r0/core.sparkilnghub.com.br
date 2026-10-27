@@ -1,11 +1,9 @@
 openapi: 3.1.0
 info:
   title: SparkCore — API administrativa
-  version: 1.0.0
-  description: >
-    Contratos publicados em F00. Convenções em conventions.md.
-    Em F01, /api/v1/system/status passa a exigir sessão de administrador da plataforma;
-    /health/live permanece público e sem detalhes.
+  version: 1.1.0
+  description: >-
+    Contratos do SparkCore. F00: situação operacional. F01: identidade, sessões do painel, administradores, vínculos, recuperação e bloqueio (/api/v1), e contratos internos para produtos (/internal/v1), com a projeção de acesso descrita em access-projection.md. Convenções em conventions.md. /api/v1/** usa o cookie sparkcore_session (HttpOnly, SameSite=Strict) e verificação de origem em métodos inseguros; /internal/v1/** usa Authorization: Bearer <credencial de aplicação> e nunca cookie. /api/v1/system/status exige sessão de administrador com MFA; /health/live permanece público e sem detalhes.
 servers:
   - url: http://127.0.0.1:3000
     description: Desenvolvimento local
@@ -32,9 +30,7 @@ paths:
       operationId: getSystemStatus
       summary: Situação operacional do SparkCore
       description: >
-        200 quando o estado geral é SAUDAVEL ou DEGRADADA; 503 com o mesmo corpo e Retry-After
-        quando INDISPONIVEL. O corpo nunca contém credenciais, nomes de usuário MySQL, SQL ou
-        stack trace.
+        200 quando o estado geral é SAUDAVEL ou DEGRADADA; 503 com o mesmo corpo e Retry-After quando INDISPONIVEL. O corpo nunca contém credenciais, nomes de usuário MySQL, SQL ou stack trace.
       parameters:
         - $ref: "#/components/parameters/CorrelationIdHeader"
       responses:
@@ -59,6 +55,993 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "401":
+          description: AUTH_SESSION_REQUIRED ou AUTH_MFA_REQUIRED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+      security: [{ coreSession: [] }]
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password]
+              properties:
+                email: { $ref: "#/components/schemas/Email" }
+                password: { type: string, minLength: 1, maxLength: 128 }
+      responses:
+        "200":
+          {
+            description: Senha correta; segue para o segundo fator. Cookie de sessão pré-MFA emitido.,
+            content: { application/json: { schema: { $ref: "#/components/schemas/LoginResult" } } },
+          }
+        "401": { description: AUTH_INVALID_CREDENTIALS (mesma resposta para conta inexistente) }
+        "429": { description: AUTH_THROTTLED com Retry-After }
+        "503": { description: SYSTEM_IDENTITY_UNAVAILABLE }
+  /api/v1/auth/mfa:
+    post:
+      operationId: confirmMfa
+      security: [{ coreSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              oneOf:
+                - required: [code]
+                  properties: { code: { $ref: "#/components/schemas/TotpCode" } }
+                - required: [recoveryCode]
+                  properties: { recoveryCode: { $ref: "#/components/schemas/RecoveryCode" } }
+      responses:
+        "200":
+          {
+            description: Sessão plena; recoveryCode usado exige recadastrar TOTP,
+            content: { application/json: { schema: { $ref: "#/components/schemas/LoginResult" } } },
+          }
+        "401": { description: AUTH_MFA_INVALID }
+        "429": { description: AUTH_THROTTLED }
+  /api/v1/auth/reauth:
+    post:
+      operationId: reauthenticate
+      security: [{ coreSession: [] }]
+      description: Reconfirma o TOTP; vale 5 minutos para ações sensíveis (FR-008).
+      requestBody:
+        required: true
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    additionalProperties: false,
+                    required: [code],
+                    properties: { code: { $ref: "#/components/schemas/TotpCode" } },
+                  },
+              },
+          }
+      responses:
+        "200":
+          {
+            description: OK,
+            content: { application/json: { schema: { $ref: "#/components/schemas/SessionInfo" } } },
+          }
+        "401": { description: AUTH_MFA_INVALID }
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      security: [{ coreSession: [] }]
+      responses:
+        "204": { description: Sessão encerrada e cookie removido }
+  /api/v1/session:
+    get:
+      operationId: currentSession
+      security: [{ coreSession: [] }]
+      responses:
+        "200":
+          {
+            description: Sessão atual,
+            content: { application/json: { schema: { $ref: "#/components/schemas/SessionInfo" } } },
+          }
+        "401": { description: AUTH_SESSION_REQUIRED }
+  /api/v1/account/mfa/enrollment:
+    post:
+      operationId: startMfaEnrollment
+      security: [{ coreSession: [] }]
+      responses:
+        "201":
+          {
+            description: Segredo exibido uma vez,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/MfaEnrollment" } } },
+          }
+        "409":
+          {
+            description: CONFLICT_MFA_ALREADY_ENROLLED (recadastro exige reautenticação ou código de recuperação usado),
+          }
+  /api/v1/account/mfa/enrollment/confirm:
+    post:
+      operationId: confirmMfaEnrollment
+      security: [{ coreSession: [] }]
+      requestBody:
+        required: true
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    additionalProperties: false,
+                    required: [code],
+                    properties: { code: { $ref: "#/components/schemas/TotpCode" } },
+                  },
+              },
+          }
+      responses:
+        "200":
+          {
+            description: Códigos de recuperação exibidos uma vez,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/RecoveryCodes" } } },
+          }
+        "401": { description: AUTH_MFA_INVALID }
+  /api/v1/invitations/{token}:
+    get:
+      operationId: inspectInvitation
+      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200":
+          description: Convite válido
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [target, roleLabel, emailMasked, accountExists, expiresAt]
+                properties:
+                  target: { type: string, enum: [plataforma, instancia] }
+                  instanceName: { type: [string, "null"] }
+                  roleLabel: { type: string }
+                  emailMasked: { type: string }
+                  accountExists: { type: boolean }
+                  expiresAt: { type: string, format: date-time }
+        "404":
+          {
+            description: INVITATION_INVALID (inexistente,
+            usado,
+            revogado ou expirado — mesma resposta),
+          }
+  /api/v1/invitations/{token}/accept:
+    post:
+      operationId: acceptInvitation
+      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+      description: >
+        Conta nova: informar displayName e password. Conta existente: exige sessão do Core da mesma conta (plataforma) ou autenticação dela no fluxo (instância), sem trocar senha (FR-019).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                displayName: { type: string, minLength: 1, maxLength: 120 }
+                password: { $ref: "#/components/schemas/Password" }
+                currentPassword: { type: string, maxLength: 128 }
+      responses:
+        "200":
+          {
+            description: Aceito; plataforma segue para cadastro de TOTP,
+            content: { application/json: { schema: { $ref: "#/components/schemas/LoginResult" } } },
+          }
+        "404": { description: INVITATION_INVALID }
+        "409": { description: CONFLICT_INVITATION_ACCOUNT_MISMATCH }
+        "422": { description: VALIDATION_FAILED / PASSWORD_POLICY_REJECTED }
+  /api/v1/recovery-requests:
+    post:
+      operationId: requestRecovery
+      requestBody:
+        required: true
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    additionalProperties: false,
+                    required: [email],
+                    properties: { email: { $ref: "#/components/schemas/Email" } },
+                  },
+              },
+          }
+      responses:
+        "202":
+          { description: Sempre a mesma resposta; pedido vai para a fila do administrador (D-07) }
+        "429": { description: AUTH_THROTTLED }
+    get:
+      operationId: listRecoveryRequests
+      security: [{ coreSession: [] }]
+      description: Pedidos pendentes (handled_at nulo). Gerar link de recuperação para a conta marca como atendidos os pedidos pendentes do mesmo e-mail.
+      responses:
+        "200":
+          {
+            description: Fila,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        type: object,
+                        additionalProperties: false,
+                        required: [items],
+                        properties:
+                          {
+                            items:
+                              {
+                                type: array,
+                                items: { $ref: "#/components/schemas/RecoveryRequest" },
+                              },
+                          },
+                      },
+                  },
+              },
+          }
+  /api/v1/password-resets/{token}:
+    post:
+      operationId: completePasswordReset
+      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    additionalProperties: false,
+                    required: [password],
+                    properties: { password: { $ref: "#/components/schemas/Password" } },
+                  },
+              },
+          }
+      responses:
+        "200":
+          {
+            description: Senha trocada; todas as sessões revogadas,
+            content: { application/json: { schema: { $ref: "#/components/schemas/SyncOutcome" } } },
+          }
+        "404": { description: RESET_INVALID }
+        "422": { description: PASSWORD_POLICY_REJECTED }
+  /api/v1/platform-admins:
+    get:
+      operationId: listPlatformAdmins
+      security: [{ coreSession: [] }]
+      responses:
+        "200":
+          {
+            description: Lista,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        type: object,
+                        additionalProperties: false,
+                        required: [items],
+                        properties:
+                          {
+                            items:
+                              {
+                                type: array,
+                                items: { $ref: "#/components/schemas/PlatformAdmin" },
+                              },
+                          },
+                      },
+                  },
+              },
+          }
+  /api/v1/platform-admins/invitations:
+    post:
+      operationId: invitePlatformAdmin
+      security: [{ coreSession: [] }]
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    additionalProperties: false,
+                    required: [email],
+                    properties: { email: { $ref: "#/components/schemas/Email" } },
+                  },
+              },
+          }
+      responses:
+        "201":
+          {
+            description: Link exibido uma vez,
+            content: { application/json: { schema: { $ref: "#/components/schemas/OneTimeLink" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+  /api/v1/platform-admins/{accountId}/deactivate:
+    post:
+      operationId: deactivatePlatformAdmin
+      security: [{ coreSession: [] }]
+      parameters:
+        [{ name: accountId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [reason],
+                      properties: { reason: { $ref: "#/components/schemas/Reason" } },
+                    },
+                },
+            },
+        }
+      responses:
+        "204": { description: Inativado; sessões do Core revogadas }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409": { description: CONFLICT_LAST_ADMIN }
+  /api/v1/platform-admins/{accountId}/reactivate:
+    post:
+      operationId: reactivatePlatformAdmin
+      security: [{ coreSession: [] }]
+      parameters:
+        [{ name: accountId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [reason],
+                      properties: { reason: { $ref: "#/components/schemas/Reason" } },
+                    },
+                },
+            },
+        }
+      responses:
+        "204": { description: Reativado; exige novo login }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+  /api/v1/accounts:
+    get:
+      operationId: findAccounts
+      security: [{ coreSession: [] }]
+      parameters:
+        [{ name: email, in: query, required: true, schema: { $ref: "#/components/schemas/Email" } }]
+      description: Busca exata pelo e-mail normalizado; sem listagem aberta de contas.
+      responses:
+        "200":
+          {
+            description: Zero ou uma conta,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        type: object,
+                        additionalProperties: false,
+                        required: [items],
+                        properties:
+                          {
+                            items:
+                              {
+                                type: array,
+                                maxItems: 1,
+                                items: { $ref: "#/components/schemas/AccountSummary" },
+                              },
+                          },
+                      },
+                  },
+              },
+          }
+        "422":
+          description: VALIDATION_FAILED (e-mail incompleto ou inválido; não há busca parcial)
+  /api/v1/accounts/{accountId}:
+    get:
+      operationId: getAccount
+      security: [{ coreSession: [] }]
+      parameters:
+        [{ name: accountId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200":
+          {
+            description: Conta,
+            vínculos e pedidos de recuperação pendentes,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/AccountDetail" } } },
+          }
+        "404": { description: NOT_FOUND }
+  /api/v1/accounts/{accountId}/block-preview:
+    get:
+      operationId: previewBlock
+      security: [{ coreSession: [] }]
+      parameters:
+        [{ name: accountId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200":
+          description: Instâncias afetadas (FR-022)
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [instances],
+                      properties:
+                        {
+                          instances:
+                            {
+                              type: array,
+                              items:
+                                {
+                                  type: object,
+                                  additionalProperties: false,
+                                  required: [instanceId, name, role],
+                                  properties:
+                                    {
+                                      instanceId: { type: string, format: uuid },
+                                      name: { type: string },
+                                      role: { $ref: "#/components/schemas/ProductRole" },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            }
+  /api/v1/accounts/{accountId}/block:
+    post:
+      operationId: blockAccount
+      security: [{ coreSession: [] }]
+      parameters:
+        [
+          { name: accountId, in: path, required: true, schema: { type: string, format: uuid } },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [reason],
+                      properties: { reason: { $ref: "#/components/schemas/Reason" } },
+                    },
+                },
+            },
+        }
+      responses:
+        "200":
+          {
+            description: Bloqueada; resultado por instância,
+            content: { application/json: { schema: { $ref: "#/components/schemas/SyncOutcome" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409": { description: CONFLICT_LAST_ADMIN (se for o último administrador da plataforma) }
+  /api/v1/accounts/{accountId}/unblock:
+    post:
+      operationId: unblockAccount
+      security: [{ coreSession: [] }]
+      parameters:
+        [
+          { name: accountId, in: path, required: true, schema: { type: string, format: uuid } },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      description: bloqueada → ativa; replica account_status nas instâncias. Sessões encerradas no bloqueio continuam encerradas.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [reason],
+                      properties: { reason: { $ref: "#/components/schemas/Reason" } },
+                    },
+                },
+            },
+        }
+      responses:
+        "200":
+          {
+            description: Desbloqueada; resultado por instância,
+            content: { application/json: { schema: { $ref: "#/components/schemas/SyncOutcome" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409": { description: CONFLICT_STATE (conta não está bloqueada) }
+  /api/v1/accounts/{accountId}/password-reset:
+    post:
+      operationId: issuePasswordReset
+      security: [{ coreSession: [] }]
+      parameters:
+        [{ name: accountId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "201":
+          {
+            description: Link de 30 min exibido uma vez,
+            content: { application/json: { schema: { $ref: "#/components/schemas/OneTimeLink" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+  /api/v1/instances:
+    get:
+      operationId: listInstanceRefs
+      security: [{ coreSession: [] }]
+      responses:
+        "200": { description: Referências de instância (mínimo de F01; ampliado em F02) }
+  /api/v1/instances/{instanceId}/members:
+    get:
+      operationId: listMembers
+      security: [{ coreSession: [] }]
+      parameters:
+        [{ name: instanceId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200":
+          {
+            description: Vínculos e convites pendentes,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        type: object,
+                        additionalProperties: false,
+                        required: [items],
+                        properties:
+                          {
+                            items: { type: array, items: { $ref: "#/components/schemas/Member" } },
+                          },
+                      },
+                  },
+              },
+          }
+  /api/v1/instances/{instanceId}/invitations:
+    post:
+      operationId: inviteMember
+      security: [{ coreSession: [] }]
+      parameters:
+        [
+          { name: instanceId, in: path, required: true, schema: { type: string, format: uuid } },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [email, role],
+                      properties:
+                        {
+                          email: { $ref: "#/components/schemas/Email" },
+                          role: { $ref: "#/components/schemas/ProductRole" },
+                          initial: { type: boolean, default: false },
+                        },
+                    },
+                },
+            },
+        }
+      responses:
+        "201":
+          {
+            description: Link exibido uma vez,
+            content: { application/json: { schema: { $ref: "#/components/schemas/OneTimeLink" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+  /api/v1/instances/{instanceId}/members/{membershipId}/role:
+    post:
+      operationId: changeMemberRole
+      security: [{ coreSession: [] }]
+      parameters:
+        [
+          { name: instanceId, in: path, required: true, schema: { type: string, format: uuid } },
+          { name: membershipId, in: path, required: true, schema: { type: string, format: uuid } },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [role, reason, version],
+                      properties:
+                        {
+                          role: { $ref: "#/components/schemas/ProductRole" },
+                          reason: { $ref: "#/components/schemas/Reason" },
+                          version: { type: integer },
+                        },
+                    },
+                },
+            },
+        }
+      responses:
+        "200":
+          {
+            description: Alterado e replicado,
+            content: { application/json: { schema: { $ref: "#/components/schemas/SyncOutcome" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409":
+          {
+            description: CONFLICT_VERSION,
+            CONFLICT_LAST_ADMIN ou CONFLICT_IDEMPOTENCY_KEY_REUSED (mesma chave com outro corpo); mesma chave e mesmo corpo repetem o resultado,
+          }
+  /api/v1/instances/{instanceId}/members/{membershipId}/revoke:
+    post:
+      operationId: revokeMember
+      security: [{ coreSession: [] }]
+      parameters:
+        [
+          { name: instanceId, in: path, required: true, schema: { type: string, format: uuid } },
+          { name: membershipId, in: path, required: true, schema: { type: string, format: uuid } },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [reason, version],
+                      properties:
+                        {
+                          reason: { $ref: "#/components/schemas/Reason" },
+                          version: { type: integer },
+                        },
+                    },
+                },
+            },
+        }
+      responses:
+        "200":
+          {
+            description: Revogado e replicado,
+            content: { application/json: { schema: { $ref: "#/components/schemas/SyncOutcome" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409":
+          {
+            description: CONFLICT_VERSION,
+            CONFLICT_LAST_ADMIN ou CONFLICT_IDEMPOTENCY_KEY_REUSED (mesma chave com outro corpo); mesma chave e mesmo corpo repetem o resultado,
+          }
+  /api/v1/invitations/{invitationId}/revoke:
+    post:
+      operationId: revokeInvitation
+      security: [{ coreSession: [] }]
+      description: Convites de plataforma e de instância pendentes. Revogar o convite inicial que é o único caminho de acesso da instância é recusado (FR-021).
+      parameters:
+        [{ name: invitationId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [reason],
+                      properties: { reason: { $ref: "#/components/schemas/Reason" } },
+                    },
+                },
+            },
+        }
+      responses:
+        "204": { description: Revogado (repetir sobre convite já revogado também responde 204) }
+        "404": { description: INVITATION_INVALID (inexistente, aceito ou expirado) }
+        "409": { description: CONFLICT_LAST_ADMIN }
+  /api/v1/access-sync/pending:
+    get:
+      operationId: listPendingAccessSync
+      security: [{ coreSession: [] }]
+      responses:
+        "200": { description: Revogações/replicações pendentes por instância (FR-027) }
+
+  # ---------- Contratos internos para produtos ----------
+  /internal/v1/instances/{slug}/sessions:
+    post:
+      operationId: createInstanceSession
+      security: [{ appCredential: [sessions] }]
+      parameters: [{ $ref: "#/components/parameters/InstanceSlug" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password, clientIp]
+              properties:
+                email: { $ref: "#/components/schemas/Email" }
+                password: { type: string, minLength: 1, maxLength: 128 }
+                clientIp:
+                  type: string
+                  maxLength: 45
+                  description: >
+                    IP do usuário final, informado pelo produto (responsável por ele pela credencial de aplicação). Limitação: por conta (10 falhas → 15 min) e por `app-ip:<credencial>:<clientIp>` (50 falhas em 15 min); o IP do servidor do produto nunca é usado como origem.
+                userAgent: { type: string, maxLength: 300 }
+      responses:
+        "201":
+          {
+            description: Sessão gravada na projeção de acesso da instância,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/InstanceSessionCreated" } },
+              },
+          }
+        "401":
+          {
+            description: AUTH_INVALID_CREDENTIALS (credencial errada,
+            sem vínculo,
+            conta inativa/bloqueada ou instância de outro produto — mesma resposta),
+          }
+        "429": { description: AUTH_THROTTLED }
+        "503": { description: SYSTEM_IDENTITY_UNAVAILABLE ou SYSTEM_INSTANCE_UNAVAILABLE }
+  /internal/v1/instances/{slug}/sessions/touch:
+    post:
+      operationId: touchInstanceSession
+      security: [{ appCredential: [sessions] }]
+      parameters:
+        [
+          { $ref: "#/components/parameters/InstanceSlug" },
+          { $ref: "#/components/parameters/InstanceSessionHeader" },
+        ]
+      responses:
+        "204": { description: Atividade registrada (no máximo 1 vez a cada 5 min por sessão) }
+        "401": { description: AUTH_SESSION_INVALID }
+  /internal/v1/instances/{slug}/members:
+    get:
+      operationId: listLocalMembers
+      security: [{ appCredential: [members] }]
+      parameters:
+        [
+          { $ref: "#/components/parameters/InstanceSlug" },
+          { $ref: "#/components/parameters/InstanceSessionHeader" },
+        ]
+      responses:
+        "200":
+          {
+            description: Vínculos da instância (sem e-mail de membros ativos),
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        type: object,
+                        additionalProperties: false,
+                        required: [items],
+                        properties:
+                          {
+                            items: { type: array, items: { $ref: "#/components/schemas/Member" } },
+                          },
+                      },
+                  },
+              },
+          }
+        "401": { description: AUTH_SESSION_INVALID }
+        "403": { description: AUTH_FORBIDDEN (sessão válida sem papel administrador) }
+  /internal/v1/instances/{slug}/invitations:
+    post:
+      operationId: inviteLocalMember
+      security: [{ appCredential: [members] }]
+      parameters:
+        [
+          { $ref: "#/components/parameters/InstanceSlug" },
+          { $ref: "#/components/parameters/InstanceSessionHeader" },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [email, role],
+                      properties:
+                        {
+                          email: { $ref: "#/components/schemas/Email" },
+                          role: { $ref: "#/components/schemas/ProductRole" },
+                        },
+                    },
+                },
+            },
+        }
+      responses:
+        "201":
+          {
+            description: Link exibido uma vez ao administrador da instância,
+            content: { application/json: { schema: { $ref: "#/components/schemas/OneTimeLink" } } },
+          }
+        "403": { description: AUTH_FORBIDDEN }
+  /internal/v1/instances/{slug}/invitations/{invitationId}/revoke:
+    post:
+      operationId: revokeLocalInvitation
+      security: [{ appCredential: [members] }]
+      parameters:
+        [
+          { $ref: "#/components/parameters/InstanceSlug" },
+          { $ref: "#/components/parameters/InstanceSessionHeader" },
+          { name: invitationId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [reason],
+                      properties: { reason: { $ref: "#/components/schemas/Reason" } },
+                    },
+                },
+            },
+        }
+      responses:
+        "204": { description: Revogado }
+        "403": { description: AUTH_FORBIDDEN }
+        "404": { description: NOT_FOUND (inclusive convite de outra instância) }
+        "409": { description: CONFLICT_LAST_ADMIN }
+  /internal/v1/instances/{slug}/members/{membershipId}/role:
+    post:
+      operationId: changeLocalMemberRole
+      security: [{ appCredential: [members] }]
+      parameters:
+        [
+          { $ref: "#/components/parameters/InstanceSlug" },
+          { $ref: "#/components/parameters/InstanceSessionHeader" },
+          { name: membershipId, in: path, required: true, schema: { type: string, format: uuid } },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [role, reason, version],
+                      properties:
+                        {
+                          role: { $ref: "#/components/schemas/ProductRole" },
+                          reason: { $ref: "#/components/schemas/Reason" },
+                          version: { type: integer },
+                        },
+                    },
+                },
+            },
+        }
+      responses:
+        "200":
+          {
+            description: Alterado,
+            content: { application/json: { schema: { $ref: "#/components/schemas/SyncOutcome" } } },
+          }
+        "404": { description: NOT_FOUND (inclusive vínculo de outra instância) }
+        "409":
+          {
+            description: CONFLICT_VERSION,
+            CONFLICT_LAST_ADMIN ou CONFLICT_IDEMPOTENCY_KEY_REUSED (mesma chave com outro corpo); mesma chave e mesmo corpo repetem o resultado,
+          }
+  /internal/v1/instances/{slug}/members/{membershipId}/revoke:
+    post:
+      operationId: revokeLocalMember
+      security: [{ appCredential: [members] }]
+      parameters:
+        [
+          { $ref: "#/components/parameters/InstanceSlug" },
+          { $ref: "#/components/parameters/InstanceSessionHeader" },
+          { name: membershipId, in: path, required: true, schema: { type: string, format: uuid } },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [reason, version],
+                      properties:
+                        {
+                          reason: { $ref: "#/components/schemas/Reason" },
+                          version: { type: integer },
+                        },
+                    },
+                },
+            },
+        }
+      responses:
+        "200":
+          {
+            description: Revogado,
+            content: { application/json: { schema: { $ref: "#/components/schemas/SyncOutcome" } } },
+          }
+        "404": { description: NOT_FOUND }
+        "409":
+          {
+            description: CONFLICT_VERSION,
+            CONFLICT_LAST_ADMIN ou CONFLICT_IDEMPOTENCY_KEY_REUSED (mesma chave com outro corpo); mesma chave e mesmo corpo repetem o resultado,
+          }
 components:
   parameters:
     CorrelationIdHeader:
@@ -66,6 +1049,22 @@ components:
       in: header
       required: false
       schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+    InstanceSlug:
+      name: slug
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$" }
+    InstanceSessionHeader:
+      name: X-Instance-Session
+      in: header
+      required: true
+      description: INSTANCE_TOKEN do usuário que age (administrador da instância)
+      schema: { type: string, minLength: 43, maxLength: 64 }
   headers:
     CorrelationId:
       required: true
@@ -149,3 +1148,184 @@ components:
                   field: { type: string }
                   code: { type: string }
                   message: { type: string }
+    Email: { type: string, format: email, maxLength: 254 }
+    Password: { type: string, minLength: 12, maxLength: 128 }
+    TotpCode: { type: string, pattern: "^[0-9]{6}$" }
+    RecoveryCode: { type: string, pattern: "^[A-Z2-7]{10}$" }
+    Reason: { type: string, minLength: 3, maxLength: 500 }
+    ProductRole: { type: string, enum: [administrador, colaborador] }
+    SessionInfo:
+      type: object
+      additionalProperties: false
+      required: [account, mfa, platformRole]
+      properties:
+        account:
+          type: object
+          additionalProperties: false
+          required: [id, displayName, email]
+          properties:
+            id: { type: string, format: uuid }
+            displayName: { type: string }
+            email: { type: string }
+        mfa:
+          type: object
+          additionalProperties: false
+          required: [enrolled, confirmed, reauthValidUntil]
+          properties:
+            enrolled: { type: boolean }
+            confirmed: { type: boolean }
+            reauthValidUntil: { type: [string, "null"], format: date-time }
+        platformRole: { type: [string, "null"], enum: [administrador, null] }
+    LoginResult:
+      type: object
+      additionalProperties: false
+      required: [next]
+      properties:
+        next:
+          type: string
+          enum: [mfa, mfa_enrollment, done]
+          description: mfa = informar TOTP; mfa_enrollment = cadastrar TOTP (primeiro acesso)
+    OneTimeLink:
+      type: object
+      additionalProperties: false
+      required: [link, expiresAt]
+      description: Exibido uma única vez (D-07); não pode ser consultado de novo.
+      properties:
+        link: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+    MfaEnrollment:
+      type: object
+      additionalProperties: false
+      required: [otpauthUri, secret]
+      properties:
+        otpauthUri: { type: string }
+        secret: { type: string, description: base32, exibido uma vez }
+    RecoveryCodes:
+      type: object
+      additionalProperties: false
+      required: [codes]
+      properties:
+        codes:
+          {
+            type: array,
+            minItems: 10,
+            maxItems: 10,
+            items: { $ref: "#/components/schemas/RecoveryCode" },
+          }
+    PlatformAdmin:
+      type: object
+      additionalProperties: false
+      required: [accountId, invitationId, displayName, email, status, lastLoginAt]
+      properties:
+        accountId: { type: [string, "null"], format: uuid }
+        invitationId:
+          {
+            type: [string, "null"],
+            format: uuid,
+            description: preenchido quando status = convite_pendente,
+          }
+        displayName: { type: [string, "null"] }
+        email: { type: string }
+        status: { type: string, enum: [ativo, inativo, convite_pendente] }
+        lastLoginAt: { type: [string, "null"], format: date-time }
+    Member:
+      type: object
+      additionalProperties: false
+      required: [membershipId, invitationId, displayName, role, status, version]
+      properties:
+        membershipId: { type: [string, "null"], format: uuid }
+        invitationId:
+          {
+            type: [string, "null"],
+            format: uuid,
+            description: preenchido quando status = convite_pendente,
+          }
+        displayName: { type: [string, "null"] }
+        emailMasked:
+          {
+            type: [string, "null"],
+            description: "a***@dominio — só para a plataforma e para convites pendentes",
+          }
+        role: { $ref: "#/components/schemas/ProductRole" }
+        status: { type: string, enum: [ativo, revogado, convite_pendente] }
+        version: { type: [integer, "null"] }
+    SyncOutcome:
+      type: object
+      additionalProperties: false
+      required: [instances]
+      description: Resultado por instância de operações que revogam (FR-027).
+      properties:
+        instances:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [instanceId, status]
+            properties:
+              instanceId: { type: string, format: uuid }
+              status: { type: string, enum: [aplicada, pendente] }
+    AccountSummary:
+      type: object
+      additionalProperties: false
+      required: [accountId, displayName, email, status]
+      properties:
+        accountId: { type: string, format: uuid }
+        displayName: { type: string }
+        email: { type: string }
+        status: { type: string, enum: [ativa, inativa, bloqueada] }
+    AccountDetail:
+      type: object
+      additionalProperties: false
+      required: [account, mfaEnrolled, platformRole, memberships, pendingRecoveryRequests]
+      properties:
+        account: { $ref: "#/components/schemas/AccountSummary" }
+        mfaEnrolled: { type: boolean }
+        platformRole: { type: [string, "null"], enum: [ativo, inativo, null] }
+        memberships:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [membershipId, instanceId, instanceName, role, status]
+            properties:
+              membershipId: { type: string, format: uuid }
+              instanceId: { type: string, format: uuid }
+              instanceName: { type: string }
+              role: { $ref: "#/components/schemas/ProductRole" }
+              status: { type: string, enum: [ativo, revogado] }
+        pendingRecoveryRequests: { type: integer, minimum: 0 }
+    RecoveryRequest:
+      type: object
+      additionalProperties: false
+      required: [id, email, accountId, createdAt]
+      description: Visível só para administradores da plataforma; accountId nulo quando não há conta.
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        accountId: { type: [string, "null"], format: uuid }
+        createdAt: { type: string, format: date-time }
+    InstanceSessionCreated:
+      type: object
+      additionalProperties: false
+      required: [token, expiresAt, idleTimeoutSeconds, account, role]
+      properties:
+        token: { type: string, description: INSTANCE_TOKEN — 32 bytes base64url, opaco }
+        expiresAt: { type: string, format: date-time }
+        idleTimeoutSeconds: { type: integer, const: 7200 }
+        account:
+          type: object
+          additionalProperties: false
+          required: [id, displayName]
+          properties:
+            id: { type: string, format: uuid }
+            displayName: { type: string }
+        role: { $ref: "#/components/schemas/ProductRole" }
+  securitySchemes:
+    coreSession:
+      type: apiKey
+      in: cookie
+      name: sparkcore_session
+    appCredential:
+      type: http
+      scheme: bearer
+      description: "<id>.<segredo> de app_credential, com escopo `sessions` ou `members`"

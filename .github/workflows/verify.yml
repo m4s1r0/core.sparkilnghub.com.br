@@ -24,6 +24,9 @@ env:
   MYSQL_WORKER_PASSWORD: ci-worker-${{ github.run_id }}
   MYSQL_PROVISIONER_PASSWORD: ci-provisioner-${{ github.run_id }}
   MYSQL_TEST_PASSWORD: ci-test-${{ github.run_id }}
+  MYSQL_ACCESS_WRITER_PASSWORD: ci-access-${{ github.run_id }}
+  # Senha das contas sintéticas, só da CI. A IDENTITY_SECRET_KEY é gerada a cada execução.
+  SEED_USER_PASSWORD: ci-seed-${{ github.run_id }}
 
 jobs:
   static:
@@ -85,6 +88,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Chave de identidade efêmera (cifra os segredos TOTP dos testes)
+        run: echo "IDENTITY_SECRET_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
       - name: Bancos e credenciais (docker/mysql/init)
         run: MYSQL_INIT_HOST=127.0.0.1 MYSQL_INIT_PORT=3306 bash docker/mysql/init/01-databases-and-users.sh
       - run: npm run build:contracts
@@ -122,10 +127,14 @@ jobs:
       # Playwright travou duas vezes na CI (PR #1).
       - name: Chrome do runner
         run: google-chrome --version
+      - name: Chave de identidade efêmera (cifra os segredos TOTP dos testes)
+        run: echo "IDENTITY_SECRET_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
       - name: Bancos e credenciais (docker/mysql/init)
         run: MYSQL_INIT_HOST=127.0.0.1 MYSQL_INIT_PORT=3306 bash docker/mysql/init/01-databases-and-users.sh
       - run: npm run build:contracts
       - run: npm run db:migrate
+      # Instâncias sintéticas A e B usadas pela jornada de vínculos (F01).
+      - run: npm run db:seed
       - run: npm run test:e2e
       - if: failure()
         uses: actions/upload-artifact@v7

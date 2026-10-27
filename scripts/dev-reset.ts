@@ -1,11 +1,13 @@
 // npm run dev:reset — recria os bancos de desenvolvimento vazios, migra e semeia. Ferramenta de
 // desenvolvimento fora do artefato de produção: remove apenas spark_core/spark_identity marcados
-// como development e bancos sparkref_* com marcador sintético (constituição IV, v1.1.1).
+// como development e bancos sparkref_* com marcador sintético, com seus bancos de acesso
+// <banco>_acc (constituição IV, v1.1.1; F01 R-07).
 import { assertEnvironment, EnvGuardError } from "../server/src/platform/config/env-guard.js";
 import { loadConfig } from "../server/src/platform/config/load.js";
 import { openAdminConnection } from "../server/src/platform/db/pools.js";
 import { binToUuid, instanceUserName } from "../server/src/platform/ids.js";
 import { createLogger } from "../server/src/platform/logging/logger.js";
+import { accessDatabaseName } from "../server/src/platform/migrations/apply-artifact.js";
 import { run } from "./lib/dev.js";
 
 async function syntheticInstanceDatabases(config: ReturnType<typeof loadConfig>) {
@@ -43,6 +45,7 @@ async function main() {
   try {
     for (const { database, user } of instances) {
       await provisioner.query(`DROP DATABASE IF EXISTS \`${database}\``);
+      await provisioner.query(`DROP DATABASE IF EXISTS \`${accessDatabaseName(database)}\``);
       await provisioner.query(`DROP USER IF EXISTS '${user}'@'%'`);
     }
   } finally {

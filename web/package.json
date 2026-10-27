@@ -12,6 +12,7 @@
     "@sparkcore/contracts": "*",
     "@sparkling-hub/design-system": "file:../vendor/design-system/sparkling-hub-design-system-0.2.0.tgz",
     "@tanstack/react-query": "^5.104.5",
+    "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router": "^7.18.4"
@@ -23,6 +24,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.8",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",

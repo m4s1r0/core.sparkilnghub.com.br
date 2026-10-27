@@ -83,23 +83,6 @@ const columns: TableColumn<ComponentStatus>[] = [
   { id: "checkedAt", header: "Verificado às", cell: (row) => formatTime(row.checkedAt) },
 ];
 
-function Brand() {
-  return (
-    <span className="flex items-center gap-3">
-      <picture>
-        {/* Assinatura completa só a partir de 240 px de largura (DESIGN.md); abaixo, o monograma. */}
-        <source media="(min-width: 640px)" srcSet="/brand/sparkling-hub-principal.svg" />
-        <img
-          src="/brand/monograma-principal.svg"
-          alt="Sparkling Hub"
-          className="h-10 w-auto sm:h-12"
-        />
-      </picture>
-      <span className="font-semibold">SparkCore</span>
-    </span>
-  );
-}
-
 function Summary({ status }: { status: SystemStatus }) {
   // StatsBlock recebe só contagens: valores textuais longos não cabem nas colunas em 360 px.
   const count = (states: HealthState[]) =>
@@ -124,7 +107,7 @@ function Summary({ status }: { status: SystemStatus }) {
   );
 }
 
-/** Página base de F00 (contracts/ui-base-page.md). */
+/** Página base de F00 (contracts/ui-base-page.md), protegida desde F01. */
 export function SystemStatusPage() {
   const query = useSystemStatus();
   const result = query.data;
@@ -134,95 +117,87 @@ export function SystemStatusPage() {
   const apiError = error instanceof ApiError ? error : null;
   const correlationId = apiError?.correlationId ?? result?.correlationId ?? null;
 
+  // Cabeçalho e área principal vêm do AppLayout (painel autenticado, F01).
   return (
     <>
-      {/* Cabeçalho com layout Tailwind: o Navbar 0.2.0 exibe o botão "Menu" mesmo sem itens
-          (lacuna registrada em docs/design-system-updates.md). */}
-      <header className="border-b border-[var(--color-sh-line)] bg-[var(--color-sh-surface)]">
-        <div className="mx-auto flex w-full max-w-5xl items-center px-4 py-3 sm:px-6">
-          <Brand />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <Heading level={1}>Situação do sistema</Heading>
+          <Text tone="muted">
+            {result
+              ? `SparkCore ${result.body.version} · ambiente de ${ENVIRONMENT_LABEL[result.body.environment]}`
+              : "SparkCore"}
+          </Text>
         </div>
-      </header>
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-col gap-1">
-            <Heading level={1}>Situação do sistema</Heading>
-            <Text tone="muted">
-              {result
-                ? `SparkCore ${result.body.version} · ambiente de ${ENVIRONMENT_LABEL[result.body.environment]}`
-                : "SparkCore"}
-            </Text>
-          </div>
-          <Button
-            variant="secondary"
-            loading={query.isFetching && !loading}
-            onClick={() => void query.refetch()}
-          >
-            Atualizar situação
-          </Button>
-        </div>
-
-        <section
-          data-testid="status-region"
-          aria-label="Situação dos componentes"
-          aria-busy={loading || refreshing}
-          className="flex flex-col gap-6"
+        <Button
+          variant="secondary"
+          loading={query.isFetching && !loading}
+          onClick={() => void query.refetch()}
         >
-          {loading && (
-            <>
-              <Text>Consultando situação…</Text>
-              <Skeleton label="Carregando resumo" lines={2} />
-              <Skeleton label="Carregando componentes" lines={4} />
-            </>
-          )}
+          Atualizar situação
+        </Button>
+      </div>
 
-          {error && (
-            <Alert tone="error" title="Não foi possível obter a situação do sistema">
-              <div className="flex flex-col items-start gap-3">
-                <span>{apiError?.message ?? "Ocorreu uma falha inesperada."}</span>
-                {correlationId && <span>Correlação: {correlationId}</span>}
-                <Button variant="secondary" onClick={() => void query.refetch()}>
-                  Tentar novamente
-                </Button>
-              </div>
-            </Alert>
-          )}
-
-          {!error && result && (
-            <>
-              {result.status === 503 ? (
-                <Alert tone="warning" title="Um ou mais componentes estão indisponíveis">
-                  Os componentes marcados como indisponíveis impedem a operação normal.
-                </Alert>
-              ) : (
-                <div role="status">
-                  <Text tone="muted">
-                    {refreshing
-                      ? "Atualizando…"
-                      : `Situação atualizada às ${formatTime(result.body.checkedAt)}`}
-                  </Text>
-                </div>
-              )}
-              {result.status === 503 && refreshing && <Text tone="muted">Atualizando…</Text>}
-              <Summary status={result.body} />
-              <DataTable
-                caption="Componentes do SparkCore"
-                columns={columns}
-                rows={result.body.components}
-                rowKey={(row) => row.name}
-              />
-            </>
-          )}
-        </section>
-
-        {!loading && correlationId && (
-          <footer>
-            <Text tone="muted" as="p">
-              Correlação da última consulta: <code>{correlationId}</code>
-            </Text>
-          </footer>
+      <section
+        data-testid="status-region"
+        aria-label="Situação dos componentes"
+        aria-busy={loading || refreshing}
+        className="flex flex-col gap-6"
+      >
+        {loading && (
+          <>
+            <Text>Consultando situação…</Text>
+            <Skeleton label="Carregando resumo" lines={2} />
+            <Skeleton label="Carregando componentes" lines={4} />
+          </>
         )}
-      </main>
+
+        {error && (
+          <Alert tone="error" title="Não foi possível obter a situação do sistema">
+            <div className="flex flex-col items-start gap-3">
+              <span>{apiError?.message ?? "Ocorreu uma falha inesperada."}</span>
+              {correlationId && <span>Correlação: {correlationId}</span>}
+              <Button variant="secondary" onClick={() => void query.refetch()}>
+                Tentar novamente
+              </Button>
+            </div>
+          </Alert>
+        )}
+
+        {!error && result && (
+          <>
+            {result.status === 503 ? (
+              <Alert tone="warning" title="Um ou mais componentes estão indisponíveis">
+                Os componentes marcados como indisponíveis impedem a operação normal.
+              </Alert>
+            ) : (
+              <div role="status">
+                <Text tone="muted">
+                  {refreshing
+                    ? "Atualizando…"
+                    : `Situação atualizada às ${formatTime(result.body.checkedAt)}`}
+                </Text>
+              </div>
+            )}
+            {result.status === 503 && refreshing && <Text tone="muted">Atualizando…</Text>}
+            <Summary status={result.body} />
+            <DataTable
+              caption="Componentes do SparkCore"
+              columns={columns}
+              rows={result.body.components}
+              rowKey={(row) => row.name}
+            />
+          </>
+        )}
+      </section>
+
+      {!loading && correlationId && (
+        <footer>
+          <Text tone="muted" as="p">
+            Correlação da última consulta: <code>{correlationId}</code>
+          </Text>
+        </footer>
+      )}
     </>
   );
 }

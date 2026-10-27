@@ -22,8 +22,19 @@ valem para tudo o que o SparkCore expõe ao SparkPet. Fonte de produto: os escop
   numa conexão compartilhada entre requisições é proibido. Pools têm limite por instância e teto
   global.
 - O SparkCore MUST NOT ler tutores, animais, comandas, recebimentos ou outro conteúdo operacional
-  dos bancos de instância; seu acesso técnico a eles serve apenas a provisionamento, migração e
-  verificação de saúde.
+  dos bancos de instância; seu acesso técnico a eles serve apenas a provisionamento, migração,
+  verificação de saúde e à **projeção de acesso** (D-04): gravar sessões de produto, a réplica dos
+  vínculos daquela instância e revogações, em tabelas próprias definidas por contrato de dados.
+  Essas tabelas ficam num **banco de acesso** exclusivo da instância, companheiro do banco
+  operacional e derivado do mesmo UUID, para que privilégios impeçam o produto de escrevê-las;
+  "banco da instância", nesta constituição, abrange os dois.
+- A projeção de acesso MUST conter apenas o necessário para validar acesso (resumo do
+  identificador de sessão, conta, nome de exibição, papel, estado, expirações, revogação e revisão
+  de autorização) e MUST NOT incluir e-mail, senha, segredos de MFA nem vínculos de outras
+  instâncias. O produto MUST poder apenas ler essa projeção e encerrar sessões; criar sessões,
+  alterar vínculos ou desfazer revogações é exclusivo do Core.
+- O administrador da plataforma MUST NOT ter sessão, vínculo ou credencial de acesso a instâncias
+  de produto (`COM-010`).
 - Respostas negadas MUST NOT revelar a existência de objetos de outra instância.
 - Toda fatia que grava ou lê dados de instância MUST ter testes negativos com pelo menos duas
   instâncias sintéticas (rota, corpo, cabeçalho, exportação, tarefa e pool reutilizado — `T-04`,
@@ -50,17 +61,29 @@ cliente a outro e não é recuperável por correção posterior.
   rebaixado ou inativado, inclusive sob revogações concorrentes (`COM-020`, `T-05`).
 - Convites e links de recuperação MUST ser de uso único, com segredo aleatório, persistência apenas
   do resumo criptográfico e expiração (`COM-019`).
-- Indisponibilidade da identidade MUST resultar em erro temporário explícito; nenhuma autorização
-  pode se apoiar em papel guardado no navegador (`T-15`).
+- Contas e credenciais existem somente em `spark_identity` (D-02); login, convites, recuperação e
+  MFA dependem do Core, e sua indisponibilidade MUST resultar em erro temporário explícito
+  (`T-15`).
+- Sessões de produto existentes são validadas pelo produto na projeção de acesso do banco da
+  instância (D-04) e continuam válidas com o Core indisponível até expirar ou ser revogadas;
+  nenhuma autorização pode se apoiar em papel, estado ou identidade guardados no navegador.
+- Revogação de vínculo, troca de senha, inativação, bloqueio e suspensão MUST estar gravados na
+  projeção de cada instância afetada antes de a operação ser informada como concluída para ela;
+  instância inacessível gera tarefa persistente com repetição e pendência visível (princípio IV).
 
 Justificativa: o SparkCore é a fonte de verdade de quem pode agir em cada contexto; decisões de
-acesso tomadas no cliente ou em cópias antigas não permitem revogar acesso.
+acesso tomadas no cliente não permitem revogar acesso. A projeção na instância é escrita só pelo
+Core e recebe a revogação antes de qualquer operação ser dada como concluída, o que mantém a
+revogação imediata sem tornar o Core dependência de cada requisição do produto.
 
 ### III. SparkCore como plataforma: contratos versionados e mínimos
 
 - Toda capacidade consumida pelo SparkPet (autenticar, autorizar e resolver instância, vínculos
   locais, convite inicial, lote de utilização, situação operacional) MUST ser exposta por contrato
   versionado e documentado antes da implementação do consumidor.
+- A projeção de acesso no banco da instância é um **contrato de dados** do Core: tabelas, colunas
+  e semântica versionadas como o artefato de migração, provadas com o produto de referência e
+  alteradas apenas com nova versão e convivência com a anterior.
 - Cada contrato MUST ser demonstrável sem o SparkPet: o SparkCore mantém um produto de referência
   sintético (artefato de migração mínimo, provisionador, cliente de autorização e produtor de
   eventos de utilização) que exercita os contratos em testes. O produto de referência MUST NOT ser
@@ -295,4 +318,4 @@ inconsistência para todos os produtos seguintes.
 - Mudança de escopo (requisito novo, promovido do Pós-MVP ou alterado) MUST atualizar os
   documentos de escopo e as especificações afetadas antes do código.
 
-**Version**: 1.1.1 | **Ratified**: 2026-10-25 | **Last Amended**: 2026-10-26
+**Version**: 1.2.1 | **Ratified**: 2026-10-25 | **Last Amended**: 2026-10-26
