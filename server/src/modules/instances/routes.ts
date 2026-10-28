@@ -7,10 +7,12 @@ import { pageOf, PageQueryFields } from "../../platform/http/pagination.js";
 import { requireRecentMfa } from "../../platform/http/reauth.js";
 import { authOf, requireSession } from "../../platform/http/session-guard.js";
 import { isUuid } from "../../platform/ids.js";
+import { checkInstanceHealthNow, instanceHealthStatus } from "./health-view.js";
+import { type Instance, InstanceStates } from "./instances.js";
+import { applyInstanceMigration, instanceMigrationView } from "./migration-view.js";
 import { issueInitialInvitation } from "../provisioning/initial-invitation.js";
 import { retryProvisioning } from "../provisioning/retry.js";
 import { provisioningView } from "../provisioning/view.js";
-import { InstanceStates } from "./instances.js";
 import {
   type InstanceEdit,
   instanceDetail,
@@ -20,6 +22,15 @@ import {
 } from "./query.js";
 import { type InstanceRequestBody, previewInstance, requestInstance } from "./request.js";
 import { DEFAULT_TIMEZONE, SUPPORTED_TIMEZONES } from "./timezones.js";
+import {
+  activateInstance,
+  enterMaintenance,
+  exitMaintenance,
+  reactivateInstance,
+  suspendInstance,
+  terminateInstance,
+  type TransitionActor,
+} from "./transitions.js";
 
 const NullableString = (max: number, format?: "date") =>
   Type.Union([Type.String({ maxLength: max, ...(format ? { format } : {}) }), Type.Null()]);
@@ -61,6 +72,26 @@ const EditBody = Type.Object(
   },
   { additionalProperties: false },
 );
+
+// F03: ciclo e operação da instância.
+const ReasonBody = Type.Object(
+  { reason: Type.String({ minLength: 3, maxLength: 500 }) },
+  { additionalProperties: false },
+);
+const TerminateBody = Type.Object(
+  {
+    reason: Type.String({ minLength: 3, maxLength: 500 }),
+    exportReference: Type.Optional(Type.Union([Type.String({ maxLength: 300 }), Type.Null()])),
+    retentionPolicy: Type.String({ minLength: 3, maxLength: 300 }),
+  },
+  { additionalProperties: false },
+);
+
+const toTransitionResult = (instance: Instance) => ({
+  id: instance.id,
+  state: instance.state,
+  version: instance.version,
+});
 
 const idempotencyKeyOf = (request: FastifyRequest): string => {
   const header = request.headers["idempotency-key"];
@@ -194,6 +225,181 @@ export function registerInstanceRoutes(app: FastifyInstance, ctx: AppContext): v
         { actor: actor.accountId, operation: "emitir_convite_inicial", instanceId },
         async () => ({ status: 201, body: await issueInitialInvitation(ctx, instanceId, actor) }),
       );
+    },
+  );
+
+  // F03: ciclo e operação da instância (US1 a US7).
+  app.post(
+    "/api/v1/instances/:instanceId/activate",
+    { preHandler: session, schema: { params: Params } },
+    async (request, reply) => {
+      requireRecentMfa(ctx, request);
+      const { instanceId } = request.params as { instanceId: string };
+      const actor: TransitionActor = { kind: "usuario", id: authOf(request).account.id };
+      return withIdempotency(
+        ctx,
+        request,
+        reply,
+        { actor: actor.id!, operation: "ativar_instancia", instanceId },
+        async () => ({
+          status: 200,
+          body: toTransitionResult(await activateInstance(ctx, instanceId, actor)),
+        }),
+      );
+    },
+  );
+
+  app.post(
+    "/api/v1/instances/:instanceId/suspend",
+    { preHandler: session, schema: { params: Params, body: ReasonBody } },
+    async (request, reply) => {
+      requireRecentMfa(ctx, request);
+      const { instanceId } = request.params as { instanceId: string };
+      const { reason } = request.body as { reason: string };
+      const actor: TransitionActor = { kind: "usuario", id: authOf(request).account.id };
+      return withIdempotency(
+        ctx,
+        request,
+        reply,
+        { actor: actor.id!, operation: "suspender_instancia", instanceId },
+        async () => ({
+          status: 200,
+          body: toTransitionResult(await suspendInstance(ctx, instanceId, actor, reason)),
+        }),
+      );
+    },
+  );
+
+  app.post(
+    "/api/v1/instances/:instanceId/reactivate",
+    { preHandler: session, schema: { params: Params } },
+    async (request, reply) => {
+      requireRecentMfa(ctx, request);
+      const { instanceId } = request.params as { instanceId: string };
+      const actor: TransitionActor = { kind: "usuario", id: authOf(request).account.id };
+      return withIdempotency(
+        ctx,
+        request,
+        reply,
+        { actor: actor.id!, operation: "reativar_instancia", instanceId },
+        async () => ({
+          status: 200,
+          body: toTransitionResult(await reactivateInstance(ctx, instanceId, actor)),
+        }),
+      );
+    },
+  );
+
+  app.post(
+    "/api/v1/instances/:instanceId/maintenance/enter",
+    { preHandler: session, schema: { params: Params, body: ReasonBody } },
+    async (request, reply) => {
+      requireRecentMfa(ctx, request);
+      const { instanceId } = request.params as { instanceId: string };
+      const { reason } = request.body as { reason: string };
+      const actor: TransitionActor = { kind: "usuario", id: authOf(request).account.id };
+      return withIdempotency(
+        ctx,
+        request,
+        reply,
+        { actor: actor.id!, operation: "entrar_manutencao", instanceId },
+        async () => ({
+          status: 200,
+          body: toTransitionResult(await enterMaintenance(ctx, instanceId, actor, reason)),
+        }),
+      );
+    },
+  );
+
+  app.post(
+    "/api/v1/instances/:instanceId/maintenance/exit",
+    { preHandler: session, schema: { params: Params } },
+    async (request, reply) => {
+      requireRecentMfa(ctx, request);
+      const { instanceId } = request.params as { instanceId: string };
+      const actor: TransitionActor = { kind: "usuario", id: authOf(request).account.id };
+      return withIdempotency(
+        ctx,
+        request,
+        reply,
+        { actor: actor.id!, operation: "sair_manutencao", instanceId },
+        async () => {
+          const result = await exitMaintenance(ctx, instanceId, actor);
+          if (!result.instance) {
+            throw new AppError(
+              409,
+              "HEALTH_CHECK_FAILED",
+              result.health.reason ?? "A checagem de saúde não foi aprovada.",
+            );
+          }
+          return { status: 200, body: toTransitionResult(result.instance) };
+        },
+      );
+    },
+  );
+
+  app.post(
+    "/api/v1/instances/:instanceId/terminate",
+    { preHandler: session, schema: { params: Params, body: TerminateBody } },
+    async (request, reply) => {
+      requireRecentMfa(ctx, request);
+      const { instanceId } = request.params as { instanceId: string };
+      const body = request.body as {
+        reason: string;
+        exportReference?: string | null;
+        retentionPolicy: string;
+      };
+      const actor: TransitionActor = { kind: "usuario", id: authOf(request).account.id };
+      return withIdempotency(
+        ctx,
+        request,
+        reply,
+        { actor: actor.id!, operation: "encerrar_instancia", instanceId },
+        async () => ({
+          status: 200,
+          body: toTransitionResult(
+            await terminateInstance(ctx, instanceId, actor, {
+              reason: body.reason,
+              exportReference: body.exportReference ?? null,
+              retentionPolicy: body.retentionPolicy,
+            }),
+          ),
+        }),
+      );
+    },
+  );
+
+  app.get(
+    "/api/v1/instances/:instanceId/health",
+    { preHandler: session, schema: { params: Params } },
+    async (request) =>
+      instanceHealthStatus(ctx, (request.params as { instanceId: string }).instanceId),
+  );
+
+  app.post(
+    "/api/v1/instances/:instanceId/health",
+    { preHandler: session, schema: { params: Params } },
+    async (request) =>
+      checkInstanceHealthNow(ctx, (request.params as { instanceId: string }).instanceId),
+  );
+
+  app.get(
+    "/api/v1/instances/:instanceId/migration",
+    { preHandler: session, schema: { params: Params } },
+    async (request) =>
+      instanceMigrationView(ctx, (request.params as { instanceId: string }).instanceId),
+  );
+
+  app.post(
+    "/api/v1/instances/:instanceId/migration",
+    { preHandler: session, schema: { params: Params } },
+    async (request, reply) => {
+      requireRecentMfa(ctx, request);
+      const { instanceId } = request.params as { instanceId: string };
+      const accountId = authOf(request).account.id;
+      const key = idempotencyKeyOf(request);
+      const created = await applyInstanceMigration(ctx, instanceId, accountId, key);
+      return reply.status(202).send(created);
     },
   );
 }

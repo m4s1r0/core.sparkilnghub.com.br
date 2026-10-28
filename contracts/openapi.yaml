@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: SparkCore — API administrativa
-  version: 1.2.0
+  version: 1.3.0
   description: >-
-    Contratos do SparkCore. F00: situação operacional. F01: identidade, sessões do painel, administradores, vínculos, recuperação e bloqueio (/api/v1), e contratos internos para produtos (/internal/v1), com a projeção de acesso descrita em access-projection.md. Convenções em conventions.md. /api/v1/** usa o cookie sparkcore_session (HttpOnly, SameSite=Strict) e verificação de origem em métodos inseguros; /internal/v1/** usa Authorization: Bearer <credencial de aplicação> e nunca cookie. /api/v1/system/status exige sessão de administrador com MFA; /health/live permanece público e sem detalhes. F02: contratantes, catálogo, solicitação e acompanhamento do provisionamento de instâncias (/api/v1) e conexão da instância para o produto (/internal/v1/instances/{slug}/connection, escopo connection).
+    Contratos do SparkCore. F00: situação operacional. F01: identidade, sessões do painel, administradores, vínculos, recuperação e bloqueio (/api/v1), e contratos internos para produtos (/internal/v1), com a projeção de acesso descrita em access-projection.md. Convenções em conventions.md. /api/v1/** usa o cookie sparkcore_session (HttpOnly, SameSite=Strict) e verificação de origem em métodos inseguros; /internal/v1/** usa Authorization: Bearer <credencial de aplicação> e nunca cookie. /api/v1/system/status exige sessão de administrador com MFA; /health/live permanece público e sem detalhes. F02: contratantes, catálogo, solicitação e acompanhamento do provisionamento de instâncias (/api/v1) e conexão da instância para o produto (/internal/v1/instances/{slug}/connection, escopo connection). F03: ativar, suspender, reativar, entrar/sair de manutenção e encerrar uma instância, painel de saúde/backup, executor de migrações e a página pública de indisponibilidade (/i/{slug}, sem sessão).
 servers:
   - url: http://127.0.0.1:3000
     description: Desenvolvimento local
@@ -1453,7 +1453,7 @@ paths:
     post:
       operationId: issueInitialInvitation
       description: >
-        Reautenticação. Só com a instância PRONTA (F03 amplia para ATIVA sem administrador). Gera link de uso único exibido uma vez (D-07), válido por 48 h; o anterior deixa de valer.
+        Reautenticação. Com a instância PRONTA, ou ATIVA sem administrador local ativo (F03, FR-032, SC-024). Gera link de uso único exibido uma vez (D-07), válido por 48 h; o anterior deixa de valer. Deixa de ser permitida quando houver administrador ativo.
       security: [{ coreSession: [] }]
       parameters:
         - $ref: "#/components/parameters/InstanceId"
@@ -1465,7 +1465,206 @@ paths:
             content: { application/json: { schema: { $ref: "#/components/schemas/OneTimeLink" } } },
           }
         "403": { description: AUTH_REAUTH_REQUIRED }
-        "409": { description: CONFLICT_STATE (não pronta) ou CONFLICT_INITIAL_INVITATION_ACCEPTED }
+        "409":
+          {
+            description: "CONFLICT_STATE (nem PRONTA nem ATIVA elegível) ou CONFLICT_INITIAL_INVITATION_ACCEPTED",
+          }
+  /api/v1/instances/{instanceId}/activate:
+    post:
+      operationId: activateInstance
+      description: >
+        Reautenticação (F03). Só em PRONTA; exige contratante elegível, schema compatível e caminho válido para o primeiro administrador (SC-024, SC-029).
+      security: [{ coreSession: [] }]
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          {
+            description: Ativada,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/TransitionResult" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409":
+          {
+            description: "CONFLICT_STATE ou INSTANCE_NOT_ELIGIBLE (contratante inativo, schema incompatível ou sem caminho para o primeiro administrador)",
+          }
+  /api/v1/instances/{instanceId}/suspend:
+    post:
+      operationId: suspendInstance
+      description: >
+        Reautenticação e motivo (F03). Só em ATIVA; nega toda nova autorização a partir da confirmação (FR-005, CA-SC-008); não aborta transação em curso (FR-006).
+      security: [{ coreSession: [] }]
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/LifecycleReason" } } }
+      responses:
+        "200":
+          {
+            description: Suspensa,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/TransitionResult" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409": { description: CONFLICT_STATE }
+  /api/v1/instances/{instanceId}/reactivate:
+    post:
+      operationId: reactivateInstance
+      description: >
+        Reautenticação (F03). Só em SUSPENSA; mesma elegibilidade de activate (SC-029); não restaura sessão revogada nem altera senha ou cobrança (CA-SC-009).
+      security: [{ coreSession: [] }]
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          {
+            description: Reativada,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/TransitionResult" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409": { description: "CONFLICT_STATE ou INSTANCE_NOT_ELIGIBLE" }
+  /api/v1/instances/{instanceId}/maintenance/enter:
+    post:
+      operationId: enterMaintenance
+      description: >
+        Reautenticação e motivo (F03). Só em ATIVA; bloqueia operação de negócio a partir da confirmação, sem abortar transação em curso (SC-030).
+      security: [{ coreSession: [] }]
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/LifecycleReason" } } }
+      responses:
+        "200":
+          {
+            description: Em manutenção,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/TransitionResult" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409": { description: CONFLICT_STATE }
+  /api/v1/instances/{instanceId}/maintenance/exit:
+    post:
+      operationId: exitMaintenance
+      description: >
+        Reautenticação (F03). Só em MANUTENCAO; dispara checagem de saúde e só sai se o resultado for saudável (SC-030, FR-014); checagem reprovada mantém MANUTENCAO.
+      security: [{ coreSession: [] }]
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          {
+            description: Ativa de novo,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/TransitionResult" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409":
+          {
+            description: "CONFLICT_STATE ou HEALTH_CHECK_FAILED (permanece MANUTENCAO; o motivo sanitizado vem na mensagem do erro, e GET .../health mostra a checagem reprovada)",
+          }
+  /api/v1/instances/{instanceId}/terminate:
+    post:
+      operationId: terminateInstance
+      description: >
+        Reautenticação, motivo e política de retenção (F03). Só em SUSPENSA; terminal — nenhuma rota reabre ou exclui definitivamente (SC-031, RN-SC-004).
+      security: [{ coreSession: [] }]
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          { application/json: { schema: { $ref: "#/components/schemas/TerminationRequest" } } }
+      responses:
+        "200":
+          {
+            description: Encerrada,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/TransitionResult" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409": { description: CONFLICT_STATE (não está SUSPENSA) }
+  /api/v1/instances/{instanceId}/health:
+    get:
+      operationId: getInstanceHealth
+      description: >
+        Versão, schema, conectividade, última verificação e status de backup (F03, SC-042). Sem segredo nem dado de negócio (SP-100).
+      security: [{ coreSession: [] }]
+      parameters: [{ $ref: "#/components/parameters/InstanceId" }]
+      responses:
+        "200":
+          {
+            description: Situação,
+            content:
+              {
+                application/json: { schema: { $ref: "#/components/schemas/InstanceHealthStatus" } },
+              },
+          }
+        "404": { description: NOT_FOUND }
+    post:
+      operationId: checkInstanceHealthNow
+      description: >
+        Dispara uma checagem imediata (origin=painel) e devolve o resultado (F03); não exige reautenticação (leitura técnica, sem efeito sobre o estado de negócio).
+      security: [{ coreSession: [] }]
+      parameters: [{ $ref: "#/components/parameters/InstanceId" }]
+      responses:
+        "200":
+          {
+            description: Resultado da checagem,
+            content: { application/json: { schema: { $ref: "#/components/schemas/HealthCheck" } } },
+          }
+        "404": { description: NOT_FOUND }
+  /api/v1/instances/{instanceId}/migration:
+    get:
+      operationId: getInstanceMigration
+      description: Última tarefa de migração de instância (F03), ou null se nunca executada.
+      security: [{ coreSession: [] }]
+      parameters: [{ $ref: "#/components/parameters/InstanceId" }]
+      responses:
+        "200":
+          description: Tarefa
+          content:
+            application/json:
+              schema: { oneOf: [{ type: "null" }, { $ref: "#/components/schemas/MigrationTask" }] }
+    post:
+      operationId: applyInstanceMigration
+      description: >
+        Reautenticação (F03). Só em MANUTENCAO; exige backup prévio registrado (FR-020); cria uma tarefa admin_task(kind=migracao), mesma máquina de lease/retomada de F02.
+      security: [{ coreSession: [] }]
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          {
+            description: Agendada,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/MigrationTask" } } },
+          }
+        "403": { description: AUTH_REAUTH_REQUIRED }
+        "409":
+          {
+            description: "CONFLICT_STATE (não está MANUTENCAO), NO_PRIOR_BACKUP ou ALREADY_UP_TO_DATE",
+          }
+  /i/{slug}:
+    get:
+      operationId: getInstanceStatusPage
+      description: >
+        Página pública (sem sessão) de indisponibilidade quando a instância está SUSPENSA ou MANUTENCAO (F03, SC-027, FR-007). Qualquer outro estado não é o caminho normal de acesso ao produto; esta rota não confirma nem nega a existência de outros slugs.
+      security: []
+      parameters: [{ $ref: "#/components/parameters/InstanceSlug" }]
+      responses:
+        "200": { description: "Página HTML mínima de indisponibilidade" }
+        "404": { description: "Instância inexistente ou em estado que não usa esta página" }
   /internal/v1/instances/{slug}/connection:
     get:
       operationId: getInstanceConnection
@@ -2360,6 +2559,111 @@ components:
             - type: "null"
         version:
           $ref: "#/components/schemas/Version"
+    LifecycleReason:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { $ref: "#/components/schemas/Reason" }
+    TransitionResult:
+      type: object
+      additionalProperties: false
+      required: [id, state, version]
+      properties:
+        id: { type: string, format: uuid }
+        state: { $ref: "#/components/schemas/InstanceState" }
+        version: { $ref: "#/components/schemas/Version" }
+    HealthCheck:
+      type: object
+      additionalProperties: false
+      required: [checkedAt, healthy, schemaVersion, reason]
+      properties:
+        checkedAt: { type: string, format: date-time }
+        healthy: { type: boolean }
+        schemaVersion: { type: [integer, "null"] }
+        reason: { type: [string, "null"] }
+    BackupStatus:
+      type: object
+      additionalProperties: false
+      required: [lastSuccessfulAt, lastResult, origin]
+      properties:
+        lastSuccessfulAt: { type: [string, "null"], format: date-time }
+        lastResult:
+          oneOf:
+            - type: "null"
+            - { type: string, enum: [sucesso, falha] }
+        origin: { type: [string, "null"] }
+    InstanceHealthStatus:
+      type: object
+      additionalProperties: false
+      required: [productVersion, schemaVersion, connectivity, lastCheck, backup]
+      properties:
+        productVersion: { type: string }
+        schemaVersion: { type: [integer, "null"] }
+        connectivity: { type: string, enum: [saudavel, indisponivel, desconhecida] }
+        lastCheck:
+          oneOf:
+            - type: "null"
+            - $ref: "#/components/schemas/HealthCheck"
+        backup: { $ref: "#/components/schemas/BackupStatus" }
+    MigrationStepName:
+      type: string
+      enum:
+        [
+          confirmar_manutencao,
+          confirmar_backup_previo,
+          aplicar_migracoes_instancia,
+          verificar_pos_migracao,
+        ]
+    MigrationTask:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          protocol,
+          status,
+          fromVersion,
+          toVersion,
+          currentStep,
+          attempt,
+          createdAt,
+          startedAt,
+          finishedAt,
+          error,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        protocol: { type: string, pattern: "^PRV-[0-9]{6,}$" }
+        status: { $ref: "#/components/schemas/TaskStatus" }
+        fromVersion: { type: [integer, "null"] }
+        toVersion: { type: integer }
+        currentStep:
+          oneOf:
+            - type: "null"
+            - $ref: "#/components/schemas/MigrationStepName"
+        attempt: { type: integer }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: [string, "null"], format: date-time }
+        finishedAt: { type: [string, "null"], format: date-time }
+        error:
+          oneOf:
+            - type: "null"
+            - type: object
+              additionalProperties: false
+              required: [code, message, step]
+              properties:
+                code: { type: string }
+                message: { type: string }
+                step: { $ref: "#/components/schemas/MigrationStepName" }
+    TerminationRequest:
+      type: object
+      additionalProperties: false
+      required: [reason, retentionPolicy]
+      properties:
+        reason: { $ref: "#/components/schemas/Reason" }
+        exportReference: { type: [string, "null"], maxLength: 300 }
+        retentionPolicy: { type: string, minLength: 3, maxLength: 300 }
   securitySchemes:
     coreSession:
       type: apiKey

@@ -6,6 +6,7 @@ import { binToUuid, newId, uuidToBin } from "../../platform/ids.js";
 import { instanceDatabaseName } from "../../platform/ids.js";
 import { accessDatabaseName } from "../../platform/migrations/apply-artifact.js";
 import { recordAudit } from "../audit/audit.js";
+import { hasBackupSince } from "../instances/backup.js";
 import { protocolOf, type TaskStatus } from "../instances/query.js";
 
 /** Etapas da tarefa de provisionamento, na ordem (FR-021, research.md R-06). */
@@ -22,6 +23,20 @@ export const STEPS = [
 ] as const;
 export type Step = (typeof STEPS)[number];
 
+/** Etapas da tarefa de migração de instância, na ordem (F03, data-model.md, research.md R-03). */
+export const MIGRATION_STEPS = [
+  "confirmar_manutencao",
+  "confirmar_backup_previo",
+  "aplicar_migracoes_instancia",
+  "verificar_pos_migracao",
+] as const;
+export type MigrationStep = (typeof MIGRATION_STEPS)[number];
+
+/** Toda etapa possível em `admin_task_step_run`, dos dois tipos de tarefa. */
+export type AnyStep = Step | MigrationStep;
+
+export type TaskKind = "provisionamento" | "migracao";
+
 export type StepRunStatus = "em_execucao" | "concluida" | "falhou" | "interrompida" | "ignorada";
 
 /** Lease de 60 s renovado a cada 20 s (research.md R-03). */
@@ -33,8 +48,9 @@ export interface Task {
   seq: number;
   protocol: string;
   instanceId: string;
+  kind: TaskKind;
   status: TaskStatus;
-  currentStep: Step | null;
+  currentStep: AnyStep | null;
   runNumber: number;
   attempt: number;
   nextAttemptAt: Date;
@@ -55,8 +71,9 @@ interface TaskRow {
   id: Buffer;
   seq: number;
   instance_id: Buffer;
+  kind: TaskKind;
   status: TaskStatus;
-  current_step: Step | null;
+  current_step: AnyStep | null;
   run_number: number;
   attempt: number;
   next_attempt_at: Date;
@@ -74,7 +91,7 @@ interface TaskRow {
   finished_at: Date | null;
 }
 
-const TASK_COLUMNS = sql`id, seq, instance_id, status, current_step, run_number, attempt,
+const TASK_COLUMNS = sql`id, seq, instance_id, kind, status, current_step, run_number, attempt,
   next_attempt_at, lease_until, worker_id, artifact_code, artifact_version, manifest_sha256,
   requested_by, request_hash, error_code, error_message, created_at, started_at, finished_at`;
 
@@ -83,6 +100,7 @@ const toTask = (row: TaskRow): Task => ({
   seq: Number(row.seq),
   protocol: protocolOf(row.seq),
   instanceId: binToUuid(row.instance_id),
+  kind: row.kind,
   status: row.status,
   currentStep: row.current_step,
   runNumber: row.run_number,
@@ -111,6 +129,17 @@ export async function getTask(db: Kysely<unknown>, id: string): Promise<Task | n
 export async function latestTaskOf(db: Kysely<unknown>, instanceId: string): Promise<Task | null> {
   const { rows } = await sql<TaskRow>`SELECT ${TASK_COLUMNS} FROM admin_task
      WHERE instance_id = ${uuidToBin(instanceId)} ORDER BY seq DESC LIMIT 1`.execute(db);
+  return rows[0] ? toTask(rows[0]) : null;
+}
+
+/** Última tarefa de migração da instância (F03), ou `null` se nunca executada. */
+export async function latestMigrationTask(
+  db: Kysely<unknown>,
+  instanceId: string,
+): Promise<Task | null> {
+  const { rows } = await sql<TaskRow>`SELECT ${TASK_COLUMNS} FROM admin_task
+     WHERE instance_id = ${uuidToBin(instanceId)} AND kind = 'migracao'
+     ORDER BY seq DESC LIMIT 1`.execute(db);
   return rows[0] ? toTask(rows[0]) : null;
 }
 
@@ -173,7 +202,7 @@ async function recordStepRun(
   data: {
     taskId: string;
     runNumber: number;
-    step: Step;
+    step: AnyStep;
     attempt: number;
     status: StepRunStatus;
     workerId: string | null;
@@ -277,6 +306,83 @@ export async function createProvisioningRequest(
   return { instanceId, taskId, created: true };
 }
 
+export const noPriorBackup = () =>
+  new AppError(
+    409,
+    "NO_PRIOR_BACKUP",
+    "Não há backup bem-sucedido registrado desde a entrada em manutenção.",
+  );
+
+export const alreadyUpToDate = () =>
+  new AppError(409, "ALREADY_UP_TO_DATE", "A instância já está na versão vigente do artefato.");
+
+const migrationConflictState = () =>
+  new AppError(409, "CONFLICT_STATE", "A instância precisa estar em manutenção para migrar.");
+
+export interface MigrationTaskInput {
+  instanceId: string;
+  productCode: string;
+  currentSchemaVersion: number | null;
+  artifactVersion: number;
+  manifestSha256: string;
+  requestedBy: string;
+  idempotencyKey: string;
+  requestHash: string;
+}
+
+/**
+ * Tarefa de migração de instância (F03, research.md R-03): mesma tabela e o mesmo índice de
+ * "uma tarefa estrutural ativa por instância" do provisionamento (`RN-SC-002`); a instância
+ * precisa estar `MANUTENCAO` e ter backup bem-sucedido desde a entrada (`FR-020`), conferidos sob
+ * a mesma trava da linha. Não recria nem transiciona a instância — isso é `enterMaintenance`/
+ * `exitMaintenance` (`transitions.ts`).
+ */
+export async function createMigrationTask(
+  ctx: AppContext,
+  data: MigrationTaskInput,
+): Promise<{ task: Task; created: boolean }> {
+  const existing = await byIdempotencyKey(ctx.core, data.requestedBy, data.idempotencyKey);
+  if (existing) {
+    const replayed = replay(existing, data.requestHash);
+    const task = await getTask(ctx.core, replayed.taskId);
+    if (!task) throw new Error("Tarefa de migração sumiu depois da repetição");
+    return { task, created: false };
+  }
+  const taskId = newId();
+  const now = ctx.clock();
+  try {
+    await retryOnDeadlock(() =>
+      ctx.core.transaction().execute(async (trx) => {
+        const { rows } = await sql<{ state: string }>`SELECT state FROM instance
+           WHERE id = ${uuidToBin(data.instanceId)} FOR UPDATE`.execute(trx);
+        if (rows[0]?.state !== "MANUTENCAO") throw migrationConflictState();
+        const { rows: entered } = await sql<{ created_at: Date }>`SELECT created_at
+           FROM instance_transition
+          WHERE instance_id = ${uuidToBin(data.instanceId)} AND to_state = 'MANUTENCAO'
+          ORDER BY created_at DESC LIMIT 1`.execute(trx);
+        const since = entered[0]?.created_at ?? now;
+        if (!(await hasBackupSince(ctx, data.instanceId, since))) throw noPriorBackup();
+        if (data.currentSchemaVersion === data.artifactVersion) throw alreadyUpToDate();
+        await sql`INSERT INTO admin_task (id, instance_id, kind, status, current_step, run_number,
+                    attempt, next_attempt_at, artifact_code, artifact_version, manifest_sha256,
+                    requested_by, idempotency_key, request_hash, created_at)
+                  VALUES (${uuidToBin(taskId)}, ${uuidToBin(data.instanceId)}, 'migracao',
+                          'pendente', NULL, 1, 0, ${now}, ${data.productCode},
+                          ${data.artifactVersion}, ${data.manifestSha256},
+                          ${uuidToBin(data.requestedBy)}, ${data.idempotencyKey},
+                          ${data.requestHash}, ${now})`.execute(trx);
+      }),
+    );
+  } catch (error) {
+    if ((error as { code?: string }).code !== "ER_DUP_ENTRY") throw error;
+    // Outra tarefa estrutural já ativa para esta instância (RN-SC-002, índice único).
+    throw new AppError(409, "CONFLICT_STATE", "Já há uma tarefa estrutural ativa nesta instância.");
+  }
+  const task = await getTask(ctx.core, taskId);
+  if (!task) throw new Error("Tarefa de migração não gravada");
+  return { task, created: true };
+}
+
 /**
  * Pega uma tarefa vencida com lease (R-03): `pendente`, `aguardando_repeticao` cuja espera
  * terminou, ou `em_execucao` com lease vencido (trabalhador que caiu). `SKIP LOCKED` evita disputa
@@ -326,8 +432,8 @@ export async function finishedSteps(
   db: Kysely<unknown>,
   taskId: string,
   runNumber: number,
-): Promise<Set<Step>> {
-  const { rows } = await sql<{ step: Step }>`SELECT DISTINCT step FROM admin_task_step_run
+): Promise<Set<AnyStep>> {
+  const { rows } = await sql<{ step: AnyStep }>`SELECT DISTINCT step FROM admin_task_step_run
      WHERE task_id = ${uuidToBin(taskId)} AND run_number = ${runNumber}
        AND status IN ('concluida', 'ignorada')`.execute(db);
   return new Set(rows.map((r) => r.step));
@@ -336,7 +442,7 @@ export async function finishedSteps(
 export async function startStepRun(
   ctx: AppContext,
   task: Task,
-  step: Step,
+  step: AnyStep,
   workerId: string,
 ): Promise<{ id: string; startedAt: Date }> {
   const startedAt = ctx.clock();

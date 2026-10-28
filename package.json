@@ -35,6 +35,7 @@
     "ref:validate": "tsx server/src/cli/ref-validate.ts",
     "access:reconcile": "tsx server/src/cli/access-reconcile.ts",
     "instances:migrate-access": "tsx server/src/cli/instances-migrate-access.ts",
+    "instances:report-backup": "tsx server/src/cli/instances-report-backup.ts",
     "bootstrap:admin": "tsx server/src/cli/bootstrap-admin.ts",
     "app-credential": "tsx server/src/cli/app-credential.ts",
     "check:migrations": "tsx scripts/check-migrations.ts",

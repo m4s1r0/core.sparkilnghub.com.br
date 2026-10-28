@@ -3,6 +3,16 @@
 Mudanças compatíveis mantêm a versão maior e são registradas aqui; incompatíveis exigem `/v2`
 (conventions.md §1).
 
+## v1.3 — 2026-10-27
+
+- `openapi.yaml` 1.3.0 (compatível): ciclo e operação da instância (`/api/v1/instances/{id}/
+activate`, `/suspend`, `/reactivate`, `/maintenance/enter`, `/maintenance/exit`, `/terminate`,
+  `/health` GET+POST, `/migration` GET+POST) e página pública sem sessão `/i/{slug}` de
+  indisponibilidade.
+- `POST .../initial-invitation/issue` (F02) tem a pré-condição ampliada (compatível): além de
+  `PRONTA`, agora também permitida em `ATIVA` sem administrador local ativo (`FR-032`).
+- Projeção de acesso: nenhuma mudança (v2 de F02 já previa `suspensa` e `manutencao`).
+
 ## v1.2 — 2026-10-27
 
 - `openapi.yaml` 1.2.0 (compatível): contratantes (`/api/v1/contractors*`), catálogo

@@ -2,6 +2,51 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { OneTimeLink } from "./admins";
 import { requestJson } from "./client";
 
+export type MigrationStep =
+  | "confirmar_manutencao"
+  | "confirmar_backup_previo"
+  | "aplicar_migracoes_instancia"
+  | "verificar_pos_migracao";
+
+export interface TransitionResult {
+  id: string;
+  state: InstanceState;
+  version: number;
+}
+
+export interface HealthCheck {
+  checkedAt: string;
+  healthy: boolean;
+  schemaVersion: number | null;
+  reason: string | null;
+}
+
+export interface InstanceHealthStatus {
+  productVersion: string;
+  schemaVersion: number | null;
+  connectivity: "saudavel" | "indisponivel" | "desconhecida";
+  lastCheck: HealthCheck | null;
+  backup: {
+    lastSuccessfulAt: string | null;
+    lastResult: "sucesso" | "falha" | null;
+    origin: string | null;
+  };
+}
+
+export interface MigrationTask {
+  id: string;
+  protocol: string;
+  status: TaskStatus;
+  fromVersion: number | null;
+  toVersion: number;
+  currentStep: MigrationStep | null;
+  attempt: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: { code: string; message: string; step: MigrationStep } | null;
+}
+
 export type InstanceState =
   | "CADASTRADA"
   | "PROVISIONANDO"
@@ -137,6 +182,23 @@ export function useInstance(id: string) {
   });
 }
 
+export const healthKey = (id: string) => ["instance", id, "health"] as const;
+export function useInstanceHealth(id: string) {
+  return useQuery({
+    queryKey: healthKey(id),
+    queryFn: () => requestJson<InstanceHealthStatus>("GET", `/api/v1/instances/${id}/health`),
+  });
+}
+
+export const migrationKey = (id: string) => ["instance", id, "migration"] as const;
+export function useInstanceMigration(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: migrationKey(id),
+    queryFn: () => requestJson<MigrationTask | null>("GET", `/api/v1/instances/${id}/migration`),
+    enabled,
+  });
+}
+
 export const instancesApi = {
   update: (
     id: string,
@@ -156,4 +218,38 @@ export const instancesApi = {
     requestJson<InstancePreview>("POST", "/api/v1/instances/preview", { body: input }),
   request: (input: InstanceRequest, idempotencyKey: string) =>
     requestJson<InstanceCreated>("POST", "/api/v1/instances", { body: input, idempotencyKey }),
+  // F03: ciclo e operação da instância.
+  activate: (id: string, idempotencyKey: string) =>
+    requestJson<TransitionResult>("POST", `/api/v1/instances/${id}/activate`, { idempotencyKey }),
+  suspend: (id: string, reason: string, idempotencyKey: string) =>
+    requestJson<TransitionResult>("POST", `/api/v1/instances/${id}/suspend`, {
+      body: { reason },
+      idempotencyKey,
+    }),
+  reactivate: (id: string, idempotencyKey: string) =>
+    requestJson<TransitionResult>("POST", `/api/v1/instances/${id}/reactivate`, {
+      idempotencyKey,
+    }),
+  enterMaintenance: (id: string, reason: string, idempotencyKey: string) =>
+    requestJson<TransitionResult>("POST", `/api/v1/instances/${id}/maintenance/enter`, {
+      body: { reason },
+      idempotencyKey,
+    }),
+  exitMaintenance: (id: string, idempotencyKey: string) =>
+    requestJson<TransitionResult>("POST", `/api/v1/instances/${id}/maintenance/exit`, {
+      idempotencyKey,
+    }),
+  terminate: (
+    id: string,
+    input: { reason: string; exportReference: string | null; retentionPolicy: string },
+    idempotencyKey: string,
+  ) =>
+    requestJson<TransitionResult>("POST", `/api/v1/instances/${id}/terminate`, {
+      body: input,
+      idempotencyKey,
+    }),
+  checkHealthNow: (id: string) =>
+    requestJson<HealthCheck>("POST", `/api/v1/instances/${id}/health`),
+  applyMigration: (id: string, idempotencyKey: string) =>
+    requestJson<MigrationTask>("POST", `/api/v1/instances/${id}/migration`, { idempotencyKey }),
 };
