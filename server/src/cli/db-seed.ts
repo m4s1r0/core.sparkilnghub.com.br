@@ -5,6 +5,7 @@ import { PoolRegistry } from "../platform/db/pools.js";
 import { createLogger } from "../platform/logging/logger.js";
 import { seedF00 } from "../../seeds/f00.js";
 import { seedF02 } from "../../seeds/f02.js";
+import { seedF03 } from "../../seeds/f03.js";
 import { runCli } from "./run.js";
 
 runCli("db:seed", async () => {
@@ -39,6 +40,8 @@ runCli("db:seed", async () => {
       );
       console.log(`SPARKREF_APP_CREDENTIAL=${f01.appCredential}`);
     }
+    const f03 = await seedF03(ctx, config, config.secrets.SEED_USER_PASSWORD ?? "");
+    console.log(`db:seed F03: instância C ${f03.instance}, estado ${f03.state}`);
   } finally {
     await pools.closeAll();
   }

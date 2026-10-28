@@ -6,6 +6,7 @@ import { uuidToBin } from "../../platform/ids.js";
 import { recordAudit } from "../audit/audit.js";
 import { createInvitationTx, invitationLink } from "../identity/invitations.js";
 import { recordSecurityEvent } from "../identity/security-events.js";
+import { hasActiveAdmin } from "../instances/eligibility.js";
 import { getInstance } from "../instances/instances.js";
 import { conflictState } from "../instances/transitions.js";
 
@@ -50,7 +51,13 @@ export async function issueInitialInvitation(
 ): Promise<{ link: string; expiresAt: string }> {
   const instance = await getInstance(ctx, instanceId);
   if (!instance) throw new AppError(404, "NOT_FOUND", "Instância não encontrada.");
-  if (instance.state !== "PRONTA" || !instance.initialAdminEmail) throw conflictState();
+  if (!instance.initialAdminEmail) throw conflictState();
+  // F03 (FR-032, SC-024): além de PRONTA, também permitida em ATIVA sem administrador ativo —
+  // deixa de ser permitida assim que houver um.
+  const eligibleState =
+    instance.state === "PRONTA" ||
+    (instance.state === "ATIVA" && !(await hasActiveAdmin(ctx, instanceId)));
+  if (!eligibleState) throw conflictState();
   const email = instance.initialAdminEmail;
   const now = ctx.clock();
   const created = await retryOnDeadlock(() =>

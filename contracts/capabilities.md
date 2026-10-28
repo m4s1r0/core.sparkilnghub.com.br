@@ -12,7 +12,7 @@ de referência sintético (seção "SparkCore primeiro").
 | Listar/criar/revogar vínculos locais                | Administração SparkPet         | v1     | F01      | **Especificada** — [openapi.yaml](./openapi.yaml) (`/internal/v1/.../members`)                          | `D-02`         |
 | Criar convite inicial                               | Provisionamento Core (interno) | v1     | F02      | **Especificada** — etapa `preparar_convite` + emissão `/api/v1/instances/{id}/initial-invitation/issue` | `D-03`, `D-07` |
 | Conexão da instância                                | SparkPet                       | v1     | F02      | **Especificada** — [openapi.yaml](./openapi.yaml) (`/internal/v1/.../connection`)                       | `D-04`         |
-| Situação operacional de instância (health + versão) | SparkCore                      | v1     | F03      | Reservada                                                                                               | —              |
+| Situação operacional de instância (health + versão) | SparkCore                      | v1     | F03      | **Especificada** — [openapi.yaml](./openapi.yaml) (`/api/v1/instances/{id}/health`)                     | —              |
 | Receber lote de utilização                          | Outbox SparkPet                | v1     | F08-Core | Reservada                                                                                               | —              |
 
 Estados: **Reservada** (nome, consumidor e fatia definidos; esquema não publicado),

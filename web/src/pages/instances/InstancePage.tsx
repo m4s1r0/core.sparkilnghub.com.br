@@ -22,6 +22,7 @@ import {
   STATE_LABEL,
   useInstance,
 } from "../../api/instances";
+import { HealthPanel, LifecycleActions, MigrationPanel } from "./InstanceLifecycle";
 
 const dateTime = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
@@ -60,6 +61,7 @@ function InstanceView({ instance }: { instance: InstanceDetail }) {
             <code>{instance.slug}</code> · {instance.productCode}
           </Text>
         </div>
+        <LifecycleActions instance={instance} />
       </div>
       {instance.validityExpired && (
         <Alert tone="warning" title="Vigência vencida">
@@ -72,6 +74,16 @@ function InstanceView({ instance }: { instance: InstanceDetail }) {
         items={[
           { id: "resumo", label: "Resumo", content: <Summary instance={instance} /> },
           { id: "linha", label: "Linha do tempo", content: <Timeline instance={instance} /> },
+          { id: "saude", label: "Saúde", content: <HealthPanel instanceId={instance.id} /> },
+          ...(instance.state === "MANUTENCAO"
+            ? [
+                {
+                  id: "migracao",
+                  label: "Migração",
+                  content: <MigrationPanel instance={instance} />,
+                },
+              ]
+            : []),
           {
             id: "vinculos",
             label: "Vínculos",
