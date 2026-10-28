@@ -139,6 +139,19 @@ export async function getInstance(ctx: AppContext, id: string): Promise<Instance
   return rows[0] ? toInstance(rows[0]) : null;
 }
 
+/**
+ * Instância só pelo slug, sem produto (F03, página pública `/i/:slug`): o slug é único por
+ * produto, não globalmente; na rara colisão entre produtos, devolve a primeira encontrada.
+ */
+export async function findInstanceBySlugOnly(
+  ctx: AppContext,
+  slug: string,
+): Promise<Instance | null> {
+  const { rows } = await sql<InstanceRow>`SELECT ${INSTANCE_COLUMNS} FROM instance
+     WHERE slug = ${slug} LIMIT 1`.execute(ctx.core);
+  return rows[0] ? toInstance(rows[0]) : null;
+}
+
 /** Instância pelo produto da credencial e pelo slug da rota; outro produto = inexistente. */
 export async function findInstanceBySlug(
   ctx: AppContext,

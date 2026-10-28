@@ -25,6 +25,12 @@
       "name": "0004_catalogo_provisionamento",
       "file": "migrations/0004_catalogo_provisionamento.sql",
       "sha256": "bf8be8e83696ac8d594cdeb9d7d6d6da776516da94c61f80118d49dfcf0c48c1"
+    },
+    {
+      "version": 5,
+      "name": "0005_ciclo_operacao",
+      "file": "migrations/0005_ciclo_operacao.sql",
+      "sha256": "8f4a7e20edd66186f6aff366785d7e7f241209f695d400a38035d54fd0018bef"
     }
   ]
 }

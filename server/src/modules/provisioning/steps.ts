@@ -46,7 +46,7 @@ const CHARSET = "CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci";
 const conflict = (detail: string) =>
   new ProvisioningFailure("PROVISIONING_RESOURCE_CONFLICT", detail);
 
-async function withAdmin<T>(
+export async function withAdmin<T>(
   config: Config,
   database: string | undefined,
   run: (c: Connection) => Promise<T>,

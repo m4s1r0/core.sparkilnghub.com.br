@@ -142,6 +142,29 @@ export async function setProjectionState(
 }
 
 /**
+ * Suspensão (F03, CA-SC-009): grava o novo estado e encerra toda sessão aberta na mesma
+ * transação do banco de acesso, com `end_reason = 'suspensao'`. Sem isto, reativar a instância
+ * tornaria válida de novo uma sessão aberta antes da suspensão — a regra normativa só olha
+ * `access_instance.state`, não se a sessão já foi explicitamente encerrada.
+ */
+export async function setProjectionStateAndEndSessions(
+  ctx: AppContext,
+  instance: Pick<Instance, "accessDatabaseName">,
+  state: ProjectionState,
+  endReason: CoreEndReason,
+): Promise<void> {
+  const now = ctx.clock();
+  await ctx
+    .access(instance.accessDatabaseName)
+    .transaction()
+    .execute(async (trx) => {
+      await sql`UPDATE access_instance SET state = ${state}, updated_at = ${now}`.execute(trx);
+      await sql`UPDATE access_session SET ended_at = ${now}, end_reason = ${endReason}
+                 WHERE ended_at IS NULL`.execute(trx);
+    });
+}
+
+/**
  * Atividade da sessão (inatividade de 2 h medida pelo Core): valida pela regra normativa e grava
  * `last_seen_at` no máximo a cada 5 min. Devolve a sessão válida ou `null`.
  */

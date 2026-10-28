@@ -11,6 +11,13 @@ import { getInstance, type Instance } from "../instances/instances.js";
 import { transition } from "../instances/transitions.js";
 import { backoffMs, classify, ProvisioningFailure, SimulatedCrash } from "./errors.js";
 import {
+  applyInstanceMigrations,
+  confirmMaintenance,
+  confirmPriorBackup,
+  type MigrationStepContext,
+  verifyAfterMigration,
+} from "./migration-steps.js";
+import {
   applyMigrations,
   configure,
   createCredential,
@@ -22,9 +29,11 @@ import {
 } from "./steps.js";
 import {
   claimTask,
+  type AnyStep,
   finishedSteps,
   finishStepRun,
   HEARTBEAT_MS,
+  type MigrationStep,
   renewLease,
   startStepRun,
   type Step,
@@ -39,7 +48,7 @@ export interface ExecutorOptions {
   workerId: string;
   registry?: ProvisionerRegistry;
   /** Só em testes: interrompe depois do efeito de uma etapa (R-19). */
-  afterEffect?: (step: Step) => void | Promise<void>;
+  afterEffect?: (step: AnyStep) => void | Promise<void>;
 }
 
 export type RunOutcome = "concluida" | "aguardando_repeticao" | "falhou" | "lease_perdido";
@@ -53,16 +62,31 @@ const STRUCTURAL: readonly [Step, (sc: StepContext) => Promise<StepOutcome>][] =
   ["verificar", verify],
 ];
 
+const MIGRATION_STRUCTURAL: readonly [
+  MigrationStep,
+  (sc: MigrationStepContext) => Promise<StepOutcome>,
+][] = [
+  ["confirmar_manutencao", confirmMaintenance],
+  ["confirmar_backup_previo", confirmPriorBackup],
+  ["aplicar_migracoes_instancia", applyInstanceMigrations],
+  ["verificar_pos_migracao", verifyAfterMigration],
+];
+
 class LeaseLost extends Error {}
 
-/** Pega a próxima tarefa vencida (ou a indicada) e a executa; `null` se não há nada a fazer. */
+/**
+ * Pega a próxima tarefa vencida (ou a indicada) e a executa — mesmo laço para os dois tipos de
+ * tarefa (`kind`), despachado aqui (research.md R-03); `null` se não há nada a fazer.
+ */
 export async function runNextTask(
   options: ExecutorOptions,
   onlyTaskId?: string,
 ): Promise<RunOutcome | null> {
   const task = await claimTask(options.ctx, options.workerId, onlyTaskId);
   if (!task) return null;
-  return executeTask(options, task);
+  return task.kind === "migracao"
+    ? executeMigrationTask(options, task)
+    : executeTask(options, task);
 }
 
 /**
@@ -274,5 +298,140 @@ async function fail(
       });
     }
   });
+  return "falhou";
+}
+
+/**
+ * Executa uma tarefa de migração de instância (F03, research.md R-03): mesmo lease/heartbeat do
+ * provisionamento, sem nenhuma transição de estado — a instância já está e permanece
+ * `MANUTENCAO` durante toda a execução; sair da manutenção é ação separada do administrador
+ * (`exitMaintenance`), depois de uma checagem de saúde própria.
+ */
+async function executeMigrationTask(options: ExecutorOptions, claimed: Task): Promise<RunOutcome> {
+  const { ctx, workerId } = options;
+  const task = claimed;
+  let lost = false;
+  const heartbeat = setInterval(() => {
+    void renewLease(ctx, task.id, workerId).then(
+      (ok) => {
+        if (!ok) lost = true;
+      },
+      () => undefined,
+    );
+  }, HEARTBEAT_MS);
+  let run: { id: string; startedAt: Date; step: MigrationStep } | null = null;
+
+  const step = async (name: MigrationStep, body: () => Promise<StepOutcome>) => {
+    if (lost) throw new LeaseLost();
+    const started = await startStepRun(ctx, task, name, workerId);
+    run = { ...started, step: name };
+    const outcome = await body();
+    await finishStepRun(ctx, started, outcome);
+    run = null;
+    ctx.logger.info(
+      {
+        event: "migration_step",
+        taskId: task.id,
+        instanceId: task.instanceId,
+        step: name,
+        attempt: task.attempt + 1,
+        result: outcome,
+        durationMs: ctx.clock().getTime() - started.startedAt.getTime(),
+      },
+      "etapa de migração de instância",
+    );
+  };
+
+  try {
+    const instance = await currentInstance(ctx, task.instanceId);
+    const resolved = await resolveProvisioner(
+      task.artifactCode,
+      ctx.config.SPARK_ENV,
+      options.registry ?? PROVISIONERS,
+    );
+    if (!resolved.ok) throw new ProvisioningFailure("PROVISIONING_ARTIFACT_INVALID");
+    const manifest = resolved.manifest;
+
+    const done = await finishedSteps(ctx.core, task.id, task.runNumber);
+    for (const [name, body] of MIGRATION_STRUCTURAL) {
+      if (done.has(name)) continue;
+      const sc: MigrationStepContext = {
+        ctx,
+        config: options.config,
+        task,
+        instance,
+        manifest,
+        ...(options.afterEffect ? { afterEffect: options.afterEffect } : {}),
+      };
+      await step(name, () => body(sc));
+    }
+
+    await sql`UPDATE admin_task
+                 SET status = 'concluida', current_step = NULL, lease_until = NULL,
+                     error_code = NULL, error_message = NULL, finished_at = ${ctx.clock()}
+               WHERE id = ${uuidToBin(task.id)}`.execute(ctx.core);
+    ctx.logger.info(
+      {
+        event: "migration_finished",
+        taskId: task.id,
+        instanceId: task.instanceId,
+        durationMs: ctx.clock().getTime() - task.createdAt.getTime(),
+      },
+      "migração de instância concluída",
+    );
+    return "concluida";
+  } catch (error) {
+    if (error instanceof SimulatedCrash) throw error;
+    if (error instanceof LeaseLost) return "lease_perdido";
+    return await failMigration(options, task, run, error);
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
+
+/**
+ * Falha transitória com tentativas restantes → `aguardando_repeticao`; senão a tarefa falha —
+ * sem tocar o estado da instância (ela permanece `MANUTENCAO`, ao contrário da falha de
+ * provisionamento).
+ */
+async function failMigration(
+  options: ExecutorOptions,
+  task: Task,
+  run: { id: string; startedAt: Date; step: MigrationStep } | null,
+  error: unknown,
+): Promise<RunOutcome> {
+  const { ctx } = options;
+  const classified = classify(error);
+  const now = ctx.clock();
+  if (run) {
+    await finishStepRun(ctx, run, "falhou", { code: classified.code, message: classified.message });
+  }
+  const attempt = task.attempt + 1;
+  ctx.logger.warn(
+    {
+      event: "migration_step",
+      taskId: task.id,
+      instanceId: task.instanceId,
+      step: run?.step ?? task.currentStep,
+      attempt,
+      result: "falhou",
+      errorCode: classified.code,
+    },
+    "falha na migração de instância",
+  );
+  if (classified.transient && attempt < ctx.config.PROVISIONING_MAX_ATTEMPTS) {
+    await sql`UPDATE admin_task
+                 SET status = 'aguardando_repeticao', attempt = ${attempt},
+                     next_attempt_at = ${new Date(now.getTime() + backoffMs(attempt))},
+                     lease_until = NULL, worker_id = NULL,
+                     error_code = ${classified.code}, error_message = ${classified.message}
+               WHERE id = ${uuidToBin(task.id)}`.execute(ctx.core);
+    return "aguardando_repeticao";
+  }
+  await sql`UPDATE admin_task
+               SET status = 'falhou', attempt = ${attempt}, lease_until = NULL, worker_id = NULL,
+                   error_code = ${classified.code}, error_message = ${classified.message},
+                   finished_at = ${now}
+             WHERE id = ${uuidToBin(task.id)}`.execute(ctx.core);
   return "falhou";
 }

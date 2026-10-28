@@ -5,6 +5,7 @@ import { registerAccountRoutes } from "../modules/identity/account-routes.js";
 import { registerAdminRoutes } from "../modules/identity/admin-routes.js";
 import { registerIdentityRoutes } from "../modules/identity/routes.js";
 import { registerInstanceRoutes } from "../modules/instances/routes.js";
+import { registerPublicInstanceStatusRoutes } from "../modules/instances/public-status-route.js";
 import { registerInternalConnectionRoutes } from "../modules/internal-api/connection.js";
 import { registerInternalMemberRoutes } from "../modules/internal-api/members.js";
 import { registerInternalSessionRoutes } from "../modules/internal-api/sessions.js";
@@ -48,5 +49,6 @@ export function registerModules(app: FastifyInstance, deps: ModuleDeps): void {
   registerContractorRoutes(app, ctx);
   registerCatalogRoutes(app, ctx);
   registerInstanceRoutes(app, ctx);
+  registerPublicInstanceStatusRoutes(app, ctx);
   registerInternalConnectionRoutes(app, ctx);
 }

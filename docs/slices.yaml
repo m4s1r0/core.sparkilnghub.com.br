@@ -12,7 +12,7 @@ slices:
     status: em-implementacao
     requires: [D-01, D-02, D-03, D-04, D-05]
   - id: F03
-    status: especificando
+    status: em-implementacao
     requires: [D-01]
   - id: F08-Core
     status: especificando

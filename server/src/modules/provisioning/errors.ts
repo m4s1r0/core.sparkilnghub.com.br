@@ -9,7 +9,9 @@ export type ProvisioningErrorCode =
   | "PROVISIONING_ARTIFACT_INVALID"
   | "PROVISIONING_ARTIFACT_CHANGED"
   | "PROVISIONING_DEPENDENCY_UNAVAILABLE"
-  | "PROVISIONING_VERIFICATION_FAILED";
+  | "PROVISIONING_VERIFICATION_FAILED"
+  | "PROVISIONING_NOT_IN_MAINTENANCE"
+  | "PROVISIONING_NO_PRIOR_BACKUP";
 
 const MESSAGES: Record<ProvisioningErrorCode, string> = {
   PROVISIONING_RESOURCE_CONFLICT:
@@ -27,12 +29,18 @@ const MESSAGES: Record<ProvisioningErrorCode, string> = {
     "O banco de dados ficou indisponível durante o provisionamento. Repita depois que ele voltar.",
   PROVISIONING_VERIFICATION_FAILED:
     "A verificação final da instância falhou. Siga o procedimento operacional.",
+  PROVISIONING_NOT_IN_MAINTENANCE:
+    "A instância deixou de estar em manutenção durante a execução. Coloque-a em manutenção de novo e repita.",
+  PROVISIONING_NO_PRIOR_BACKUP:
+    "Não há backup bem-sucedido registrado desde a entrada em manutenção. Registre um backup e repita.",
 };
 
 /** Repetir pela interface pode resolver sem procedimento operacional (research.md R-07, R-08). */
 const RETRYABLE: ReadonlySet<ProvisioningErrorCode> = new Set([
   "PROVISIONING_PRIVILEGE_MISSING",
   "PROVISIONING_DEPENDENCY_UNAVAILABLE",
+  "PROVISIONING_NOT_IN_MAINTENANCE",
+  "PROVISIONING_NO_PRIOR_BACKUP",
 ]);
 
 /** Repetir pela interface pode resolver? (`retryable` exibido no painel) */
