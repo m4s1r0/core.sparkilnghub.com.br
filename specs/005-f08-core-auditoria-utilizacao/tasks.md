@@ -175,7 +175,7 @@
 - [X] T047 Executar `npm run verify` completo (servidor + web); todos os 16+ checks devem passar verde; corrigir regressão antes de prosseguir
 - [X] T048 Executar cenários do `quickstart.md` manualmente (ou com script): US1 lote → deduplicação; US2 painel UI; US3 CSV com neutralização; US4 Drawer; US5 relatório + dados_insuficientes; US6 worker
 - [X] T049 Atualizar `docs/slices.yaml`: marcar `F08-Core: em-implementacao` (ou estado correto da fatia); F02 e F03 ainda pendentes de merge — não alterar aqui, aguardar PR
-- [ ] T050 Commit final da fatia com todas as tarefas [X]; abrir PR `005-f08-core-auditoria-utilizacao → main`; acionar CI (workflow_dispatch se necessário)
+- [X] T050 Commit final da fatia com todas as tarefas [X]; abrir PR `005-f08-core-auditoria-utilizacao → main`; acionar CI (workflow_dispatch se necessário)
 - [ ] T051 Após CI verde: marcar `F08-Core: concluida` em `docs/slices.yaml` e commitar com evidência de CI
 
 ---

@@ -50,18 +50,18 @@ const product = async (code: string) =>
   ).json<Product>();
 
 describe("catálogo de produtos (US2, SC-007 a SC-009)", () => {
-  it("Tuteli não é provisionável; produto de referência é, fora de produção", async () => {
+  it("Tuteli e produto de referência são provisionáveis com artefato publicado", async () => {
     const list = checked(
       "listProducts",
       await flow.request("GET", "/api/v1/products", { cookie: admin.cookie }),
     ).json<{ items: Product[] }>();
     const pet = list.items.find((p) => p.code === "sparkpet");
     expect(pet).toMatchObject({
-      provisionable: false,
-      notProvisionableReason: "SEM_PROVISIONADOR",
-      provisioner: null,
-      deployedVersion: null,
+      provisionable: true,
+      notProvisionableReason: null,
+      provisioner: "sparkpet-v1",
     });
+    expect(pet?.deployedVersion).toBeGreaterThanOrEqual(1);
     const ref = list.items.find((p) => p.code === "sparkref");
     expect(ref).toMatchObject({ provisionable: true, notProvisionableReason: null });
     expect(ref?.deployedVersion).toBeGreaterThanOrEqual(2);

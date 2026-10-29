@@ -17,7 +17,7 @@ test("provisionamento: solicitação guiada até a instância pronta e convite i
   await page
     .getByLabel("Contratante")
     .selectOption({ label: "[SINTÉTICO] Contratante de referência" });
-  await expect(page.getByRole("option", { name: /Tuteli —/ })).toBeDisabled();
+  await expect(page.getByRole("option", { name: "Tuteli", exact: true })).toBeEnabled();
   await page.getByLabel("Produto").selectOption("sparkref");
   await expectNoHorizontalScroll(page);
   await expectNoSeriousAxe(page);
