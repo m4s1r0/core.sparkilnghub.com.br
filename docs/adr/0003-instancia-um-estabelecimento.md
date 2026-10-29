@@ -1,6 +1,6 @@
 ---
 id: D-03
-title: Uma instância SparkPet corresponde a um estabelecimento
+title: Uma instância Tuteli corresponde a um estabelecimento
 status: confirmada
 date: 2026-10-26
 owner: responsável técnico Sparkling Hub
@@ -14,7 +14,7 @@ Cada instância tem banco operacional próprio (`COM-005`). Contratantes podem t
 
 ## Decisão
 
-Uma instância de SparkPet = um estabelecimento, com agenda e estoque únicos. Filiais usam
+Uma instância de Tuteli = um estabelecimento, com agenda e estoque únicos. Filiais usam
 instâncias separadas, inclusive do mesmo contratante; não há consolidação operacional entre
 instâncias no MVP.
 

@@ -10,7 +10,7 @@ const INSTANCE = "0192f6b0-0000-7000-8000-0000000000bb";
 
 const product = (code: string, provisionable: boolean) => ({
   code,
-  name: code === "sparkpet" ? "SparkPet" : "Referência",
+  name: code === "sparkpet" ? "Tuteli" : "Referência",
   description: "",
   status: "ativo",
   provisioner: provisionable ? `${code}-v1` : null,
@@ -103,7 +103,7 @@ describe("NewInstancePage (/instancias/nova)", () => {
     backend();
     renderApp("/instancias/nova");
     const option = await screen.findByRole("option", {
-      name: /SparkPet — O produto ainda não publicou seu artefato/,
+      name: /Tuteli — O produto ainda não publicou seu artefato/,
     });
     expect(option).toBeDisabled();
   });

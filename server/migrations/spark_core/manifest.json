@@ -31,6 +31,24 @@
       "name": "0005_ciclo_operacao",
       "file": "migrations/0005_ciclo_operacao.sql",
       "sha256": "8f4a7e20edd66186f6aff366785d7e7f241209f695d400a38035d54fd0018bef"
+    },
+    {
+      "version": 6,
+      "name": "0006_auditoria_utilizacao",
+      "file": "migrations/0006_auditoria_utilizacao.sql",
+      "sha256": "ae212a8f69d4f9656ac76544470d5aa87f163bf8c94e09f6030ba5a47822cdb3"
+    },
+    {
+      "version": 7,
+      "name": "0007_worker_retention_state",
+      "file": "migrations/0007_worker_retention_state.sql",
+      "sha256": "8a13b34abacbed14c26a77d38d387e5c29b70394c1a64281d1728799b86ef27d"
+    },
+    {
+      "version": 8,
+      "name": "0008_rename_tuteli",
+      "file": "migrations/0008_rename_tuteli.sql",
+      "sha256": "5007621cf2af87848725717f66997cfbc0899104dc5f37d7d73cd0409d73a3ae"
     }
   ]
 }

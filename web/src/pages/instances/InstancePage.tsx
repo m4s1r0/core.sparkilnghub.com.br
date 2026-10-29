@@ -2,6 +2,7 @@ import {
   Alert,
   Badge,
   Button,
+  DataTable,
   DescriptionList,
   Heading,
   Input,
@@ -10,11 +11,13 @@ import {
   Tabs,
   Text,
   Textarea,
+  type TableColumn,
 } from "@sparkling-hub/design-system";
 import { useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { Link, useParams } from "react-router";
 import { ApiError } from "../../api/client";
+import { type UsageByPeriod, useInstanceUsage } from "../../api/utilization";
 import {
   type InstanceDetail,
   instanceKey,
@@ -84,6 +87,11 @@ function InstanceView({ instance }: { instance: InstanceDetail }) {
                 },
               ]
             : []),
+          {
+            id: "utilizacao",
+            label: "Utilização",
+            content: <InstanceUsageTab instanceId={instance.id} timezone={instance.timezone} />,
+          },
           {
             id: "vinculos",
             label: "Vínculos",
@@ -247,6 +255,53 @@ function Summary({ instance }: { instance: InstanceDetail }) {
           </Button>
         </div>
       </form>
+    </div>
+  );
+}
+
+const usageColumns: TableColumn<UsageByPeriod>[] = [
+  { id: "period", header: "Período", cell: (row) => `${row.period_start} → ${row.period_end}` },
+  {
+    id: "events",
+    header: "Tipos de evento",
+    cell: (row) => row.events.map((e) => `${e.kind}: ${e.count}`).join(", ") || "—",
+  },
+  { id: "status", header: "Status", cell: (row) => row.data_status },
+];
+
+function InstanceUsageTab({ instanceId, timezone }: { instanceId: string; timezone: string }) {
+  const [from, setFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  });
+  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [applied, setApplied] = useState({ from, to });
+  const query = useInstanceUsage(instanceId, applied.from, applied.to, timezone);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <Input label="De" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+        <Input label="Até" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        <Button type="button" variant="primary" onClick={() => setApplied({ from, to })}>
+          Aplicar
+        </Button>
+      </div>
+      {query.isPending && <Skeleton label="Carregando utilização" lines={3} />}
+      {query.isError && (
+        <Alert tone="error" title="Falha ao carregar utilização">
+          {query.error instanceof ApiError ? query.error.message : "Ocorreu uma falha inesperada."}
+        </Alert>
+      )}
+      {query.data && (
+        <DataTable
+          caption="Utilização da instância"
+          columns={usageColumns}
+          rows={[query.data]}
+          rowKey={(row) => row.period_start}
+        />
+      )}
     </div>
   );
 }

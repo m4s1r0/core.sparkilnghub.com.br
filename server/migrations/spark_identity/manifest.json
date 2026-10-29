@@ -25,6 +25,12 @@
       "name": "0004_convite_emissao",
       "file": "migrations/0004_convite_emissao.sql",
       "sha256": "b31b73aaccd5545fa6beb180ab92b9530ed6b15ee070e5b661368a25daea1adc"
+    },
+    {
+      "version": 5,
+      "name": "0005_auditoria_index",
+      "file": "migrations/0005_auditoria_index.sql",
+      "sha256": "e929a799ba16118fc3329c752e1fc7741ceb84395b98f8614f6a9370ed4e529d"
     }
   ]
 }

@@ -16,7 +16,7 @@ export type ProvisionerRegistry = Readonly<Record<string, ProvisionerDef>>;
 
 /**
  * Registro em código: cadastrar produto pela interface não cria provisionador (SC-008). O
- * produto de referência só existe fora de produção (constituição III); o SparkPet entra aqui
+ * produto de referência só existe fora de produção (constituição III); o Tuteli entra aqui
  * quando publicar seu artefato.
  */
 export const PROVISIONERS: ProvisionerRegistry = {

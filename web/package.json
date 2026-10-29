@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@sparkcore/contracts": "*",
-    "@sparkling-hub/design-system": "file:../vendor/design-system/sparkling-hub-design-system-0.2.0.tgz",
+    "@sparkling-hub/design-system": "file:../vendor/design-system/sparkling-hub-design-system-0.2.1.tgz",
     "@tanstack/react-query": "^5.104.5",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",

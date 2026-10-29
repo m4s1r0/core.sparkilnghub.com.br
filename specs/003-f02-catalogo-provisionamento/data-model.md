@@ -63,7 +63,7 @@ código ou `null`), `deployedVersion` (maior versão do artefato implantado),
 `notProvisionableReason` (`SEM_PROVISIONADOR`, `ARTEFATO_INVALIDO`, `PRODUTO_INATIVO`,
 `AMBIENTE_NAO_PERMITIDO`).
 
-Dados iniciais (migração 0004): `sparkpet` (`SparkPet`, ativo, sem provisionador). `sparkref` só
+Dados iniciais (migração 0004): `sparkpet` (`Tuteli`, ativo, sem provisionador). `sparkref` só
 quando existem instâncias sintéticas de F01; as sementes o criam nos demais ambientes sintéticos.
 
 ### `instance` (renomeada de `instance_ref` e ampliada)
@@ -201,7 +201,7 @@ Situação do convite inicial exibida no painel (calculada): `aguardando_emissao
 Inalterado em relação ao contrato do artefato v1 (F00). A linha de `_spark_instance` passa a
 receber `owner_task_uuid` = tarefa de provisionamento. Configuração obrigatória do produto de
 referência = o próprio marcador (UUID, produto, sintético); o fuso e o nome de exibição ficam no
-Core (o SparkPet definirá no seu artefato as configurações que exige, no mesmo passo 6).
+Core (o Tuteli definirá no seu artefato as configurações que exige, no mesmo passo 6).
 
 ## Banco de acesso (`<prefixo><uuid>_acc`) — projeção v2
 

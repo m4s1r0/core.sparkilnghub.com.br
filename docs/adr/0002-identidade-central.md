@@ -9,7 +9,7 @@ requirements: [COM-006, COM-007, COM-008]
 
 ## Contexto
 
-O pedido exige um banco de autenticação de usuários para o SparkPet (`COM-006`). Um mesmo usuário
+O pedido exige um banco de autenticação de usuários para o Tuteli (`COM-006`). Um mesmo usuário
 pode atuar em várias instâncias com papéis diferentes (`COM-008`), e revogação e suspensão
 precisam alcançar sessões abertas (`COM-018`).
 
@@ -17,7 +17,7 @@ precisam alcançar sessões abertas (`COM-018`).
 
 Um banco `spark_identity`, pertencente ao módulo de identidade do SparkCore, guarda contas,
 credenciais, vínculos `membership(user_id, instance_id, role, status)`, convites, sessões e
-auditoria de segurança dos dois produtos. O SparkPet não acessa essas tabelas diretamente nem
+auditoria de segurança dos dois produtos. O Tuteli não acessa essas tabelas diretamente nem
 mantém segunda cópia de senha. Não há chave estrangeira entre bancos; UUIDs de ator e instância
 são verificados na aplicação.
 
@@ -29,6 +29,6 @@ são verificados na aplicação.
 
 ## Consequências
 
-- Indisponibilidade da identidade bloqueia operações protegidas do SparkPet com `503`.
+- Indisponibilidade da identidade bloqueia operações protegidas do Tuteli com `503`.
 - Recuperação conjunta de Core e identidade exige procedimento próprio (diretrizes §9).
 - F01 modela as entidades de identidade neste banco.

@@ -49,6 +49,20 @@ test.beforeEach(async ({ page }) => {
       platformRole: "administrador",
     }),
   );
+  await page.route("**/api/v1/dashboard/stats", (route) =>
+    fulfill(route, 200, {
+      instances_by_state: {},
+      pending_provisionings: 0,
+      failed_provisionings: 0,
+      instances_without_recent_usage: { last7d: 0, last30d: 0 },
+      instances_without_any_data: 0,
+      instances_with_telemetry_delay: 0,
+      instances_with_schema_issue: 0,
+      cleanup_last_run: null,
+      cleanup_last_count: null,
+      calculated_at: new Date().toISOString(),
+    }),
+  );
 });
 
 async function expectNoHorizontalScroll(page: Page) {
@@ -78,9 +92,9 @@ test("sucesso, teclado e foco visível", async ({ page }) => {
   await page.route(STATUS_URL, (route) => fulfill(route, 200, body()));
   await page.goto("/");
   await expect(page.getByRole("table")).toBeVisible();
-  // Navegação do painel e "Sair" vêm antes no cabeçalho (F01); segue por Tab até o botão.
+  // Sidebar tem 10 nav items + Sair + Recolher = 12 tab stops antes do conteúdo.
   const refresh = page.getByRole("button", { name: "Atualizar situação" });
-  for (let i = 0; i < 10 && !(await refresh.evaluate((el) => el === document.activeElement)); i++) {
+  for (let i = 0; i < 20 && !(await refresh.evaluate((el) => el === document.activeElement)); i++) {
     await page.keyboard.press("Tab");
   }
   await expect(refresh).toBeFocused();

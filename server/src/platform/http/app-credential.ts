@@ -3,14 +3,16 @@ import { sql } from "kysely";
 import { AppError } from "../../app/errors.js";
 import type { AppContext } from "../context.js";
 import { sha256Hex, timingSafeEqualHex } from "../crypto/index.js";
-import { isUuid, uuidToBin } from "../ids.js";
+import { binToUuid, isUuid, uuidToBin } from "../ids.js";
 import { withIdentity } from "./identity-errors.js";
 
-export type AppScope = "sessions" | "members" | "connection";
+export type AppScope = "sessions" | "members" | "connection" | "utilizacao";
 
 export interface AppCredential {
   id: string;
   productCode: string;
+  /** UUID da instância à qual esta credencial está vinculada (null = credencial por produto). */
+  instanceId: string | null;
   scopes: ReadonlySet<AppScope>;
 }
 
@@ -39,12 +41,13 @@ export function requireAppCredential(ctx: AppContext, scope: AppScope) {
     const { rows } = await withIdentity(() =>
       sql<{
         product_code: string;
+        instance_id: Buffer | null;
         secret_hash: string;
         scopes: string;
         expires_at: Date | null;
         revoked_at: Date | null;
         last_used_at: Date | null;
-      }>`SELECT product_code, secret_hash, scopes, expires_at, revoked_at, last_used_at
+      }>`SELECT product_code, instance_id, secret_hash, scopes, expires_at, revoked_at, last_used_at
            FROM app_credential WHERE id = ${uuidToBin(id)}`.execute(ctx.core),
     );
     const row = rows[0];
@@ -64,7 +67,8 @@ export function requireAppCredential(ctx: AppContext, scope: AppScope) {
         ctx.core,
       );
     }
-    request.appCredential = { id, productCode: row.product_code, scopes };
+    const instanceId = row.instance_id ? binToUuid(row.instance_id) : null;
+    request.appCredential = { id, productCode: row.product_code, instanceId, scopes };
   };
 }
 

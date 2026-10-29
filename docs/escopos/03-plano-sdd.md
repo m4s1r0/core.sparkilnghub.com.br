@@ -40,9 +40,9 @@ Os intervalos abaixo incluem todos os identificadores contidos no intervalo. As 
 |---|---|---|---|
 | F00 — Base e decisões | Repositório dos sistemas, execução local, MySQL de desenvolvimento, contratos iniciais, decisões D-01 a D-04, pipeline e dados sintéticos. | COM-001 a COM-006; NFR-001, NFR-011, NFR-012, NFR-016. | Nenhuma. |
 | F01 — Identidade e contextos | Bootstrap, login, MFA Core, sessão por contexto, convite, vínculo, revogação e duas instâncias sintéticas isoladas. | COM-007 a COM-020; SC-001, SC-002, SC-010 a SC-013; SP-001 a SP-005; NFR-008, NFR-009. | F00. |
-| F02 — Catálogo e provisionamento | Contratante, produto SparkPet, instância, banco próprio, migrações, credencial restrita, falha e retomada. | SC-003 a SC-009; SC-014 a SC-024; COM-025 a COM-027; NFR-013, NFR-014. | F01 e schema mínimo SparkPet. |
+| F02 — Catálogo e provisionamento | Contratante, produto Tuteli, instância, banco próprio, migrações, credencial restrita, falha e retomada. | SC-003 a SC-009; SC-014 a SC-024; COM-025 a COM-027; NFR-013, NFR-014. | F01 e schema mínimo Tuteli. |
 | F03 — Ciclo e operação da instância | Ativação, suspensão com sessão aberta, reativação, manutenção, saúde e procedimento de recuperação. | SC-025 a SC-031; SC-042 a SC-045; SP-097, SP-099, SP-100; NFR-006, NFR-007. | F02. |
-| F04 — Cadastros SparkPet | Estabelecimento, profissionais, tutores, animais, cuidados, serviços/variantes e catálogo de estoque. | SP-006 a SP-028; COM-021 a COM-024, COM-028; NFR-002. | F03. |
+| F04 — Cadastros Tuteli | Estabelecimento, profissionais, tutores, animais, cuidados, serviços/variantes e catálogo de estoque. | SP-006 a SP-028; COM-021 a COM-024, COM-028; NFR-002. | F03. |
 | F05 — Agenda e atendimento | Agenda sem conflito, entrada, checklist, etapas, pronto, retirada e retorno manual, com ganchos transacionais para pacotes. | SP-029 a SP-048; RN-SP-003 a RN-SP-005; CA-SP-003 a CA-SP-007. | F04. |
 | F06 — Comanda, estoque e recebimentos | Venda simples, baixa única, consumo de insumos, pagamento parcial, caixa e estorno elegível. | SP-049 a SP-066; SP-077 a SP-088; COM-021 a COM-028; NFR-013. | F05; venda de pacote/resgate fica desabilitada até F07. |
 | F07 — Pacotes | Venda, quitação, validade, reserva, consumo e bloqueio financeiro, sem dupla cobrança. | SP-067 a SP-076; SP-044, SP-055, SP-075; CA-SP-012 a CA-SP-014. | F06. |
@@ -56,7 +56,7 @@ Auditoria e segurança não começam apenas em F08: cada fatia registra os event
 
 ### T-01 — Provisionamento repetido
 
-**Dado** um contratante ativo e SparkPet provisionável, **quando** duas chamadas idênticas usam a mesma chave, **então** ambas referenciam a mesma instância/tarefa, sem banco ou vínculo duplicado. Mesma chave com payload diferente gera conflito. Slug igual com chaves diferentes não cria segunda instância.
+**Dado** um contratante ativo e Tuteli provisionável, **quando** duas chamadas idênticas usam a mesma chave, **então** ambas referenciam a mesma instância/tarefa, sem banco ou vínculo duplicado. Mesma chave com payload diferente gera conflito. Slug igual com chaves diferentes não cria segunda instância.
 
 Relacionar: `SC-014` a `SC-024`, `CA-SC-005`, `COM-026`.
 
@@ -205,7 +205,7 @@ Entrega comercial depende adicionalmente dos critérios finais dos dois produtos
 
 Texto reutilizável, ajustando apenas a localização deste pacote e os nomes reais das skills instaladas:
 
-> Use como fonte de produto os arquivos `README.md`, `00-diretrizes-compartilhadas.md`, `01-sparkcore-mvp.md`, `02-sparkpet-mvp.md` e `03-plano-sdd.md` deste pacote. Prepare as especificações e o plano técnico do MVP de SparkCore e SparkPet com o fluxo do SDD Toolkit disponível no ambiente. Preserve IDs, origem e exclusões. Trate decisões propostas como propostas, sem inventar aprovação. Comece por F00/F01 e explicite D-01 a D-04 antes de implementar identidade e provisionamento. Para cada fatia, detalhe histórias, aceite, estados, modelo de dados, contratos, permissões, transações, idempotência, concorrência, migrações, testes e operação. Garanta banco operacional por instância, identidade separada, suspensão sobre sessões existentes, ausência de dupla cobrança de pacote e distinção entre comanda, estoque, recebimento e atendimento. Não introduza microserviços, faturamento SaaS automático, prontuário veterinário ou integrações adiadas. Se houver conflito ou lacuna estrutural, registre a decisão e seu impacto antes do trabalho dependente; prossiga nas atividades independentes autorizadas. Não implemente os SaaS dentro do projeto Astro do site institucional apenas por ele já existir.
+> Use como fonte de produto os arquivos `README.md`, `00-diretrizes-compartilhadas.md`, `01-sparkcore-mvp.md`, `02-tuteli-mvp.md` e `03-plano-sdd.md` deste pacote. Prepare as especificações e o plano técnico do MVP de SparkCore e Tuteli com o fluxo do SDD Toolkit disponível no ambiente. Preserve IDs, origem e exclusões. Trate decisões propostas como propostas, sem inventar aprovação. Comece por F00/F01 e explicite D-01 a D-04 antes de implementar identidade e provisionamento. Para cada fatia, detalhe histórias, aceite, estados, modelo de dados, contratos, permissões, transações, idempotência, concorrência, migrações, testes e operação. Garanta banco operacional por instância, identidade separada, suspensão sobre sessões existentes, ausência de dupla cobrança de pacote e distinção entre comanda, estoque, recebimento e atendimento. Não introduza microserviços, faturamento SaaS automático, prontuário veterinário ou integrações adiadas. Se houver conflito ou lacuna estrutural, registre a decisão e seu impacto antes do trabalho dependente; prossiga nas atividades independentes autorizadas. Não implemente os SaaS dentro do projeto Astro do site institucional apenas por ele já existir.
 
 ## 9. Limite desta entrega
 

@@ -37,7 +37,7 @@ Linux; navegadores evergreen (`NFR-015` homologado em F10)
 verificação completa da CI ≤ 15 min (CS-004)
 
 **Constraints**: sem segredos versionados; credencial web sem DDL; mesma imagem MySQL local e
-CI; nenhuma cópia de estilos do design system; nenhum trabalho de SparkPet
+CI; nenhuma cópia de estilos do design system; nenhum trabalho de Tuteli
 
 **Scale/Scope**: 1 tela, 2 endpoints, 3 bancos lógicos, 5 identidades MySQL, 8 comandos de
 repositório, 5 ADRs
@@ -54,7 +54,7 @@ repositório, 5 ADRs
 | IV. Idempotência/retomada | Regra publicada nas convenções; migrador registra `falha` e recusa continuar sem verificação; sementes idempotentes | ✅ (implementação plena em F01/F02) |
 | V. MySQL real e falhas | Integração e migrações contra MySQL 8.4 real; cenários de indisponibilidade, checksum e sequência testados; testes de alto risco (privilégios, guarda de ambiente, migrador) escritos antes | ✅ |
 | VI. Rastreabilidade e privacidade | Requisitos citados em spec, ADRs e testes; logs JSON com correlação e redação; dados sintéticos marcados; gitleaks | ✅ |
-| VII. Monólito e escopo | Um pacote de servidor com dois entrypoints; sem broker, microserviços ou orquestrador; nada do SparkPet; complexidade nova justificada abaixo | ✅ |
+| VII. Monólito e escopo | Um pacote de servidor com dois entrypoints; sem broker, microserviços ou orquestrador; nada do Tuteli; complexidade nova justificada abaixo | ✅ |
 | VIII. Design system | Pacote 0.2.0 fixado via `.tgz`; página base só com componentes públicos; verificação de duplicação de tokens/CSS; estados mapeados | ✅ |
 | Restrições técnicas (`COM-001`–`COM-006`) | React+TS+Tailwind; Node.js; MySQL; monólito; banco por instância (referência); `spark_identity` separado | ✅ |
 | D-01..D-04 antes de identidade/provisionamento | D-01..D-03 confirmadas; D-04 proposta bloqueia F01/F02 pelo portão; F00 não implementa nenhum dos dois | ✅ |

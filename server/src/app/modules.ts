@@ -6,7 +6,10 @@ import { registerAdminRoutes } from "../modules/identity/admin-routes.js";
 import { registerIdentityRoutes } from "../modules/identity/routes.js";
 import { registerInstanceRoutes } from "../modules/instances/routes.js";
 import { registerPublicInstanceStatusRoutes } from "../modules/instances/public-status-route.js";
+import { registerAuditEventRoutes } from "../modules/audit/routes.js";
+import { registerAuditRoutes } from "../modules/identity/audit-routes.js";
 import { registerInternalConnectionRoutes } from "../modules/internal-api/connection.js";
+import { registerUtilizationRoutes } from "../modules/utilization/routes.js";
 import { registerInternalMemberRoutes } from "../modules/internal-api/members.js";
 import { registerInternalSessionRoutes } from "../modules/internal-api/sessions.js";
 import { registerMembershipRoutes } from "../modules/memberships/routes.js";
@@ -36,9 +39,8 @@ export function registerModules(app: FastifyInstance, deps: ModuleDeps): void {
   registerSystemRoutes(
     app,
     deps.statusService ?? new SystemStatusService(deps.config, deps.pools),
-    {
-      preHandler: requireSession(ctx),
-    },
+    { preHandler: requireSession(ctx) },
+    ctx,
   );
   registerIdentityRoutes(app, ctx);
   registerAdminRoutes(app, ctx);
@@ -51,4 +53,7 @@ export function registerModules(app: FastifyInstance, deps: ModuleDeps): void {
   registerInstanceRoutes(app, ctx);
   registerPublicInstanceStatusRoutes(app, ctx);
   registerInternalConnectionRoutes(app, ctx);
+  registerAuditRoutes(app, ctx);
+  registerAuditEventRoutes(app, ctx);
+  registerUtilizationRoutes(app, ctx);
 }

@@ -10,7 +10,7 @@ requirements: [COM-004]
 ## Contexto
 
 O pedido exige arquitetura monolítica no MVP, sem microserviços (`COM-004`), para dois produtos:
-SparkCore (plataforma) e SparkPet (primeiro SaaS). O escopo não esclarecia se o ecossistema seria
+SparkCore (plataforma) e Tuteli (primeiro SaaS). O escopo não esclarecia se o ecossistema seria
 um único executável ou um por produto (diretrizes §2.2, D-01).
 
 ## Decisão
@@ -29,6 +29,6 @@ código e artefato, como processo separado.
 
 ## Consequências
 
-- O SparkPet depende do Core para identidade e autorização por API interna (ver D-04).
+- O Tuteli depende do Core para identidade e autorização por API interna (ver D-04).
 - Contratos entre os produtos precisam de versão e de prova independente (constituição III).
 - A implantação do site institucional permanece independente.

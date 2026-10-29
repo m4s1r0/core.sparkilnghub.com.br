@@ -143,7 +143,7 @@ reutilizáveis); as sementes passam a usar o mesmo provisionador em modo síncro
   poderia aplicar metade de novo. Manter a regra de F00 R-04 evita uma segunda semântica de
   migração.
 - **Alternatives considered**: exigir DDL idempotente nos artefatos (MySQL não tem `ADD COLUMN IF
-  NOT EXISTS`); uma instrução por versão (restrição exagerada para o SparkPet); recriar o banco
+  NOT EXISTS`); uma instrução por versão (restrição exagerada para o Tuteli); recriar o banco
   sob novo nome (deixaria bancos órfãos sem procedimento de limpeza).
 - **Consequência para a spec**: a nova execução (US4, cenário 4) resolve causas corrigíveis
   (MySQL fora, privilégio ausente, falha antes da versão começar); versão interrompida exige

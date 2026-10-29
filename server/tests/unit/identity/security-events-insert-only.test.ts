@@ -14,12 +14,17 @@ function walk(dir: string): string[] {
 const FORBIDDEN =
   /\b(?:UPDATE|DELETE\s+FROM|TRUNCATE(?:\s+TABLE)?|REPLACE\s+INTO)\s+(?:`?\w+`?\.)?`?security_event`?\b/i;
 
+// SC-033/R-03: o worker de retenção de IP é o único arquivo autorizado a fazer UPDATE
+// em security_event (apenas ip e user_agent → NULL após 180 dias).
+const ALLOWED_EXCEPTIONS = ["src/workers/ip-retention.ts"];
+
 describe("security_event é somente inserção (FR-030, data-model)", () => {
   it("nenhum arquivo de server/src altera ou apaga eventos de segurança", () => {
     const offenders = walk(join(serverRoot, "src"))
       .filter((path) => /\.(ts|sql)$/.test(path))
       .filter((path) => FORBIDDEN.test(readFileSync(path, "utf8")))
-      .map((path) => relative(serverRoot, path));
+      .map((path) => relative(serverRoot, path).replace(/\\/g, "/"))
+      .filter((path) => !ALLOWED_EXCEPTIONS.includes(path));
     expect(offenders).toEqual([]);
   });
 

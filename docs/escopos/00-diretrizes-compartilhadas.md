@@ -1,23 +1,23 @@
-# Diretrizes compartilhadas — SparkCore e SparkPet
+# Diretrizes compartilhadas — SparkCore e Tuteli
 
 **Versão:** 1.0 · **Data:** 25/10/2026 · **Natureza:** proposta de arquitetura e critérios comuns.
 
 ## 1. Objetivos e vocabulário
 
-O SparkCore administra a oferta dos SaaS da Sparkling Hub. O SparkPet administra a rotina do estabelecimento contratante. A separação de responsabilidades deve existir no código, nas permissões e nos dados.
+O SparkCore administra a oferta dos SaaS da Sparkling Hub. O Tuteli administra a rotina do estabelecimento contratante. A separação de responsabilidades deve existir no código, nas permissões e nos dados.
 
 | Termo | Definição |
 |---|---|
 | Plataforma | Conjunto de produtos e recursos administrados pela Sparkling Hub. |
 | Contratante | Pessoa jurídica ou física que contrata um SaaS; cadastro comercial no SparkCore. |
-| Produto | SaaS habilitado no catálogo, inicialmente SparkPet. |
+| Produto | SaaS habilitado no catálogo, inicialmente Tuteli. |
 | Instância / tenant | Ambiente lógico de um contratante em um produto, com identificador imutável, estado, usuários autorizados e banco operacional exclusivo. Não significa necessariamente um servidor ou contêiner dedicado. |
-| Estabelecimento | Unidade de operação de um pet shop; no MVP, uma por instância SparkPet. |
-| Tutor / cliente do pet shop | Pessoa que contrata serviços ou compra produtos dentro do SparkPet. Não se confunde com o contratante da Sparkling Hub. |
+| Estabelecimento | Unidade de operação de um pet shop; no MVP, uma por instância Tuteli. |
+| Tutor / cliente do pet shop | Pessoa que contrata serviços ou compra produtos dentro do Tuteli. Não se confunde com o contratante da Sparkling Hub. |
 | Usuário | Pessoa autenticada, com vínculos e papéis explícitos em um contexto. |
 | Profissional | Pessoa agendável para executar serviços; pode ter ou não uma conta de usuário. |
 | Administrador da plataforma | Usuário interno do SparkCore. |
-| Administrador do estabelecimento | Usuário do SparkPet que administra apenas sua instância. |
+| Administrador do estabelecimento | Usuário do Tuteli que administra apenas sua instância. |
 | Movimento comercial | Comanda/venda de produtos, serviços ou pacote; separado de lançamento de estoque, de recebimento e de evento de utilização. |
 | Inativação | Impede novo uso de um cadastro; mantém referências históricas. |
 | Suspensão | Bloqueia o acesso operacional à instância, preservando dados e contrato administrativo. |
@@ -31,7 +31,7 @@ O SparkCore administra a oferta dos SaaS da Sparkling Hub. O SparkPet administra
 - `COM-003 [U]` Persistência em MySQL.
 - `COM-004 [U]` MVP em arquitetura monolítica, sem exigir microserviços para entregar a operação.
 - `COM-005 [U]` Banco operacional próprio para cada nova instância de SaaS.
-- `COM-006 [U]` Banco de autenticação de usuários para SparkPet.
+- `COM-006 [U]` Banco de autenticação de usuários para Tuteli.
 
 ### 2.2 Decisões de referência
 
@@ -39,8 +39,8 @@ O SparkCore administra a oferta dos SaaS da Sparkling Hub. O SparkPet administra
 |---|---|---|
 | D-01 | Dois monólitos modulares, um por produto; identidade central dentro do SparkCore. | **Confirmar antes de implementar a base.** O pedido não esclarece se desejava um único executável para todo o ecossistema. |
 | D-02 | `spark_identity` central para contas, vínculos, convites e sessões de ambos os produtos. | **Confirmar antes de modelar identidade.** Resolve o requisito do banco de autenticação sem copiar senhas para cada instância. |
-| D-03 | Uma instância SparkPet = um estabelecimento, com agenda e estoque únicos. | **Confirmar antes da modelagem operacional.** Várias filiais usam instâncias separadas, sem consolidação operacional no MVP. |
-| D-04 | Autorização de cada requisição protegida do SparkPet consultada no módulo de identidade do SparkCore por API interna. | **Confirmar antes de implementar segurança.** Simplifica revogação imediata, mas torna Core/identidade dependência síncrona do Pet. |
+| D-03 | Uma instância Tuteli = um estabelecimento, com agenda e estoque únicos. | **Confirmar antes da modelagem operacional.** Várias filiais usam instâncias separadas, sem consolidação operacional no MVP. |
+| D-04 | Autorização de cada requisição protegida do Tuteli consultada no módulo de identidade do SparkCore por API interna. | **Confirmar antes de implementar segurança.** Simplifica revogação imediata, mas torna Core/identidade dependência síncrona do Pet. |
 | D-05 | Node.js também com TypeScript; API HTTP JSON; migrações versionadas; testes contra MySQL real. | Selecionar framework, biblioteca de acesso a dados e versões no planejamento técnico, documentando a escolha. |
 | D-06 | Cobrança da assinatura administrada externamente; suspensão manual com motivo. | Sem gateway de assinatura, cobrança recorrente ou bloqueio automático por falta de pagamento. |
 | D-07 | Convite e recuperação com link individual de uso único; entrega manual segura no MVP, e-mail transacional como opção. | Definir canal e verificação de destinatário antes do piloto. Nunca usar senha padrão enviada ao cliente. |
@@ -60,8 +60,8 @@ Uma decisão alterada deve gerar registro de arquitetura e revisão dos requisit
 flowchart TB
   A[Administrador Sparkling Hub] --> CF[Interface SparkCore React]
   CF --> C[Monólito Node.js SparkCore]
-  U[Equipe do pet shop] --> PF[Interface SparkPet React]
-  PF --> P[Monólito Node.js SparkPet]
+  U[Equipe do pet shop] --> PF[Interface Tuteli React]
+  PF --> P[Monólito Node.js Tuteli]
   P -->|Autenticação e autorização internas| C
   C --> CD[(spark_core)]
   C --> ID[(spark_identity)]
@@ -71,15 +71,15 @@ flowchart TB
   P -->|Conexão resolvida para a instância autorizada| T2
 ```
 
-O diagrama mostra acesso técnico de provisionamento aos bancos das instâncias. Isso não concede ao administrador da plataforma navegação nas comandas, tutores ou animais do SparkPet.
+O diagrama mostra acesso técnico de provisionamento aos bancos das instâncias. Isso não concede ao administrador da plataforma navegação nas comandas, tutores ou animais do Tuteli.
 
 **SparkCore:** módulos de identidade, contratantes, produtos, instâncias, provisionamento, auditoria, acesso e utilização. O executor de tarefas usa o mesmo código e o mesmo artefato de implantação do Core, podendo rodar como processo trabalhador. Uma tabela de tarefas persistentes no MySQL evita exigir um broker externo no MVP.
 
-**SparkPet:** módulos de configuração do estabelecimento, usuários locais por vínculo, tutores/animais, catálogo, agenda, atendimento, comercial, pacotes, estoque, recebimentos, relatórios e auditoria. Transações operacionais ficam no banco da própria instância.
+**Tuteli:** módulos de configuração do estabelecimento, usuários locais por vínculo, tutores/animais, catálogo, agenda, atendimento, comercial, pacotes, estoque, recebimentos, relatórios e auditoria. Transações operacionais ficam no banco da própria instância.
 
-**Banco de identidade:** pertence ao módulo de identidade do SparkCore. O SparkPet não acessa suas tabelas diretamente e não mantém segunda cópia de senha. A centralização é uma recomendação, não uma restrição expressa no pedido original.
+**Banco de identidade:** pertence ao módulo de identidade do SparkCore. O Tuteli não acessa suas tabelas diretamente e não mantém segunda cópia de senha. A centralização é uma recomendação, não uma restrição expressa no pedido original.
 
-**Migrações:** cada produto publica artefatos versionados e verificados de migração. O Core só executa versões cadastradas, sem aceitar SQL livre pela interface. O trabalhador usa credencial própria de provisionamento; as credenciais operacionais do SparkPet não têm permissão para criar bancos ou alterar estruturas.
+**Migrações:** cada produto publica artefatos versionados e verificados de migração. O Core só executa versões cadastradas, sem aceitar SQL livre pela interface. O trabalhador usa credencial própria de provisionamento; as credenciais operacionais do Tuteli não têm permissão para criar bancos ou alterar estruturas.
 
 ### 3.2 Dependência e indisponibilidade
 
@@ -100,25 +100,25 @@ Cada produto tem uma base de código e fronteiras de módulos explícitas. São 
 - `COM-009 [P]` A conta não ganha acesso a outra instância pelo mesmo e-mail, domínio, contratante ou papel em uma instância anterior. O acesso exige novo vínculo explícito.
 - `COM-010 [P]` O administrador da plataforma não recebe implicitamente o papel de administrador de estabelecimento. Impersonação e acesso de suporte ao conteúdo operacional ficam fora do MVP.
 - `COM-011 [P]` Convite concede apenas um vínculo aprovado. Se a conta já existir, a aceitação exige autenticação dessa conta; não redefine sua senha e não revela ao pet shop seus outros vínculos.
-- `COM-012 [P]` O administrador do SparkPet gerencia vínculos da sua instância, sem bloquear a conta global, consultar outros clientes ou redefinir a senha global de terceiros.
+- `COM-012 [P]` O administrador do Tuteli gerencia vínculos da sua instância, sem bloquear a conta global, consultar outros clientes ou redefinir a senha global de terceiros.
 
 ### 4.2 Sessões e credenciais
 
 - `COM-013 [P]` Login com e-mail e senha, logout e recuperação. Senhas armazenadas por algoritmo específico para senhas, como Argon2id, com parâmetros definidos no plano de segurança; nunca criptografia reversível.
 - `COM-014 [P]` Sessão opaca mantida no servidor; navegador recebe cookie `Secure`, `HttpOnly`, de host e escopo adequados. Não persistir credenciais de sessão em `localStorage`.
-- `COM-015 [P]` Separar sessões por aplicação e contexto de instância. O cookie do SparkPet não autentica automaticamente a interface do SparkCore. Trocar de instância cria ou seleciona sessão explicitamente autorizada para o novo contexto.
+- `COM-015 [P]` Separar sessões por aplicação e contexto de instância. O cookie do Tuteli não autentica automaticamente a interface do SparkCore. Trocar de instância cria ou seleciona sessão explicitamente autorizada para o novo contexto.
 - `COM-016 [P]` Proposta inicial de expiração: Core com 30 minutos de inatividade e 8 horas absolutas; Pet com 2 horas de inatividade e 12 horas absolutas. A atualização de atividade pode ser agrupada, sem permitir ultrapassar a expiração absoluta. Sem opção de sessão permanente no MVP.
-- `COM-017 [P]` MFA TOTP obrigatório para administrador da plataforma antes de provisionar ou suspender instâncias; recuperação por códigos de uso único e procedimento administrativo documentado. MFA do SparkPet fica como evolução.
+- `COM-017 [P]` MFA TOTP obrigatório para administrador da plataforma antes de provisionar ou suspender instâncias; recuperação por códigos de uso único e procedimento administrativo documentado. MFA do Tuteli fica como evolução.
 - `COM-018 [P]` Após alteração de senha ou bloqueio global, revogar as sessões da conta. Após revogar vínculo, revogar apenas as sessões daquele contexto. Após suspensão, bloquear todas as sessões daquela instância sem atingir outras.
 - `COM-019 [P]` Convite expira em 48 horas; link de recuperação em 30 minutos; uso único, segredo aleatório, persistência somente de resumo criptográfico e revogação ao reenviar. Os prazos são propostas configuráveis.
 - `COM-020 [P]` Bootstrap do primeiro administrador por procedimento de implantação protegido, sem cadastro público de administrador. Nunca permitir remover ou inativar o último administrador ativo de uma plataforma ou instância utilizável. Na primeira ativação de instância, um convite inicial válido pode cumprir a condição de bootstrap até sua aceitação; se expirar, somente a plataforma pode renová-lo. A página de aceitação permite criar/autenticar a conta e aceitar o vínculo sem liberar operações de negócio antes de a instância estar ativa.
 
-### 4.3 Verificação de uma requisição SparkPet
+### 4.3 Verificação de uma requisição Tuteli
 
 1. Resolver a instância por rota ou host previamente cadastrado; valor enviado pelo navegador é um seletor, não prova de autorização.
 2. Extrair a sessão opaca do cookie e consultar o endpoint interno de autorização do Core, com autenticação da aplicação chamadora e contexto de rota.
 3. Core verifica sessão, audiência, conta, vínculo, papel, estado e versão de autorização da instância. Responde apenas com o contexto mínimo necessário.
-4. SparkPet verifica a permissão da ação e resolve a conexão operacional pelo identificador de instância obtido do servidor.
+4. Tuteli verifica a permissão da ação e resolve a conexão operacional pelo identificador de instância obtido do servidor.
 5. Executar a operação e registrar ator e instância. Não aceitar `user_id`, `role`, nome do banco ou conexão enviados pelo cliente como autoridade.
 
 A comunicação interna usa TLS, credencial de aplicação com escopo e rotação e rede restrita. Para operações interativas, a credencial do servidor não substitui a autorização do usuário. Operações de provisionamento usam identidade de sistema distinta, tarefa e instância vinculadas.
@@ -133,7 +133,7 @@ Negação de acesso não deve revelar a existência de um objeto de outra instâ
 |---|---|---|
 | `spark_core` | Contratantes, produtos, instâncias, tarefas, auditoria da plataforma e métricas agregadas. | Módulos Core, com privilégios separados entre execução web e provisionamento. |
 | `spark_identity` | Contas, credenciais, vínculos, convites, sessões e auditoria de segurança. | Módulo de identidade no Core. |
-| `sparkpet_<id_interno>` | Dados de negócio de um estabelecimento, configurações, auditoria operacional e outbox. | SparkPet com credencial exclusiva da instância; trabalhador autorizado para migrações. |
+| `sparkpet_<id_interno>` | Dados de negócio de um estabelecimento, configurações, auditoria operacional e outbox. | Tuteli com credencial exclusiva da instância; trabalhador autorizado para migrações. |
 
 Não haverá chaves estrangeiras entre bancos operacionais e identidade. UUIDs de ator e instância são referências externas verificadas na aplicação; o histórico preserva identificador e nome de exibição do ator na época, sem depender de conta continuar ativa. Dentro de cada banco, usar integridade referencial normal.
 
@@ -155,11 +155,11 @@ O plano técnico definirá rotas e schemas; as capacidades obrigatórias são:
 
 | Capacidade | Consumidor | Regra |
 |---|---|---|
-| Autenticar e encerrar sessão Pet | SparkPet | Aplicação e instância explícitas; segredo nunca registrado em log. |
-| Autorizar sessão e resolver instância | SparkPet | Retorna identidade, papel, estado autorizado, revisão e referência opaca de conexão. |
-| Listar/criar/revogar vínculos locais | Administração SparkPet | Revalida a sessão e papel do administrador local; não aceita escolher outra instância. |
+| Autenticar e encerrar sessão Pet | Tuteli | Aplicação e instância explícitas; segredo nunca registrado em log. |
+| Autorizar sessão e resolver instância | Tuteli | Retorna identidade, papel, estado autorizado, revisão e referência opaca de conexão. |
+| Listar/criar/revogar vínculos locais | Administração Tuteli | Revalida a sessão e papel do administrador local; não aceita escolher outra instância. |
 | Criar convite inicial | Provisionamento Core | Só após schema e configuração verificados; reenvio idempotente não duplica vínculo. |
-| Receber lote de utilização | Outbox SparkPet | Instância derivada da credencial/contexto de serviço e confrontada com cada evento. |
+| Receber lote de utilização | Outbox Tuteli | Instância derivada da credencial/contexto de serviço e confrontada com cada evento. |
 | Consultar situação operacional | SparkCore | Healthcheck técnico e versão, sem ler conteúdo de tutores ou vendas. |
 
 Aplicar versão ao contrato. Respostas de erro incluem código estável, mensagem segura, campo quando cabível, possibilidade de repetição e identificador de correlação. Nenhuma falha deve retornar SQL, segredo ou stack trace ao usuário.
@@ -168,7 +168,7 @@ Aplicar versão ao contrato. Respostas de erro incluem código estável, mensage
 
 Eventos possuem `event_id`, versão, produto, instância, instante UTC, tipo e quantidades permitidas. `actor_id` só quando necessário para acesso e contagem de usuários ativos; eventos agregados de negócio não carregam tutor, pet, itens, notas, receita ou conteúdo de atendimento. Para dias de uso e usuários ativos, definir um evento mínimo de atividade autenticada, com identificador de usuário, emitido por caminhos operacionais elegíveis e sem polling/healthcheck. O contrato distingue essa atividade das contagens de transações concluídas.
 
-O SparkPet registra evento em outbox no mesmo commit da operação quando a métrica deriva de gravação. Um trabalhador do mesmo produto entrega lotes com repetição e espera progressiva. Core deduplica por `event_id` e instância. Sucesso no envio não exige apagar imediatamente a evidência local; a política de retenção define a limpeza.
+O Tuteli registra evento em outbox no mesmo commit da operação quando a métrica deriva de gravação. Um trabalhador do mesmo produto entrega lotes com repetição e espera progressiva. Core deduplica por `event_id` e instância. Sucesso no envio não exige apagar imediatamente a evidência local; a política de retenção define a limpeza.
 
 Falha de telemetria não desfaz a venda nem impede atendimento, desde que identidade continue disponível e a outbox tenha capacidade. Ao atingir limite de armazenamento, gerar alerta e política explícita; nunca descartar silenciosamente eventos ou preencher lacuna com zero. Métricas têm horário de atualização e indicação de incompletude.
 

@@ -6,6 +6,7 @@ import { createAppContext } from "../platform/context.js";
 import { PoolRegistry } from "../platform/db/pools.js";
 import { newId, uuidToBin } from "../platform/ids.js";
 import { createLogger } from "../platform/logging/logger.js";
+import { cleanIpRetention } from "../workers/ip-retention.js";
 import { processDueJobs } from "./jobs/access-sync.js";
 import { processDueProvisioning } from "./jobs/provisioning.js";
 
@@ -13,6 +14,7 @@ const HEARTBEAT_MS = 10_000;
 const SYNC_POLL_MS = 5_000;
 const PROVISIONING_POLL_MS = 2_000;
 const RETENTION_HOURS = 24;
+const IP_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000; // diário
 
 const logger = createLogger({ name: "worker" });
 
@@ -52,6 +54,7 @@ async function main() {
   };
   const timer = setInterval(() => void beat(), HEARTBEAT_MS);
 
+  const identityDb = pools.get("worker", "spark_identity");
   const ctx = createAppContext(config, pools, { role: "worker", logger });
   let syncing = false;
   const sync = async () => {
@@ -82,10 +85,34 @@ async function main() {
   };
   const provisioningTimer = setInterval(() => void provision(), PROVISIONING_POLL_MS);
 
+  // Limpeza diária de IP/user_agent de security_event após 180 dias (SC-033, F08-Core US6)
+  let retentionRunning = false;
+  const retention = async () => {
+    if (retentionRunning) return;
+    retentionRunning = true;
+    try {
+      const { affected } = await cleanIpRetention(identityDb);
+      const now = new Date();
+      logger.info({ affected }, "Limpeza de retenção de IP concluída");
+      // Persistir estado para o painel (T043)
+      await sql`UPDATE worker_heartbeat
+                   SET cleanup_last_run   = ${now},
+                       cleanup_last_count = ${affected}
+                 WHERE worker_id = ${id}`.execute(db);
+    } catch (error) {
+      logger.warn({ err: error }, "Falha na limpeza de retenção de IP");
+    } finally {
+      retentionRunning = false;
+    }
+  };
+  void retention(); // executa imediatamente na inicialização
+  const retentionTimer = setInterval(() => void retention(), IP_RETENTION_INTERVAL_MS);
+
   const shutdown = async (signal: string) => {
     clearInterval(timer);
     clearInterval(syncTimer);
     clearInterval(provisioningTimer);
+    clearInterval(retentionTimer);
     logger.info({ signal, workerId }, "Encerrando trabalhador");
     await pools.closeAll();
     process.exit(0);

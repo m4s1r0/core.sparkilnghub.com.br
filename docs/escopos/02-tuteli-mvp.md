@@ -1,4 +1,4 @@
-# SparkPet — escopo elaborado do MVP monolítico
+# Tuteli — escopo elaborado do MVP monolítico
 
 **Versão:** 1.0 · **Data:** 25/10/2026 · **Situação:** proposta para especificação.
 
@@ -6,7 +6,7 @@ Aplicar em conjunto com as [diretrizes compartilhadas](./00-diretrizes-compartil
 
 ## 1. Visão e problema atendido
 
-O SparkPet é um SaaS para pet shops com banho e tosa que precisam organizar o atendimento por animal, controlar a capacidade da equipe, vender serviços e produtos e acompanhar recebimentos, estoque e pacotes.
+O Tuteli é um SaaS para pet shops com banho e tosa que precisam organizar o atendimento por animal, controlar a capacidade da equipe, vender serviços e produtos e acompanhar recebimentos, estoque e pacotes.
 
 A agenda precisa considerar porte, pelagem, serviço e duração. A operação precisa acompanhar a chegada, os cuidados informados pelo tutor, a execução e a retirada. A administração precisa distinguir serviço realizado, venda confirmada, dinheiro recebido, produto vendido, insumo consumido e crédito de pacote utilizado.
 
@@ -517,7 +517,7 @@ Antes de sair de formulário com alterações, avisar sobre perda de dados. Ao e
 | Importação inicial | Migrar tutores, animais, catálogo e saldo de outro sistema. | Procedimento assistido controlado; importador genérico não entra no MVP. Piloto precisa definir amostra, validação, duplicidade e reconciliação. |
 | Clínica veterinária | Agenda médica, prontuário, vacinação, prescrições e exames. | Produto/escopo separado. |
 
-## 17. Critérios de conclusão do MVP SparkPet
+## 17. Critérios de conclusão do MVP Tuteli
 
 1. Administrador cadastra tutor, dois animais, serviços com variantes, profissional, recurso, produtos, insumos e modelo de pacote.
 2. Colaborador opera cadastros existentes, sem obter administração ou custo de estoque por chamada direta.

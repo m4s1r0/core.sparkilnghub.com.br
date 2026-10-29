@@ -38,7 +38,7 @@ CS-006)
 
 **Constraints**: nenhum segredo em claro no banco (exceto o segredo TOTP cifrado com chave
 externa); produto sem privilégio de escrita na projeção além do logout; administrador da
-plataforma sem acesso a instâncias; nada do SparkPet
+plataforma sem acesso a instâncias; nada do Tuteli
 
 **Scale/Scope**: ~15 tabelas novas, 2 artefatos de migração novos (`spark_identity` v2+,
 `access_projection` v1), 36 endpoints, 12 telas, 3 comandos, 1 tarefa do trabalhador (sincronização e reconciliação)
@@ -61,7 +61,7 @@ plataforma sem acesso a instâncias; nada do SparkPet
 | IV. Idempotência e concorrência | `Idempotency-Key` em convites e bloqueio; versão otimista em vínculos; `access_sync_job` com lease e repetição | ✅ |
 | V. MySQL real e falhas | Integração com MySQL, privilégios reais, concorrência, banco de acesso inacessível; testes de alto risco antes | ✅ |
 | VI. Auditoria e privacidade | `security_event` só inserção; IP/agente só em eventos de segurança; nenhum segredo em log | ✅ |
-| VII. Monólito e escopo | Mesmos dois processos; sem broker; SparkPet intocado; sem SSO/impersonação | ✅ |
+| VII. Monólito e escopo | Mesmos dois processos; sem broker; Tuteli intocado; sem SSO/impersonação | ✅ |
 | VIII. Design system | Telas com componentes públicos; lacunas (campo OTP, QR) registradas | ✅ |
 | Gate de prontidão | `npm run gate -- F01` = 0 (D-01, D-02, D-04, D-05 confirmadas) | ✅ |
 
@@ -129,7 +129,7 @@ web/src/
 (fronteira de dados `spark_identity`), projeção de acesso como módulo próprio porque escreve em
 bancos de instância com credencial dedicada (`spark_access_writer`, papel `access`). O cliente de
 validação do produto de referência mora em `server/reference-product/` e serve de implementação de
-referência do contrato de dados para o futuro SparkPet.
+referência do contrato de dados para o futuro Tuteli.
 
 ## Complexity Tracking
 

@@ -4,7 +4,7 @@ import { type Connection, createPool, type Pool } from "mysql2/promise";
 /**
  * Cliente do produto de referência sintético (`sparkref`): a implementação de referência do
  * contrato de dados da projeção de acesso (contracts/access-projection.md) e dos contratos
- * internos de sessão (/internal/v1). É o que o SparkPet fará — sem nenhuma regra de negócio.
+ * internos de sessão (/internal/v1). É o que o Tuteli fará — sem nenhuma regra de negócio.
  *
  * Validação: uma consulta no banco de acesso da PRÓPRIA instância, com o usuário `inst_*`, sem
  * chamar o Core. Logout: só inserção em `access_session_logout`. Login e atividade: Core.
