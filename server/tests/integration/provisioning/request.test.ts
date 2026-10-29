@@ -99,9 +99,12 @@ describe("solicitação de instância (US3, FR-011 a FR-020)", () => {
     await sql`UPDATE contractor SET status = 'ativo'
                WHERE id = ${uuidToBin(TEST_CONTRACTOR_ID)}`.execute(env.ctx.core);
 
+    // Tuteli (sparkpet) tem artefato publicado; inativar simula produto não provisionável.
+    await sql`UPDATE product SET status = 'inativo' WHERE code = 'sparkpet'`.execute(env.ctx.core);
     const pet = checked("requestInstance", await post(requestBody({ productCode: "sparkpet" })));
     expect(pet.statusCode).toBe(409);
     expect(errorOf(pet).code).toBe("CONFLICT_PRODUCT_NOT_PROVISIONABLE");
+    await sql`UPDATE product SET status = 'ativo' WHERE code = 'sparkpet'`.execute(env.ctx.core);
 
     for (const [patch, field] of [
       [{ slug: "admin" }, "/slug"],

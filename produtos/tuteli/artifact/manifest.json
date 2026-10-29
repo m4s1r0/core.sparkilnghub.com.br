@@ -1,0 +1,61 @@
+{
+  "formatVersion": 1,
+  "productCode": "sparkpet",
+  "databasePrefix": "sparkpet_",
+  "migrations": [
+    {
+      "version": 1,
+      "name": "0001_baseline",
+      "file": "migrations/0001_baseline.sql",
+      "sha256": "2ed0b8c1b10a0ae7a3f3681752903beecc045ee5418facd74294f83a5c50fcbc"
+    },
+    {
+      "version": 2,
+      "name": "0002_pessoas",
+      "file": "migrations/0002_pessoas.sql",
+      "sha256": "8afc9695bb5bbc3ab1a0e28f6bb4620223bfc96a5744a38fa43f4960ec488383"
+    },
+    {
+      "version": 3,
+      "name": "0003_equipe_catalogo",
+      "file": "migrations/0003_equipe_catalogo.sql",
+      "sha256": "2e96572dbfb66b464e889d67effe56a3e39f3bdf24f017d26478d151dbb1ce89"
+    },
+    {
+      "version": 4,
+      "name": "0004_agenda",
+      "file": "migrations/0004_agenda.sql",
+      "sha256": "7fab88c65e81cb5bb10071864dfa7df3ce2edebba6903b8b435d90e8675c3520"
+    },
+    {
+      "version": 5,
+      "name": "0005_atendimento",
+      "file": "migrations/0005_atendimento.sql",
+      "sha256": "ed78e3e499964631ec7ee91a1ad5bf4501b2845aa09493e41f768aad71cb3029"
+    },
+    {
+      "version": 6,
+      "name": "0006_comercial",
+      "file": "migrations/0006_comercial.sql",
+      "sha256": "e6cbc37ca358415337635c31c94d9f844b3be723c1cd4cbda1ae46675981fd0a"
+    },
+    {
+      "version": 7,
+      "name": "0007_financeiro",
+      "file": "migrations/0007_financeiro.sql",
+      "sha256": "f8c4548ae08f685628dce28aec342eda035f76c1261fcef9ccab3a9d720b3766"
+    },
+    {
+      "version": 8,
+      "name": "0008_estoque_pacotes",
+      "file": "migrations/0008_estoque_pacotes.sql",
+      "sha256": "004488ee6525b845f02325f0a88a8f983f12f9401256f0cef62fd10791a87da1"
+    },
+    {
+      "version": 9,
+      "name": "0009_auditoria_integracao",
+      "file": "migrations/0009_auditoria_integracao.sql",
+      "sha256": "54d7f480bdb7ff2022f60a3bf95d9dab626e0993b3f0e407c57a0b6e3e099b6d"
+    }
+  ]
+}

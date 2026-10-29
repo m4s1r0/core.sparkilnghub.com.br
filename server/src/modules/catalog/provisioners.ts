@@ -2,7 +2,7 @@ import type { Env } from "../../platform/config/schema.js";
 import { sha256Hex } from "../../platform/crypto/index.js";
 import { validateArtifact } from "../../platform/migrations/artifact-validator.js";
 import { type LoadedManifest, loadManifest } from "../../platform/migrations/manifest.js";
-import { referenceProductDir } from "../../platform/paths.js";
+import { referenceProductDir, tuteliProductDir } from "../../platform/paths.js";
 
 /** Provisionador publicado com o código implantado do Core (research.md R-14). */
 export interface ProvisionerDef {
@@ -16,14 +16,20 @@ export type ProvisionerRegistry = Readonly<Record<string, ProvisionerDef>>;
 
 /**
  * Registro em código: cadastrar produto pela interface não cria provisionador (SC-008). O
- * produto de referência só existe fora de produção (constituição III); o Tuteli entra aqui
- * quando publicar seu artefato.
+ * produto de referência só existe fora de produção (constituição III); o artefato do Tuteli
+ * vem de `produtos/tuteli/artifact` (contracts/migration-artifact.md).
  */
 export const PROVISIONERS: ProvisionerRegistry = {
   sparkref: {
     id: "sparkref-v1",
     artifactDir: referenceProductDir,
     environments: ["development", "homologation"],
+  },
+  // Código do produto é imutável (SC-007); o nome comercial "Tuteli" não altera `sparkpet`.
+  sparkpet: {
+    id: "sparkpet-v1",
+    artifactDir: tuteliProductDir,
+    environments: ["development", "homologation", "production"],
   },
 };
 

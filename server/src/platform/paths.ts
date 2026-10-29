@@ -33,6 +33,7 @@ export const migrationsDir = (artifact: "spark_core" | "spark_identity") =>
   join(serverRoot, "migrations", artifact);
 
 export const referenceProductDir = join(serverRoot, "reference-product");
+export const tuteliProductDir = join(serverRoot, "../produtos/tuteli/artifact");
 
 /** Artefato do Core aplicado em cada banco de acesso `<instância>_acc` (F01 R-07). */
 export const accessProjectionDir = join(serverRoot, "migrations", "access_projection");
