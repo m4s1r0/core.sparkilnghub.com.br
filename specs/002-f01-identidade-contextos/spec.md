@@ -6,7 +6,7 @@
 
 **Status**: Draft (revisado após /speckit-analyze em 2026-10-26)
 
-**Input**: User description: "Fatia F01 — Identidade e contextos do SparkCore, conforme docs/escopos/03-plano-sdd.md (seção 3) e constituição v1.1.1: bootstrap do primeiro administrador da plataforma, login com e-mail e senha, logout e recuperação, MFA TOTP do administrador da plataforma, sessões opacas por aplicação e contexto de instância, convites, vínculos (membership) e revogação, bloqueio global de conta, proteção do último administrador, e prova de isolamento com duas instâncias sintéticas do produto de referência. Contratos internos consumidos pelo SparkPet (autenticar/encerrar sessão, autorizar e resolver instância, vínculos locais) entram apenas como contrato oferecido pelo Core e provado com o produto de referência — nenhuma atividade no SparkPet. Requisitos: COM-007 a COM-020; SC-001, SC-002, SC-010 a SC-013; SP-001 a SP-005 (apenas como contrato); NFR-008, NFR-009. Decisão pendente D-04 (autorização síncrona no Core × validação local com revogação) deve ser resolvida nesta especificação."
+**Input**: User description: "Fatia F01 — Identidade e contextos do SparkCore, conforme docs/escopos/03-plano-sdd.md (seção 3) e constituição v1.1.1: bootstrap do primeiro administrador da plataforma, login com e-mail e senha, logout e recuperação, MFA TOTP do administrador da plataforma, sessões opacas por aplicação e contexto de instância, convites, vínculos (membership) e revogação, bloqueio global de conta, proteção do último administrador, e prova de isolamento com duas instâncias sintéticas do produto de referência. Contratos internos consumidos pelo Tuteli (autenticar/encerrar sessão, autorizar e resolver instância, vínculos locais) entram apenas como contrato oferecido pelo Core e provado com o produto de referência — nenhuma atividade no Tuteli. Requisitos: COM-007 a COM-020; SC-001, SC-002, SC-010 a SC-013; SP-001 a SP-005 (apenas como contrato); NFR-008, NFR-009. Decisão pendente D-04 (autorização síncrona no Core × validação local com revogação) deve ser resolvida nesta especificação."
 
 **Rastreabilidade**: `COM-007` a `COM-020`; `SC-001`, `SC-002`, `SC-010` a `SC-013`; `SP-001` a
 `SP-005` (somente o contrato oferecido pelo Core); `NFR-008`, `NFR-009`; cenários `T-04`, `T-05`,
@@ -19,7 +19,7 @@ F01 dá ao SparkCore a capacidade de saber **quem** está agindo e **em qual con
 o acesso do administrador da plataforma (com MFA), as contas e vínculos de usuários com instâncias
 e os contratos que um produto usa para autenticar e autorizar seus usuários. Tudo que um produto
 consome é provado com o **produto de referência sintético** (`sparkref`) e duas instâncias
-sintéticas, sem nenhuma atividade no SparkPet (constituição VII, "SparkCore primeiro").
+sintéticas, sem nenhuma atividade no Tuteli (constituição VII, "SparkCore primeiro").
 
 Atores:
 
@@ -34,7 +34,7 @@ Atores:
 **Fora de F01**: cadastro de contratantes, produtos e instâncias com provisionamento real e
 máquina de estados (F02); suspensão, reativação e manutenção (F03); consultas e relatórios de
 acesso e utilização (F08-Core); MFA para usuários de produto; SSO e provedores sociais;
-impersonação; qualquer tela ou código do SparkPet.
+impersonação; qualquer tela ou código do Tuteli.
 
 ## Clarifications
 
@@ -138,9 +138,9 @@ revogações no próprio banco, sem chamar o Core (D-04). A sessão vale só par
 aquela instância; o produto nunca recebe nem guarda senhas, e nenhum parâmetro enviado pelo
 navegador dá acesso a outra instância.
 
-**Why this priority**: é o contrato de que o SparkPet dependerá (`COM-015`, `SP-004`,
+**Why this priority**: é o contrato de que o Tuteli dependerá (`COM-015`, `SP-004`,
 diretrizes §4.3) e a prova central de isolamento (`NFR-008`, `T-04`); precisa estar estável antes
-de o SparkPet existir (constituição III).
+de o Tuteli existir (constituição III).
 
 **Independent Test**: com duas instâncias sintéticas A e B do produto de referência e usuários
 vinculados apenas a A, apenas a B e a ambas, executar a bateria de autenticação e autorização,
@@ -188,7 +188,7 @@ estabelecimento, reenvia ou revoga convites e revoga vínculos. O administrador 
 pelo produto, faz o mesmo apenas dentro da sua instância (`SP-005`). Pessoa que já tem conta aceita
 o convite autenticando-se, sem trocar a senha nem expor seus outros vínculos.
 
-**Why this priority**: é o ciclo de vida de acesso que o provisionamento (F02) e o SparkPet vão
+**Why this priority**: é o ciclo de vida de acesso que o provisionamento (F02) e o Tuteli vão
 usar; depende das histórias 1 e 3.
 
 **Independent Test**: na instância A, convidar um novo administrador e um colaborador já
@@ -483,5 +483,5 @@ nada mais funciona para ela.
 - **Lista de senhas vazadas**: verificada localmente com lista versionada no repositório, sem
   enviar senhas ou resumos a serviços externos.
 - **Papéis de produto**: em F01 existem os papéis `administrador` e `colaborador` (`SP-001`,
-  `SP-002`); as permissões operacionais de cada papel pertencem ao SparkPet e não são definidas
+  `SP-002`); as permissões operacionais de cada papel pertencem ao Tuteli e não são definidas
   aqui.

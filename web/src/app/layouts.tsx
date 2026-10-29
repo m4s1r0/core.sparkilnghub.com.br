@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from "react";
 import {
   Activity,
+  BarChart2,
+  BookOpen,
   Building2,
   ChevronLeft,
   ChevronRight,
@@ -8,6 +10,7 @@ import {
   LogOut,
   Package,
   Server,
+  ShieldCheck,
   User,
   Users,
 } from "lucide-react";
@@ -41,6 +44,9 @@ const NAV = [
   { to: "/produtos", label: "Produtos", Icon: Package },
   { to: "/instancias", label: "Instâncias", Icon: Server },
   { to: "/pendencias", label: "Pendências", Icon: Clock },
+  { to: "/acessos", label: "Acessos", Icon: ShieldCheck },
+  { to: "/auditoria", label: "Auditoria", Icon: BookOpen },
+  { to: "/utilizacao", label: "Utilização", Icon: BarChart2 },
 ];
 
 const ITEM_BASE =
@@ -80,11 +86,7 @@ export function AppLayout() {
           }`}
         >
           {collapsed ? (
-            <img
-              src="/brand/monograma-branco.svg"
-              alt="Sparkling Hub"
-              className="h-9 w-auto"
-            />
+            <img src="/brand/monograma-branco.svg" alt="Sparkling Hub" className="h-9 w-auto" />
           ) : (
             <span className="flex w-full items-center gap-2">
               <img
@@ -136,7 +138,7 @@ export function AppLayout() {
             type="button"
             onClick={() => setCollapsed((c) => !c)}
             title={collapsed ? "Expandir menu" : "Recolher menu"}
-            className={`${ITEM_BASE} text-white/50 hover:bg-white/10 hover:text-white/80 ${
+            className={`${ITEM_BASE} text-white/70 hover:bg-white/10 hover:text-white ${
               collapsed ? "justify-center" : "justify-between"
             }`}
           >

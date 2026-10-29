@@ -22,16 +22,22 @@ export interface AppCredentialInfo {
  */
 export async function createAppCredential(
   ctx: AppContext,
-  data: { productCode: string; label: string; scopes: AppScope[]; expiresAt?: Date | null },
+  data: {
+    productCode: string;
+    label: string;
+    scopes: AppScope[];
+    expiresAt?: Date | null;
+    instanceId?: string | null;
+  },
 ): Promise<{ id: string; value: string }> {
   const id = newId();
   const secret = randomToken();
+  const instanceBin = data.instanceId ? uuidToBin(data.instanceId) : null;
   await sql`INSERT INTO app_credential
-      (id, product_code, label, secret_hash, scopes, created_at, expires_at)
-    VALUES (${uuidToBin(id)}, ${data.productCode}, ${data.label}, ${sha256Hex(secret)},
-            ${[...new Set(data.scopes)].join(",")}, ${ctx.clock()}, ${data.expiresAt ?? null})`.execute(
-    ctx.core,
-  );
+      (id, product_code, instance_id, label, secret_hash, scopes, created_at, expires_at)
+    VALUES (${uuidToBin(id)}, ${data.productCode}, ${instanceBin}, ${data.label},
+            ${sha256Hex(secret)}, ${[...new Set(data.scopes)].join(",")},
+            ${ctx.clock()}, ${data.expiresAt ?? null})`.execute(ctx.core);
   return { id, value: `${id}.${secret}` };
 }
 

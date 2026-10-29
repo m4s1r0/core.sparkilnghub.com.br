@@ -1,13 +1,13 @@
 # Convenções de contrato do SparkCore — v1
 
-Aplica-se a toda API HTTP do SparkCore, interna (consumida pelo SparkPet) ou administrativa
+Aplica-se a toda API HTTP do SparkCore, interna (consumida pelo Tuteli) ou administrativa
 (consumida pela interface do Core). Fonte: diretrizes §4.3, §6.1; constituição, princípio III.
 Publicada no repositório em `contracts/conventions.md`; mudanças seguem versionamento abaixo.
 
 ## 1. Versionamento
 
 - Prefixo de caminho por versão maior: `/api/v1/...` (administrativa) e `/internal/v1/...`
-  (consumida pelo SparkPet, a partir de F01).
+  (consumida pelo Tuteli, a partir de F01).
 - Mudança compatível (campo opcional novo, novo endpoint, novo código de erro documentado como
   extensível) mantém a versão e é registrada no changelog de contratos.
 - Mudança incompatível (remover/renomear campo, mudar tipo, tornar obrigatório, mudar semântica)

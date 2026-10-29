@@ -15,7 +15,7 @@ tarefa cria o banco operacional e o banco de acesso (projeção D-04, agora v2 c
 `pronta`), a credencial operacional restrita com senha cifrada por `INSTANCE_SECRET_KEY`, aplica o
 artefato do produto, grava o marcador e prepara o convite inicial, cujo link o administrador emite
 depois (D-07). O produto obtém a conexão por um contrato interno novo. Tudo provado com o artefato
-do produto de referência; o SparkPet entra no catálogo como não provisionável. Detalhes em
+do produto de referência; o Tuteli entra no catálogo como não provisionável. Detalhes em
 [research.md](./research.md).
 
 ## Technical Context
@@ -46,7 +46,7 @@ sem carga perceptível
 
 **Constraints**: processo web sem credencial de provisionamento nem DDL; senha operacional nunca
 em claro fora da memória do trabalhador e do contrato de conexão; nenhum `DROP DATABASE` em
-`server/src`; nada do SparkPet além da linha do catálogo; F02 não ativa instâncias
+`server/src`; nada do Tuteli além da linha do catálogo; F02 não ativa instâncias
 
 **Scale/Scope**: 7 tabelas novas + 1 renomeada em `spark_core`, 1 coluna em `spark_identity`,
 projeção v2; 22 operações HTTP (21 `/api/v1`, 1 `/internal/v1`); 8 telas; 1 comando novo; 1 tarefa nova
@@ -67,7 +67,7 @@ do trabalhador; alvo de carga `NFR-003` (50 instâncias)
 | II. MFA antes de provisionar | Solicitação, nova execução e emissão exigem TOTP nos últimos 5 min | ✅ |
 | II. Sessão só em instância ativa | Login de produto exige `ATIVA`; projeção v2 grava `pronta` | ✅ |
 | III. Contratos versionados | OpenAPI 1.2.0 (compatível), projeção v2 (compatível), `/internal/v1/.../connection` novo; provados com `sparkref` | ✅ |
-| III. Artefato do produto de referência | F02 prova provisionamento, migração, falha e retomada com `sparkref`, não com o SparkPet | ✅ |
+| III. Artefato do produto de referência | F02 prova provisionamento, migração, falha e retomada com `sparkref`, não com o Tuteli | ✅ |
 | IV. Idempotência | Chave na `admin_task` com resumo (R-04); `withIdempotency` em repetição e emissão | ✅ |
 | IV. Tarefa persistente e uma por instância | `admin_task` + `admin_task_step_run`, lease 60 s/heartbeat 20 s, índice único de tarefa ativa (R-03) | ✅ |
 | IV. Não é transação única; propriedade antes de reutilizar | Intenção gravada antes do DDL; adoção só com intenção + marcador ou banco vazio; conflito sem alterar (R-06) | ✅ |
@@ -78,7 +78,7 @@ do trabalhador; alvo de carga `NFR-003` (50 instâncias)
 | V. Migrações reproduzíveis | `check:upgrade` de `origin/main` (spark_core 3→4, spark_identity 3→4, projeção 1→2) | ✅ |
 | VI. Auditoria e segredos | `core_audit_event` só inclusão; senha operacional cifrada, nunca em tela, log, auditoria ou tarefa; documento mascarado na auditoria | ✅ |
 | VI. Dados sintéticos | Contratante e instâncias sintéticos só por sementes/migração condicionada ao marcador de ambiente | ✅ |
-| VII. Monólito e escopo | Mesmo trabalhador, sem broker; ativação, suspensão e migração de instância existente ficam em F03; SparkPet só como linha não provisionável | ✅ |
+| VII. Monólito e escopo | Mesmo trabalhador, sem broker; ativação, suspensão e migração de instância existente ficam em F03; Tuteli só como linha não provisionável | ✅ |
 | VII. Sem SQL livre ou edição de status técnico | Catálogo sem campo de código; falha sem edição; provisionadores só no código | ✅ |
 | VIII. Design system | Telas com componentes públicos (`Stepper`, `StepsBlock`, `DataTable`, `SettingsBlock`…); lacunas registradas (autocomplete, calendário, linha do tempo) | ✅ |
 | Gate de prontidão | `npm run gate -- F02` = 0 (D-01 a D-05 confirmadas) | ✅ |
@@ -163,7 +163,7 @@ testes usem o mesmo caminho.
 ## Riscos e pontos de atenção
 
 - **Versão de migração interrompida no meio**: não é repetida automaticamente (R-07); exige
-  procedimento operacional documentado. Mitigação: artefatos com versões curtas; o SparkPet deve
+  procedimento operacional documentado. Mitigação: artefatos com versões curtas; o Tuteli deve
   seguir a mesma orientação.
 - **Privilégios na hospedagem de produção** (plano SDD §5): ainda não confirmados; o provisionador
   precisa de `CREATE USER` e `ALL` nos prefixos de produto com `GRANT OPTION`. Pré-requisito de

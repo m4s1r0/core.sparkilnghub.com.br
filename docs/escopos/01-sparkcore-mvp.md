@@ -12,7 +12,7 @@ O administrador precisa saber **quem contratou, qual produto utiliza, onde estã
 
 ### 1.1 Objetivos do MVP
 
-1. Cadastrar contratantes e habilitar instâncias de SparkPet, com possibilidade de cadastrar outros produtos futuramente.
+1. Cadastrar contratantes e habilitar instâncias de Tuteli, com possibilidade de cadastrar outros produtos futuramente.
 2. Criar banco isolado, aplicar versão de schema e preparar o administrador inicial.
 3. Ativar, suspender e reativar instâncias, com efeito sobre novas operações e sessões existentes.
 4. Administrar acessos internos e vínculos de acesso aos produtos.
@@ -40,7 +40,7 @@ Não criar papéis comerciais, suporte, financeiro ou superadministrador adicion
 
 ### 2.2 Matriz de permissões
 
-| Ação | Administrador da plataforma | Administrador SparkPet |
+| Ação | Administrador da plataforma | Administrador Tuteli |
 |---|---|---|
 | Usar o painel SparkCore | Sim | Não |
 | Cadastrar contratante ou produto | Sim | Não |
@@ -48,8 +48,8 @@ Não criar papéis comerciais, suporte, financeiro ou superadministrador adicion
 | Ativar/suspender/reativar instância | Sim, com motivo e MFA nas ações críticas | Não |
 | Criar administrador da plataforma | Sim, com reautenticação e auditoria | Não |
 | Definir administrador inicial da instância | Sim | Não |
-| Consultar vínculos da própria instância | Sim, na administração da plataforma | Sim, pela interface SparkPet |
-| Consultar acessos agregados e utilização | Sim | Apenas relatórios locais autorizados no SparkPet |
+| Consultar vínculos da própria instância | Sim, na administração da plataforma | Sim, pela interface Tuteli |
+| Consultar acessos agregados e utilização | Sim | Apenas relatórios locais autorizados no Tuteli |
 | Ler tutores, animais, comandas e recebimentos | Sem acesso funcional pelo Core | Sim, em sua instância |
 | Exibir credencial MySQL ou senha de usuário | Não | Não |
 | Apagar banco/instância pela interface | Não | Não |
@@ -58,14 +58,14 @@ Não criar papéis comerciais, suporte, financeiro ou superadministrador adicion
 
 `SC-002 [P]` Aplicar login, MFA, convites, expiração, bloqueio e revogação definidos em `COM-007` a `COM-020`. Toda ação deve ser atribuída à pessoa autenticada; contas compartilhadas não atendem à rastreabilidade.
 
-**CA-SC-001:** dado um usuário com papel de administrador apenas no SparkPet, quando tentar usar qualquer endpoint protegido do SparkCore, então o servidor nega o acesso, mesmo que a interface seja chamada diretamente.
+**CA-SC-001:** dado um usuário com papel de administrador apenas no Tuteli, quando tentar usar qualquer endpoint protegido do SparkCore, então o servidor nega o acesso, mesmo que a interface seja chamada diretamente.
 
 ## 3. Jornadas principais
 
 ### Jornada A — implantar um novo estabelecimento
 
 1. Administrador cadastra o contratante e verifica possível duplicidade.
-2. Seleciona SparkPet, informa nome de exibição, identificador de acesso, fuso e e-mail do administrador inicial.
+2. Seleciona Tuteli, informa nome de exibição, identificador de acesso, fuso e e-mail do administrador inicial.
 3. Revisa um resumo sem credenciais, confirma e recebe protocolo de provisionamento.
 4. Acompanha criação de recursos, migrações, configuração e verificação.
 5. Recebe resultado de prontidão ou falha com orientação segura para tratar.
@@ -106,7 +106,7 @@ Não criar papéis comerciais, suporte, financeiro ou superadministrador adicion
 
 ### 4.2 Catálogo de produtos
 
-`SC-007 [P]` Manter catálogo com código único e imutável, nome, descrição curta, situação, versão implantada, versão de schema suportada e identificador do provisionador. SparkPet é o primeiro produto implementado.
+`SC-007 [P]` Manter catálogo com código único e imutável, nome, descrição curta, situação, versão implantada, versão de schema suportada e identificador do provisionador. Tuteli é o primeiro produto implementado.
 
 `SC-008 [P]` Permitir inativar produto para novas contratações sem suspender as instâncias existentes. Habilitar o cadastro de um produto não implementa seu adaptador, telas ou operação; outros SaaS precisam de desenvolvimento próprio.
 
@@ -128,7 +128,7 @@ Não criar papéis comerciais, suporte, financeiro ou superadministrador adicion
 
 `SC-014 [U]` Criar instância vinculada a um contratante e um produto, contendo UUID, nome, identificador de acesso, estado, fuso, administrador inicial, versões e metadados de infraestrutura sem segredo exposto.
 
-`SC-015 [P]` Permitir várias instâncias por contratante, inclusive do mesmo produto. Impedir duplicidade do identificador de acesso no escopo do produto, normalizando caracteres e palavras reservadas. Proposta de acesso: rota `/i/<slug>` no SparkPet, com domínio da aplicação configurado; subdomínio próprio de cliente fica fora do MVP.
+`SC-015 [P]` Permitir várias instâncias por contratante, inclusive do mesmo produto. Impedir duplicidade do identificador de acesso no escopo do produto, normalizando caracteres e palavras reservadas. Proposta de acesso: rota `/i/<slug>` no Tuteli, com domínio da aplicação configurado; subdomínio próprio de cliente fica fora do MVP.
 
 `SC-016 [P]` O slug é imutável no MVP após o início do provisionamento. Nome de exibição pode mudar. Nome do banco deriva do UUID, sem concatenação de texto livre em comandos administrativos.
 
@@ -318,7 +318,7 @@ Toda tela de lista precisa de carregamento, vazio, erro, acesso negado e pagina�
 
 ## 9. Critérios de conclusão do MVP SparkCore
 
-1. Criar duas instâncias SparkPet de contratantes distintos, em bancos distintos, e concluir o convite inicial.
+1. Criar duas instâncias Tuteli de contratantes distintos, em bancos distintos, e concluir o convite inicial.
 2. Demonstrar que credencial operacional de A não consulta B e que usuários não atravessam o contexto por parâmetro.
 3. Interromper provisionamento no meio, retomar e provar ausência de banco/vínculo duplicado.
 4. Suspender A com sessão aberta, negar a próxima requisição protegida e manter B utilizável.

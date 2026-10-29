@@ -1,5 +1,8 @@
 import { ErrorEnvelope, Liveness, SystemStatus } from "@sparkcore/contracts";
 import type { FastifyInstance, preHandlerAsyncHookHandler } from "fastify";
+import type { AppContext } from "../../platform/context.js";
+import { requireSession } from "../../platform/http/session-guard.js";
+import { getDashboardStats } from "./dashboard-stats.js";
 import type { SystemStatusService } from "./probe.js";
 
 export const RETRY_AFTER_SECONDS = 10;
@@ -12,6 +15,7 @@ export function registerSystemRoutes(
   app: FastifyInstance,
   service: SystemStatusService,
   options: { preHandler?: preHandlerAsyncHookHandler } = {},
+  ctx?: AppContext,
 ): void {
   app.get("/health/live", { schema: { response: { 200: Liveness } } }, () => ({
     status: "ok" as const,
@@ -32,4 +36,10 @@ export function registerSystemRoutes(
       return reply.status(200).send(status);
     },
   );
+
+  if (ctx) {
+    app.get("/api/v1/dashboard/stats", { preHandler: requireSession(ctx) }, async () =>
+      getDashboardStats(ctx.core),
+    );
+  }
 }

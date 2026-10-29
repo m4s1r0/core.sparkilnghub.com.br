@@ -26,7 +26,7 @@ mudanças), a **pessoa desenvolvedora ou agente** que trabalha no repositório e
 integra mudanças.
 
 **Fora de F00**: login, contas, sessões, MFA, contratantes, produtos, instâncias, provisionamento
-real, suspensão, telemetria e relatórios (fatias seguintes); qualquer trabalho no SparkPet;
+real, suspensão, telemetria e relatórios (fatias seguintes); qualquer trabalho no Tuteli;
 hospedagem de produção, backup e domínio público.
 
 ## Clarifications
@@ -35,8 +35,8 @@ hospedagem de produção, backup e domínio público.
 
 - Q: As referências propostas para D-01 a D-04 são confirmadas como estão? → A: Confirmar
   `D-01` (dois monólitos, identidade no Core), `D-02` (`spark_identity` central, sem copiar
-  senhas) e `D-03` (uma instância SparkPet = um estabelecimento). `D-04` (autorização síncrona no
-  Core para cada requisição do SparkPet) permanece **proposta**, em aberto.
+  senhas) e `D-03` (uma instância Tuteli = um estabelecimento). `D-04` (autorização síncrona no
+  Core para cada requisição do Tuteli) permanece **proposta**, em aberto.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -48,7 +48,7 @@ fatias F01 e F02 só podem começar quando `D-01` a `D-04` estiverem confirmadas
 
 **Why this priority**: a constituição proíbe implementar identidade e provisionamento sem essas
 decisões; elas definem quantos sistemas existem, onde ficam as contas e como cada requisição do
-SparkPet será autorizada. Errar aqui invalida trabalho posterior.
+Tuteli será autorizada. Errar aqui invalida trabalho posterior.
 
 **Independent Test**: abrir o registro de decisões do repositório e verificar que cada decisão
 tem estado, data, responsável, alternativa escolhida, alternativas rejeitadas, consequências e
@@ -170,7 +170,7 @@ teclado, simular servidor lento e servidor indisponível e verificar os estados 
 
 A pessoa desenvolvedora encontra no repositório as convenções que todos os contratos do SparkCore
 seguem (versão, formato de erro, correlação, idempotência, política de respostas negadas) e o
-catálogo das capacidades que o SparkPet consumirá, cada uma com a fatia responsável e o estado
+catálogo das capacidades que o Tuteli consumirá, cada uma com a fatia responsável e o estado
 de especificação. O contrato da verificação de situação operacional já é publicado em F00.
 
 **Why this priority**: a constituição exige contratos versionados antes do consumidor
@@ -202,7 +202,7 @@ as seis capacidades das diretrizes, seção 6.1.
 
 O SparkCore passa a conter um produto de referência sintético: um pacote mínimo de migrações
 versionadas, em duas versões consecutivas, no formato que o provisionamento de F02 aceitará. Ele
-permite provar provisionamento e migração sem depender do SparkPet.
+permite provar provisionamento e migração sem depender do Tuteli.
 
 **Why this priority**: é pré-requisito de F02 pela regra "SparkCore primeiro", mas só é exercido
 pelo provisionador em F02; em F00 basta o artefato e sua validação.
@@ -220,7 +220,7 @@ comparar com a aplicação direta da versão 2 num banco vazio; as estruturas de
    **When** a validação roda, **Then** ele é recusado com motivo explícito.
 4. **Given** o produto de referência, **When** alguém consulta o catálogo de produtos ou a
    interface, **Then** ele não aparece como SaaS oferecível e não contém regras de negócio do
-   SparkPet.
+   Tuteli.
 
 ---
 
@@ -312,7 +312,7 @@ tentar carregá-los com o ambiente marcado como produção e verificar a recusa.
   (código estável, mensagem segura, campo, repetição possível, correlação), cabeçalho de
   correlação, semântica de chave de idempotência e política de respostas `401`, `403`, `404`,
   `409`, `422` e `503`.
-- **FR-014**: O repositório MUST publicar o catálogo das seis capacidades consumidas pelo SparkPet,
+- **FR-014**: O repositório MUST publicar o catálogo das seis capacidades consumidas pelo Tuteli,
   com versão, fatia responsável e estado; o contrato da situação operacional MUST estar completo
   em F00.
 - **FR-015**: Toda resposta MUST conter identificador de correlação, gerado quando ausente, e todo
@@ -352,7 +352,7 @@ tentar carregá-los com o ambiente marcado como produção e verificar a recusa.
   migração em duas versões consecutivas, marcador de identidade da instância e registro de versão
   e checksum.
 - **FR-027**: O produto de referência MUST NOT aparecer como SaaS oferecível nem conter regras de
-  negócio do SparkPet.
+  negócio do Tuteli.
 - **FR-028**: O repositório MUST conter um conjunto de dados sintéticos idempotente, com marcação
   de fictício, e o carregamento MUST recusar ambientes identificados como produção (`NFR-016`).
 
@@ -414,4 +414,4 @@ tentar carregá-los com o ambiente marcado como produção e verificar a recusa.
   define que a configuração vem do ambiente.
 - O conjunto de dados sintéticos de F00 é mínimo (ambiente e produto de referência); cada fatia
   seguinte o amplia.
-- Nenhuma atividade do SparkPet é feita nesta fatia, conforme a constituição v1.1.0.
+- Nenhuma atividade do Tuteli é feita nesta fatia, conforme a constituição v1.1.0.

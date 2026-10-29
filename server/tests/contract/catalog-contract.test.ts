@@ -33,14 +33,14 @@ describe("catálogo × contracts/openapi.yaml 1.2.0 (US2, III)", () => {
       "updateProduct",
       await flow.request("PUT", "/api/v1/products/sparkpet", {
         cookie,
-        payload: { name: "SparkPet", description: "Pet shops", version: 1 },
+        payload: { name: "Tuteli", description: "Gestão de pet shops", version: 1 },
       }),
     );
     check(
       "updateProduct",
       await flow.request("PUT", "/api/v1/products/sparkpet", {
         cookie,
-        payload: { name: "SparkPet", description: "Pet shops", version: 1 },
+        payload: { name: "Tuteli", description: "Gestão de pet shops", version: 1 },
       }),
     );
     check(

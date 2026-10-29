@@ -50,7 +50,7 @@ const product = async (code: string) =>
   ).json<Product>();
 
 describe("catálogo de produtos (US2, SC-007 a SC-009)", () => {
-  it("SparkPet não é provisionável; produto de referência é, fora de produção", async () => {
+  it("Tuteli não é provisionável; produto de referência é, fora de produção", async () => {
     const list = checked(
       "listProducts",
       await flow.request("GET", "/api/v1/products", { cookie: admin.cookie }),
@@ -122,7 +122,7 @@ describe("catálogo de produtos (US2, SC-007 a SC-009)", () => {
       "updateProduct",
       await flow.request("PUT", "/api/v1/products/sparkpet", {
         cookie: admin.cookie,
-        payload: { name: "SparkPet", description: "Pet shops", version: current.version },
+        payload: { name: "Tuteli", description: "Gestão de pet shops", version: current.version },
       }),
     );
     expect(ok.json<Product>()).toMatchObject({ version: current.version + 1 });
@@ -134,7 +134,7 @@ describe("catálogo de produtos (US2, SC-007 a SC-009)", () => {
     for (const extra of [{ code: "outro" }, { provisioner: "https://exemplo/x.sql" }]) {
       const refused = await flow.request("PUT", "/api/v1/products/sparkpet", {
         cookie: admin.cookie,
-        payload: { name: "SparkPet", description: "x", version: current.version + 1, ...extra },
+        payload: { name: "Tuteli", description: "x", version: current.version + 1, ...extra },
       });
       expect(refused.statusCode).toBe(422);
     }

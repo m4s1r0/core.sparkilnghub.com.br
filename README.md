@@ -1,7 +1,7 @@
 # SparkCore
 
 Sistema interno da Sparkling Hub que administra contratantes, usuários, catálogo de SaaS e o ciclo
-de vida das instâncias. É a plataforma de que o SparkPet depende para identidade, autorização,
+de vida das instâncias. É a plataforma de que o Tuteli depende para identidade, autorização,
 provisionamento, suspensão e telemetria. Monólito modular em Node.js + TypeScript, MySQL 8.4 e
 interface React sobre o design system `@sparkling-hub/design-system`.
 

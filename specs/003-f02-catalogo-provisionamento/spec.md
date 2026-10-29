@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "Fatia F02 — Catálogo e provisionamento (docs/escopos/03-plano-sdd.md §3): contratante, produto SparkPet no catálogo, instância, banco próprio, migrações, credencial restrita, falha e retomada. Requisitos: SC-003 a SC-009; SC-014 a SC-024; COM-025 a COM-027; NFR-013, NFR-014 (docs/escopos/01-sparkcore-mvp.md e 00-diretrizes-compartilhadas.md). Cenários T-01 (provisionamento repetido) e T-02 (queda entre etapas). Decisões confirmadas D-01 a D-05 (docs/adr). Base: F00 e F01 concluídas (projeção de acesso D-04 por instância, produto de referência sparkref). O SparkPet só é desenvolvido depois do SparkCore: o \"schema mínimo SparkPet\" é atendido pelo artefato de migração do produto, com o produto de referência validando o fluxo."
+**Input**: User description: "Fatia F02 — Catálogo e provisionamento (docs/escopos/03-plano-sdd.md §3): contratante, produto Tuteli no catálogo, instância, banco próprio, migrações, credencial restrita, falha e retomada. Requisitos: SC-003 a SC-009; SC-014 a SC-024; COM-025 a COM-027; NFR-013, NFR-014 (docs/escopos/01-sparkcore-mvp.md e 00-diretrizes-compartilhadas.md). Cenários T-01 (provisionamento repetido) e T-02 (queda entre etapas). Decisões confirmadas D-01 a D-05 (docs/adr). Base: F00 e F01 concluídas (projeção de acesso D-04 por instância, produto de referência sparkref). O Tuteli só é desenvolvido depois do SparkCore: o \"schema mínimo Tuteli\" é atendido pelo artefato de migração do produto, com o produto de referência validando o fluxo."
 
 **Rastreabilidade**: `SC-003` a `SC-009`; `SC-014` a `SC-024`; `COM-025` a `COM-027`; `NFR-013`,
 `NFR-014`; aceites `CA-SC-002`, `CA-SC-003`, `CA-SC-005` a `CA-SC-007`; regras `RN-SC-001`,
@@ -25,8 +25,8 @@ marcador de identidade e prepara o convite inicial. A instância termina em `PRO
 suspender, reativar e manter pertencem a F03.
 
 Tudo é provado com o **artefato de migração do produto de referência** (`sparkref`), não com o
-schema do SparkPet (constituição, "SparkCore primeiro"). O formato desse artefato é o contrato que
-o SparkPet adotará. O SparkPet entra no catálogo como produto **ainda não provisionável** até
+schema do Tuteli (constituição, "SparkCore primeiro"). O formato desse artefato é o contrato que
+o Tuteli adotará. O Tuteli entra no catálogo como produto **ainda não provisionável** até
 publicar seu artefato.
 
 Atores:
@@ -43,7 +43,7 @@ instância (F03, `SC-025` a `SC-031`); atualização de schema de instância exi
 migrações em manutenção (`SC-044`, F03); saúde técnica periódica e backup (`SC-042`, `SC-043`,
 F03); utilização, acessos e consulta de auditoria (F08-Core); rotação da credencial operacional;
 remoção de recursos físicos pela interface (`RN-SC-004`); transferência de instância entre
-contratantes (`RN-SC-005`); artefato e telas do SparkPet.
+contratantes (`RN-SC-005`); artefato e telas do Tuteli.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -98,7 +98,7 @@ versão implantada do Core está presente e válido.
 **Why this priority**: o provisionamento depende de saber o que pode ser provisionado e com qual
 versão (`SC-007`, `SC-009`); impedir envio de scripts pela interface é regra de segurança.
 
-**Independent Test**: com o catálogo inicial (SparkPet sem artefato e, fora de produção, o produto
+**Independent Test**: com o catálogo inicial (Tuteli sem artefato e, fora de produção, o produto
 de referência), conferir quem é provisionável, inativar e reativar um produto e verificar que
 instâncias existentes não mudam.
 
@@ -107,7 +107,7 @@ instâncias existentes não mudam.
 1. **Given** o catálogo, **When** consultado, **Then** mostra código, nome, descrição curta,
    situação, versão implantada, versão de schema suportada, identificador do provisionador e
    indicação de provisionável ou o motivo de não ser (`SC-007`).
-2. **Given** o SparkPet cadastrado sem artefato de migração publicado, **When** se tenta solicitar
+2. **Given** o Tuteli cadastrado sem artefato de migração publicado, **When** se tenta solicitar
    instância dele, **Then** a solicitação é recusada informando que o produto ainda não é
    provisionável (`SC-009`).
 3. **Given** um produto cujo artefato tem checksum divergente, versão fora de sequência ou
@@ -337,8 +337,8 @@ estado e período de criação; abrir o detalhe, editar nome e anotações e ten
   seguro (`SC-009`).
 - **FR-009**: Inativar produto MUST bloquear novas solicitações sem alterar instâncias existentes
   (`SC-008`).
-- **FR-010**: O catálogo inicial MUST conter o SparkPet como produto não provisionável até o
-  artefato do SparkPet ser publicado; o produto de referência MUST existir apenas em ambientes de
+- **FR-010**: O catálogo inicial MUST conter o Tuteli como produto não provisionável até o
+  artefato do Tuteli ser publicado; o produto de referência MUST existir apenas em ambientes de
   desenvolvimento e homologação e MUST NOT aparecer ou ser provisionável em produção (constituição
   III).
 
@@ -532,8 +532,8 @@ estado e período de criação; abrir o detalhe, editar nome e anotações e ten
   exigirá para ativar (`SC-024`, `SC-029`).
 - **Produto de referência no catálogo**: `sparkref` é cadastrado pelas sementes de desenvolvimento e
   homologação como produto de referência; em produção ele não existe no catálogo (constituição III).
-  O SparkPet entra no catálogo como produto não provisionável; seu artefato chegará com o
-  repositório SparkPet, no formato já validado em F00.
+  O Tuteli entra no catálogo como produto não provisionável; seu artefato chegará com o
+  repositório Tuteli, no formato já validado em F00.
 - **Origem dos provisionadores**: cada produto provisionável tem um provisionador e um artefato
   publicados com o código implantado do Core; cadastrar produto novo pela interface não cria
   provisionador (`SC-008`). Em F02 o único provisionador é o do produto de referência, que reutiliza

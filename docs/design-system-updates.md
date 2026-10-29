@@ -14,6 +14,15 @@ tiver entrada com seu sha256 aqui.
   página base.
 - Testes executados: testes de componente (`test:component`) e jornada E2E da página base.
 
+## 0.2.1 — 2026-10-28
+
+- Versão anterior: 0.2.0.
+- Arquivo: `sparkling-hub-design-system-0.2.1.tgz`, sha256
+  `0b64913afaa710575ffae595cbff395ff63c9c91e98f2cb597c2c3d63a56ec3e`.
+- Motivo: suporte à sidebar colapsável (F08, substituição do menu superior por sidebar lateral com
+  ícones e colapso). A 0.2.1 adiciona variáveis CSS de sidebar necessárias para o layout principal.
+- Testes executados: typecheck, lint, format e testes de integração do servidor.
+
 ## Lacunas observadas na 0.2.0 (propor no design system)
 
 - **Navbar sem itens**: o botão "Menu" (`sh-navbar-toggle`) continua visível e focável mesmo

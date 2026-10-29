@@ -1,10 +1,10 @@
 # SparkCore Constitution
 
 Constituição do SparkCore, o sistema interno da Sparkling Hub que administra contratantes, usuários,
-catálogo de SaaS e o ciclo de vida das instâncias. O SparkPet depende do SparkCore para identidade,
+catálogo de SaaS e o ciclo de vida das instâncias. O Tuteli depende do SparkCore para identidade,
 autorização, provisionamento, suspensão e recepção de telemetria; por isso estes princípios também
-valem para tudo o que o SparkCore expõe ao SparkPet. Fonte de produto: os escopos versão 1.0 de
-2026-10-25 (`00-diretrizes-compartilhadas.md`, `01-sparkcore-mvp.md`, `02-sparkpet-mvp.md` e
+valem para tudo o que o SparkCore expõe ao Tuteli. Fonte de produto: os escopos versão 1.0 de
+2026-10-25 (`00-diretrizes-compartilhadas.md`, `01-sparkcore-mvp.md`, `02-tuteli-mvp.md` e
 `03-plano-sdd.md`), referenciados pelos identificadores estáveis `COM-*`, `SC-*`, `SP-*`, `RN-*`,
 `CA-*`, `NFR-*`, `D-*` e `T-*`. Fonte de interface: o design system em
 `UX/design-system` (pacote `@sparkling-hub/design-system`) e o contrato visual `DESIGN.md` da raiz.
@@ -78,18 +78,18 @@ revogação imediata sem tornar o Core dependência de cada requisição do prod
 
 ### III. SparkCore como plataforma: contratos versionados e mínimos
 
-- Toda capacidade consumida pelo SparkPet (autenticar, autorizar e resolver instância, vínculos
+- Toda capacidade consumida pelo Tuteli (autenticar, autorizar e resolver instância, vínculos
   locais, convite inicial, lote de utilização, situação operacional) MUST ser exposta por contrato
   versionado e documentado antes da implementação do consumidor.
 - A projeção de acesso no banco da instância é um **contrato de dados** do Core: tabelas, colunas
   e semântica versionadas como o artefato de migração, provadas com o produto de referência e
   alteradas apenas com nova versão e convivência com a anterior.
-- Cada contrato MUST ser demonstrável sem o SparkPet: o SparkCore mantém um produto de referência
+- Cada contrato MUST ser demonstrável sem o Tuteli: o SparkCore mantém um produto de referência
   sintético (artefato de migração mínimo, provisionador, cliente de autorização e produtor de
   eventos de utilização) que exercita os contratos em testes. O produto de referência MUST NOT ser
-  oferecido como SaaS nem conter regras de negócio do SparkPet.
+  oferecido como SaaS nem conter regras de negócio do Tuteli.
 - Mudança incompatível de contrato MUST gerar nova versão, convivência com a anterior durante a
-  migração do consumidor e registro de impacto no SparkPet; alteração silenciosa de schema de
+  migração do consumidor e registro de impacto no Tuteli; alteração silenciosa de schema de
   resposta é proibida.
 - Erros MUST trazer código estável, mensagem segura, campo quando cabível, indicação de repetição
   possível e identificador de correlação; MUST NOT expor SQL, segredo ou stack trace.
@@ -101,7 +101,7 @@ revogação imediata sem tornar o Core dependência de cada requisição do prod
 - Comunicação interna MUST usar TLS em produção e credencial de aplicação com escopo e rotação;
   a credencial de serviço não substitui a autorização do usuário.
 
-Justificativa: o SparkPet só pode avançar se o SparkCore oferecer contratos estáveis e já provados;
+Justificativa: o Tuteli só pode avançar se o SparkCore oferecer contratos estáveis e já provados;
 contratos mínimos reduzem o vazamento de dados e o acoplamento entre os produtos.
 
 ### IV. Operações críticas idempotentes, retomáveis e seguras sob concorrência
@@ -176,10 +176,10 @@ sem minimização, ele vira risco de privacidade em vez de ferramenta de operaç
   provisionamento, auditoria, acesso e utilização), com o trabalhador de tarefas no mesmo código e
   artefato de implantação; microserviços, broker externo, Kubernetes, service mesh e event sourcing
   MUST NOT ser introduzidos no MVP (`COM-004`).
-- Nenhuma atividade de especificação, planejamento ou implementação do SparkPet (fatias `F04` a
-  `F07`, `F09` e a parte SparkPet de `F08` e `F10`) MUST ser iniciada antes da finalização do
+- Nenhuma atividade de especificação, planejamento ou implementação do Tuteli (fatias `F04` a
+  `F07`, `F09` e a parte Tuteli de `F08` e `F10`) MUST ser iniciada antes da finalização do
   SparkCore, definida em "SparkCore primeiro". Requisitos `SP-*` entram nas fatias do Core apenas
-  como contrato que o Core oferece, nunca como implementação do SparkPet.
+  como contrato que o Core oferece, nunca como implementação do Tuteli.
 - Itens marcados como Pós-MVP ou fora do MVP MUST NOT ser implementados sem decisão registrada que
   os promova ao escopo.
 - Propostas `[P]` e decisões de referência `D-*` MUST ser tratadas como propostas até confirmação
@@ -193,7 +193,7 @@ sem minimização, ele vira risco de privacidade em vez de ferramenta de operaç
 
 Justificativa: um MVP interno operado por uma equipe pequena precisa de poucas peças móveis; o
 escopo foi recortado de propósito e cresce por decisão, não por conveniência. Concluir a plataforma
-antes do primeiro produto evita que o SparkPet seja construído sobre contratos ainda móveis.
+antes do primeiro produto evita que o Tuteli seja construído sobre contratos ainda móveis.
 
 ### VIII. Interface pelo design system da Sparkling Hub
 
@@ -282,17 +282,17 @@ inconsistência para todos os produtos seguintes.
   (catálogo e provisionamento) → `F03` (ciclo e operação da instância) → `F08-Core` (acessos,
   auditoria, recepção de utilização, relatórios e exportações do Core).
 - `F02` MUST provar provisionamento, migração, falha e retomada com o artefato de migração do
-  produto de referência (Princípio III), não com o schema do SparkPet. O formato desse artefato é
-  o contrato que o SparkPet adotará depois.
+  produto de referência (Princípio III), não com o schema do Tuteli. O formato desse artefato é
+  o contrato que o Tuteli adotará depois.
 - `F08-Core` MUST ser verificada com o produtor de eventos do produto de referência, cobrindo
   repetição, atraso, lacuna e indisponibilidade (`T-14`, `CA-SC-011`, `CA-SC-012`), sem esperar
-  `F06` do SparkPet.
+  `F06` do Tuteli.
 - O SparkCore está finalizado quando: (a) as fatias acima cumprem a Definition of Done; (b) os
   critérios de conclusão do MVP SparkCore (seção 9 do escopo) estão demonstrados com o produto de
-  referência; (c) os contratos consumidos pelo SparkPet estão publicados em versão estável; e
+  referência; (c) os contratos consumidos pelo Tuteli estão publicados em versão estável; e
   (d) a finalização está registrada no repositório, com limitações conhecidas.
-- A repetição desses critérios com o artefato real do SparkPet e a homologação conjunta (`F10`)
-  pertencem à integração do SparkPet e não reabrem a finalização do SparkCore, salvo defeito de
+- A repetição desses critérios com o artefato real do Tuteli e a homologação conjunta (`F10`)
+  pertencem à integração do Tuteli e não reabrem a finalização do SparkCore, salvo defeito de
   contrato, que MUST ser corrigido no Core por nova versão.
 
 ## Governance
@@ -311,10 +311,10 @@ inconsistência para todos os produtos seguintes.
   como exceção registrada, com prazo e responsável.
 - Atualizar a versão fixada do design system é uma mudança revisada: MUST registrar a versão
   anterior e a nova, ler o changelog e reexecutar os testes de interface afetados.
-- O repositório SparkPet, iniciado somente após a finalização do SparkCore, deve adotar esta
+- O repositório Tuteli, iniciado somente após a finalização do SparkCore, deve adotar esta
   constituição, ou uma derivada compatível, para os temas compartilhados (isolamento, identidade,
   contratos, idempotência, verificação, privacidade e interface pelo design system); emenda nesses
-  temas MUST ser comunicada ao SparkPet.
+  temas MUST ser comunicada ao Tuteli.
 - Mudança de escopo (requisito novo, promovido do Pós-MVP ou alterado) MUST atualizar os
   documentos de escopo e as especificações afetadas antes do código.
 

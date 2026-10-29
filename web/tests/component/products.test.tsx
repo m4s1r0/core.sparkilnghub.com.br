@@ -7,7 +7,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const product = (patch: Record<string, unknown> = {}) => ({
   code: "sparkpet",
-  name: "SparkPet",
+  name: "Tuteli",
   description: "Pet shops",
   status: "ativo",
   provisioner: null,
@@ -62,11 +62,11 @@ describe("ProductPage (/produtos/:code)", () => {
     const textboxes = screen.getAllByRole("textbox").map((el) => el.getAttribute("name"));
     expect(textboxes.sort()).toEqual(["description", "name"]);
     await userEvent.clear(screen.getByLabelText(/Nome/));
-    await userEvent.type(screen.getByLabelText(/Nome/), "SparkPet Pro");
+    await userEvent.type(screen.getByLabelText(/Nome/), "Tuteli Pro");
     await userEvent.click(screen.getByRole("button", { name: "Salvar" }));
     expect(await screen.findByText("Alterações salvas.")).toBeInTheDocument();
     expect(calls.find((c) => c.method === "PUT")?.body).toEqual({
-      name: "SparkPet Pro",
+      name: "Tuteli Pro",
       description: "Pet shops",
       version: 1,
     });
@@ -87,7 +87,7 @@ describe("ProductPage (/produtos/:code)", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/instâncias existentes não mudam/)).toBeInTheDocument();
     await userEvent.type(within(dialog).getByLabelText(/Motivo/), "fim de oferta");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Inativar SparkPet" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Inativar Tuteli" }));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

@@ -74,7 +74,7 @@ describe("migração a partir da versão anterior (FR-017, CS-005)", () => {
       { from_state: null, to_state: "ATIVA", actor_kind: "sistema", reason: "migracao_f01" },
     ]);
 
-    // Sem instâncias sintéticas (produção): só o SparkPet no catálogo, nenhum contratante.
+    // Sem instâncias sintéticas (produção): só o Tuteli no catálogo, nenhum contratante.
     const empty = await ctx.createDatabase("upgrade_f01_empty");
     const emptyConn = await ctx.connect("test", empty);
     await migrate(emptyConn, v3, { appliedBy: "teste" });

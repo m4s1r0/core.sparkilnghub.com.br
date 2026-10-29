@@ -6,6 +6,7 @@ import { AdminsPage } from "../pages/admins/AdminsPage";
 import { ContractorFormPage } from "../pages/contractors/ContractorFormPage";
 import { ContractorPage } from "../pages/contractors/ContractorPage";
 import { ContractorsPage } from "../pages/contractors/ContractorsPage";
+import { DashboardPage } from "../pages/dashboard/DashboardPage";
 import { InstancePage } from "../pages/instances/InstancePage";
 import { InstancesPage } from "../pages/instances/InstancesPage";
 import { MembersPage } from "../pages/instances/MembersPage";
@@ -20,7 +21,9 @@ import { ProductsPage } from "../pages/products/ProductsPage";
 import { PasswordResetPage } from "../pages/recovery/PasswordResetPage";
 import { RecoveryRequestPage } from "../pages/recovery/RecoveryRequestPage";
 import { TotpEnrollmentPage } from "../pages/security/TotpEnrollmentPage";
-import { SystemStatusPage } from "../pages/system-status/SystemStatusPage";
+import { AuditEventsPage } from "../pages/audit/AuditEventsPage";
+import { SecurityEventsPage } from "../pages/security-events/SecurityEventsPage";
+import { UsagePage } from "../pages/usage/UsagePage";
 import { RequireSession } from "./auth-guard";
 import { AppLayout, PublicLayout } from "./layouts";
 
@@ -71,7 +74,7 @@ export const routes: RouteObject[] = [
       </RequireSession>
     ),
     children: [
-      { path: "/", element: <SystemStatusPage /> },
+      { path: "/", element: <DashboardPage /> },
       { path: "/administradores", element: <AdminsPage /> },
       { path: "/contratantes", element: <ContractorsPage /> },
       { path: "/contratantes/novo", element: <ContractorFormPage /> },
@@ -87,6 +90,9 @@ export const routes: RouteObject[] = [
       { path: "/contas", element: <AccountsPage /> },
       { path: "/contas/:id", element: <AccountPage /> },
       { path: "/pendencias", element: <PendingPage /> },
+      { path: "/acessos", element: <SecurityEventsPage /> },
+      { path: "/auditoria", element: <AuditEventsPage /> },
+      { path: "/utilizacao", element: <UsagePage /> },
     ],
   },
   {

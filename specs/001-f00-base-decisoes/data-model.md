@@ -87,7 +87,7 @@ versão 1 (o SQL do artefato não contém UUIDs fixos). É o marcador de proprie
 ### `ref_item` (banco de instância, versão 2 do artefato de referência)
 
 Tabela neutra (`id`, `label`, `created_at`) que existe apenas para provar a migração v1 → v2
-(US6 cenário 2). Não representa conceito do SparkPet (FR-027).
+(US6 cenário 2). Não representa conceito do Tuteli (FR-027).
 
 ## Entidades em arquivo (repositório)
 

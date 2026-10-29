@@ -1,0 +1,651 @@
+openapi: "3.1.0"
+info:
+  title: SparkCore F08-Core — Auditoria, utilização e painel
+  version: "1.4.0"
+  description: >
+    Endpoints novos da fatia F08-Core: recepção de lotes de utilização,
+    painel expandido, consulta/exportação de acessos e auditoria administrativa,
+    relatórios de utilização e limpeza de retenção.
+
+# ─── Autenticação ────────────────────────────────────────────────────────────
+
+components:
+  securitySchemes:
+    coreSession:
+      type: apiKey
+      in: cookie
+      name: sh_core_session
+      description: Sessão administrativa do painel Core (F01).
+
+    appCredential:
+      type: http
+      scheme: bearer
+      description: >
+        Credencial de aplicação de instância com escopo `utilizacao`.
+        Bearer token = `<credential_id>:<secret>` codificado em base64.
+
+  schemas:
+
+    # ── Utilização ────────────────────────────────────────────────────────────
+
+    UsageEventKind:
+      type: string
+      enum:
+        - atendimentos_iniciados
+        - atendimentos_concluidos
+        - vendas_confirmadas
+        - usuarios_ativos
+      description: >
+        Tipos de evento aceitos no contrato mínimo do produto de referência.
+        O Core aceita kinds desconhecidos (forward compatibility) com aviso de log.
+
+    UsageBatchEvent:
+      type: object
+      required: [event_id, occurred_at, kind, count]
+      properties:
+        event_id:
+          type: string
+          format: uuid
+          description: Identificador único do evento no produto (chave de deduplicação).
+        occurred_at:
+          type: string
+          format: date-time
+          description: Instante de ocorrência no fuso do produto (ISO 8601 UTC).
+        kind:
+          $ref: "#/components/schemas/UsageEventKind"
+        count:
+          type: integer
+          minimum: 1
+
+    UsageBatchRequest:
+      type: object
+      required: [batch_id, events]
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+          description: Identificador único do lote (chave de deduplicação de lote inteiro).
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageBatchEvent"
+          minItems: 0
+          maxItems: 500
+
+    UsageBatchResult:
+      type: object
+      required: [events_accepted, events_discarded]
+      properties:
+        events_accepted:
+          type: integer
+          minimum: 0
+        events_discarded:
+          type: integer
+          minimum: 0
+
+    UsageByPeriod:
+      type: object
+      required: [instance_id, period_start, period_end, timezone, events, data_status]
+      properties:
+        instance_id:
+          type: string
+          format: uuid
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        timezone:
+          type: string
+          example: "America/Sao_Paulo"
+        events:
+          type: array
+          items:
+            type: object
+            required: [kind, count, last_occurred_at]
+            properties:
+              kind:
+                $ref: "#/components/schemas/UsageEventKind"
+              count:
+                type: integer
+              last_occurred_at:
+                type: string
+                format: date-time
+        data_status:
+          type: string
+          enum: [ok, dados_insuficientes, atraso_detectado]
+          description: >
+            `dados_insuficientes` quando não há nenhum evento; `atraso_detectado` quando
+            o evento mais recente tem `received_at - occurred_at` acima de 24h.
+
+    ConsolidatedUsage:
+      type: object
+      required: [period_start, period_end, timezone, instances, generated_at]
+      properties:
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        timezone:
+          type: string
+        instances:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageByPeriod"
+        generated_at:
+          type: string
+          format: date-time
+
+    # ── Painel ────────────────────────────────────────────────────────────────
+
+    DashboardStats:
+      type: object
+      required:
+        - instances_by_state
+        - pending_provisionings
+        - failed_provisionings
+        - instances_without_recent_usage
+        - instances_with_telemetry_delay
+        - instances_with_schema_issue
+        - calculated_at
+      properties:
+        instances_by_state:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            ATIVA: 5
+            SUSPENSA: 1
+            MANUTENCAO: 0
+            ENCERRADA: 2
+            PRONTA: 1
+            CADASTRADA: 0
+        pending_provisionings:
+          type: integer
+          description: Tarefas de provisionamento com status pendente ou em andamento.
+        failed_provisionings:
+          type: integer
+          description: Tarefas de provisionamento em falha (status falha, não retomadas).
+        instances_without_recent_usage:
+          type: object
+          required: [last_7d, last_30d]
+          properties:
+            last_7d:
+              type: integer
+            last_30d:
+              type: integer
+          description: >
+            Instâncias ATIVAS sem nenhum evento de uso elegível no período.
+            Instâncias sem nenhum dado histórico NÃO entram nessa contagem
+            (aparecerão em `instances_without_any_data`).
+        instances_without_any_data:
+          type: integer
+          description: Instâncias ATIVAS com zero eventos de utilização registrados (CA-SC-012).
+        instances_with_telemetry_delay:
+          type: integer
+          description: >
+            Instâncias com `received_at - max(occurred_at)` acima de 24h no último lote.
+        instances_with_schema_issue:
+          type: integer
+          description: Instâncias ATIVAS com schema_version diferente da versão vigente do produto.
+        cleanup_last_run:
+          type: string
+          format: date-time
+          nullable: true
+          description: Última execução bem-sucedida do worker de limpeza de IP/agente.
+        cleanup_last_count:
+          type: integer
+          nullable: true
+          description: Registros limpos na última execução.
+        calculated_at:
+          type: string
+          format: date-time
+
+    # ── Eventos de segurança ──────────────────────────────────────────────────
+
+    SecurityEventItem:
+      type: object
+      required: [id, type, actor_kind, result, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          description: Tipo do evento (login_ok, login_fail, logout, invite_accepted, etc.)
+        actor_kind:
+          type: string
+          enum: [usuario, sistema, aplicacao]
+        actor_account_id:
+          type: string
+          format: uuid
+          nullable: true
+        target_account_id:
+          type: string
+          format: uuid
+          nullable: true
+        instance_id:
+          type: string
+          format: uuid
+          nullable: true
+        result:
+          type: string
+          enum: [sucesso, falha, negado]
+        correlation_id:
+          type: string
+          nullable: true
+        ip:
+          type: string
+          nullable: true
+          description: Presente se evento < 180 dias; null após limpeza de retenção.
+        user_agent:
+          type: string
+          nullable: true
+          description: Presente se evento < 180 dias; null após limpeza de retenção.
+        created_at:
+          type: string
+          format: date-time
+
+    SecurityEventList:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecurityEventItem"
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    # ── Eventos de auditoria administrativa ───────────────────────────────────
+
+    AuditEventItem:
+      type: object
+      required: [id, actor_kind, action, object_type, object_id, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        actor_kind:
+          type: string
+          enum: [usuario, sistema]
+        actor_id:
+          type: string
+          format: uuid
+          nullable: true
+        action:
+          type: string
+        object_type:
+          type: string
+        object_id:
+          type: string
+        changes:
+          type: object
+          nullable: true
+          description: Valores anterior/novo de campos seguros (sem segredos).
+        reason:
+          type: string
+          nullable: true
+        correlation_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    AuditEventList:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEventItem"
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    # ── Erros ─────────────────────────────────────────────────────────────────
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Código estável de erro (SC-*, CA-SC-* ou CONFLICT_STATE, etc.)
+        message:
+          type: string
+        field:
+          type: string
+          nullable: true
+        retryable:
+          type: boolean
+        correlation_id:
+          type: string
+          nullable: true
+
+# ─── Paths ───────────────────────────────────────────────────────────────────
+
+paths:
+
+  # ── Recepção de utilização (interno) ─────────────────────────────────────
+
+  /internal/v1/instances/{instanceId}/usage-batches:
+    post:
+      operationId: receiveUsageBatch
+      summary: Receber lote de utilização do produto
+      description: >
+        Endpoint interno consumido pelo produto (Tuteli ou produto de referência).
+        Autentica via credencial de instância com escopo `utilizacao`.
+        Deduplica por `(instance_id, event_id)`. Reprocessar o mesmo `batch_id`
+        retorna 200 com resultado original (CA-SC-011).
+      security:
+        - appCredential: []
+      tags: [utilizacao-interna]
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsageBatchRequest"
+      responses:
+        "202":
+          description: Lote novo processado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageBatchResult"
+        "200":
+          description: Lote já processado — resultado original retornado (idempotência).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageBatchResult"
+        "403":
+          description: Credencial não pertence à instância do path.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Instância em estado inválido para receber utilização.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: CONFLICT_STATE
+                message: "Instância não está em estado que aceita utilização."
+                retryable: false
+        "422":
+          description: Payload inválido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Painel expandido ──────────────────────────────────────────────────────
+
+  /api/v1/dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      summary: Métricas do painel operacional do Core
+      description: >
+        Retorna estado agregado do Core: instâncias por estado, provisionamentos,
+        utilização, telemetria e versões (SC-038, SC-039).
+      security:
+        - coreSession: []
+      tags: [painel]
+      responses:
+        "200":
+          description: Métricas calculadas.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  # ── Eventos de segurança ──────────────────────────────────────────────────
+
+  /api/v1/security-events:
+    get:
+      operationId: listSecurityEvents
+      summary: Listar eventos de acesso de segurança
+      description: >
+        Filtrável por produto, instância, usuário, tipo e período. Paginado.
+        Exporta CSV com `Accept: text/csv` (SC-032, SC-041).
+      security:
+        - coreSession: []
+      tags: [auditoria]
+      parameters:
+        - name: instance_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: actor_account_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: result
+          in: query
+          schema:
+            type: string
+            enum: [sucesso, falha, negado]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Lista paginada de eventos de segurança.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityEventList"
+            text/csv:
+              schema:
+                type: string
+                description: >
+                  CSV com cabeçalho de significado, linha de geração e filtros.
+                  Fórmulas neutralizadas. Máximo 10.000 linhas.
+
+  # ── Auditoria administrativa ──────────────────────────────────────────────
+
+  /api/v1/audit-events:
+    get:
+      operationId: listAuditEvents
+      summary: Listar eventos de auditoria administrativa
+      description: >
+        Filtrável por entidade, ator, ação e período. Paginado.
+        Exporta CSV com `Accept: text/csv` (SC-034, SC-041).
+      security:
+        - coreSession: []
+      tags: [auditoria]
+      parameters:
+        - name: object_type
+          in: query
+          schema:
+            type: string
+        - name: object_id
+          in: query
+          schema:
+            type: string
+        - name: actor_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Lista paginada de eventos de auditoria.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditEventList"
+            text/csv:
+              schema:
+                type: string
+
+  # ── Utilização por instância ──────────────────────────────────────────────
+
+  /api/v1/instances/{instanceId}/usage:
+    get:
+      operationId: getInstanceUsage
+      summary: Relatório de utilização por instância
+      description: >
+        Retorna contagens por tipo de evento no período solicitado (SC-036, SC-040).
+        Eventos atrasados aparecem no período de ocorrência, não de recebimento.
+        Instância sem dados retorna `data_status: dados_insuficientes` (CA-SC-012).
+      security:
+        - coreSession: []
+      tags: [utilizacao]
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: timezone
+          in: query
+          schema:
+            type: string
+            default: "America/Sao_Paulo"
+      responses:
+        "200":
+          description: Dados de utilização da instância no período.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageByPeriod"
+            text/csv:
+              schema:
+                type: string
+
+  # ── Utilização consolidada ────────────────────────────────────────────────
+
+  /api/v1/usage:
+    get:
+      operationId: getConsolidatedUsage
+      summary: Relatório consolidado de utilização por produto/período
+      description: >
+        Agrega utilização de todas as instâncias no período. Paginável por instância.
+        Exporta CSV (SC-036, SC-040, SC-041).
+      security:
+        - coreSession: []
+      tags: [utilizacao]
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: timezone
+          in: query
+          schema:
+            type: string
+            default: "America/Sao_Paulo"
+        - name: instance_id
+          in: query
+          description: Filtrar por instância específica.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Utilização consolidada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsolidatedUsage"
+            text/csv:
+              schema:
+                type: string

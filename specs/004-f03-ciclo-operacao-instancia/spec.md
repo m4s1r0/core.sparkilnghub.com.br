@@ -48,7 +48,7 @@ operacional; console de restauração de backup com um clique (`SC-043`); rollou
 automatizado e rollback automático de schema no executor de migrações (`SC-044`); reabertura de
 instância `ENCERRADA` e eliminação definitiva (`SC-031`); transferência de instância entre
 contratantes (`RN-SC-005`); exclusão de recurso físico ao suspender, reativar ou encerrar
-(`RN-SC-004`); telas e artefato do SparkPet.
+(`RN-SC-004`); telas e artefato do Tuteli.
 
 ## User Scenarios & Testing *(mandatory)*
 

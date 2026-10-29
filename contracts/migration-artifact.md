@@ -1,6 +1,6 @@
 # Contrato do artefato de migração de produto — v1 (Especificado)
 
-Formato que todo produto (referência sintética agora; SparkPet depois) entrega ao SparkCore para
+Formato que todo produto (referência sintética agora; Tuteli depois) entrega ao SparkCore para
 provisionar e migrar bancos de instância. O Core só aplica artefatos neste formato e só versões
 cadastradas (constituição, princípio VII; `SC-009`).
 

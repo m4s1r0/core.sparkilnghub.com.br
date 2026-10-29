@@ -234,7 +234,7 @@ faz o teste falhar
 
 ### Implementation for User Story 6
 
-- [x] T076 [P] [US6] Criar `server/reference-product/manifest.json` (`formatVersion: 1`, `productCode: "sparkref"`, `databasePrefix: "sparkref_"`) com `migrations/0001_baseline.sql` (`_spark_instance`: `instance_uuid BINARY(16) PK`; `product_code VARCHAR(32)`; `owner_task_uuid BINARY(16) NULL`; `synthetic BOOLEAN`; `created_at DATETIME(6)` UTC) e `migrations/0002_ref_item.sql` (`ref_item`: `id`, `label`, `created_at`), sha256 calculados dos arquivos normalizados; nenhum conceito do SparkPet (FR-027)
+- [x] T076 [P] [US6] Criar `server/reference-product/manifest.json` (`formatVersion: 1`, `productCode: "sparkref"`, `databasePrefix: "sparkref_"`) com `migrations/0001_baseline.sql` (`_spark_instance`: `instance_uuid BINARY(16) PK`; `product_code VARCHAR(32)`; `owner_task_uuid BINARY(16) NULL`; `synthetic BOOLEAN`; `created_at DATETIME(6)` UTC) e `migrations/0002_ref_item.sql` (`ref_item`: `id`, `label`, `created_at`), sha256 calculados dos arquivos normalizados; nenhum conceito do Tuteli (FR-027)
 - [x] T077 [US6] Implementar `server/src/platform/migrations/artifact-validator.ts` (construções proibidas e regras do manifesto) — até T074 passar
 - [x] T078 [US6] Implementar `server/src/platform/migrations/apply-artifact.ts`: com `spark_provisioner`, cria o banco `instanceDatabaseName(prefix, uuid)` com `utf8mb4`/`utf8mb4_0900_ai_ci`, aplica as versões via migrador (T022), insere a linha de `_spark_instance` imediatamente após a v1 e cria o usuário `inst_<12hex>…` com DML apenas nesse banco — até T075 passar (base para o provisionador de F02, sem tarefas persistentes nesta fatia)
 - [x] T079 [US6] Implementar `server/src/cli/ref-validate.ts` (`npm run ref:validate`) e registrar o script no `package.json` raiz
@@ -368,4 +368,4 @@ US1 estiver concluída.
 - [P] = arquivos diferentes, sem dependência de tarefa incompleta
 - [USn] liga a tarefa à história para rastreabilidade; commits e PRs citam IDs (`FR-*`, `COM-*`, `NFR-*`)
 - Commit por tarefa ou grupo lógico, em branch `001-f00-base-decisoes`
-- Nenhuma tarefa toca o SparkPet, o site institucional ou o código-fonte do design system
+- Nenhuma tarefa toca o Tuteli, o site institucional ou o código-fonte do design system

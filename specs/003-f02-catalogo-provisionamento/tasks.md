@@ -61,7 +61,7 @@ contrato publicado — usados por todas as histórias
 
 ### Contrato publicado e apoio de testes
 
-- [X] T016 [P] Incorporar [openapi-f02.yaml](./contracts/openapi-f02.yaml) a `contracts/openapi.yaml` (versão 1.2.0, mudança compatível; `GET /api/v1/instances` passa a ter o esquema paginado), registrar em `contracts/CHANGELOG.md`, publicar a v2 em `contracts/access-projection.md` e acrescentar em `contracts/capabilities.md` a capacidade "Conexão da instância" (v1, F02, consumidor SparkPet) e "Criar convite inicial" como interna do provisionamento; rodar `npm run build:contracts`
+- [X] T016 [P] Incorporar [openapi-f02.yaml](./contracts/openapi-f02.yaml) a `contracts/openapi.yaml` (versão 1.2.0, mudança compatível; `GET /api/v1/instances` passa a ter o esquema paginado), registrar em `contracts/CHANGELOG.md`, publicar a v2 em `contracts/access-projection.md` e acrescentar em `contracts/capabilities.md` a capacidade "Conexão da instância" (v1, F02, consumidor Tuteli) e "Criar convite inicial" como interna do provisionamento; rodar `npm run build:contracts`
 - [X] T017 [P] Criar `server/tests/support/f02.ts`: fábricas de contratante e produto, `requestInstanceViaService`, `runProvisioning(ctx, taskId, {afterEffect?, clock?, workerId?})`, leitura de `admin_task_step_run`; ampliar `server/tests/support/mysql.ts` para rastrear e remover, só no teardown de teste, os bancos `sparkref_*`/`_acc` e usuários `inst_*` criados por provisionamentos de teste (prefixo e marcador sintético, como em F01)
 
 **Checkpoint**: migrações aplicadas em banco vazio e a partir de `origin/main`; suíte de F01 verde
@@ -321,6 +321,6 @@ Task: "Contrato de conexão em server/tests/integration/provisioning/connection.
 
 - Commits citam IDs (`SC-*`, `COM-*`, `FR-*`, `T-01`, `T-02`); branch
   `003-f02-catalogo-provisionamento`
-- Nenhuma tarefa toca o SparkPet além da linha `sparkpet` não provisionável no catálogo
+- Nenhuma tarefa toca o Tuteli além da linha `sparkpet` não provisionável no catálogo
 - Nenhum código em `server/src` contém `DROP DATABASE`; limpezas de teste ficam em
   `server/tests/support/mysql.ts`

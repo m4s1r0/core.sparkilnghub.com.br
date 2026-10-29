@@ -50,7 +50,7 @@ exatas são fixadas no lockfile na primeira instalação e passam a valer para t
   `.sql` ordenados de um diretório com `manifest.json` (versão, nome, sha256), registra em
   `_spark_schema_history` de cada banco e recusa checksum divergente, versão fora de sequência ou
   histórico com versão desconhecida. O mesmo migrador aplica as migrações próprias do Core
-  (`spark_core`, `spark_identity`) e os artefatos de produto (referência agora; SparkPet depois).
+  (`spark_core`, `spark_identity`) e os artefatos de produto (referência agora; Tuteli depois).
 - **Rationale**: o provisionador de F02 precisa aplicar o artefato de *outro* produto em N bancos,
   com checksum e retomada; isso é o núcleo do domínio do Core, não uma conveniência de
   desenvolvimento. Ferramentas externas resolvem só a metade "migrações do próprio app".

@@ -1,6 +1,6 @@
 # Contrato de dados — projeção de acesso da instância, v1
 
-Decisão D-04; constituição v1.2.0, princípios I, II e III. Este é o contrato que o SparkPet (e,
+Decisão D-04; constituição v1.2.0, princípios I, II e III. Este é o contrato que o Tuteli (e,
 em F01, o produto de referência) usa para validar cada requisição **sem chamar o Core**. Mudança
 incompatível exige `v2` e convivência com `v1` (convenções §1).
 

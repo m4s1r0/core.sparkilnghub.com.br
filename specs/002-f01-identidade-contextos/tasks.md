@@ -153,11 +153,11 @@ referência; isolamento comprovado com A e B
 
 ### Implementation for User Story 3
 
-- [X] T051 [US3] Implementar `server/reference-product/client.ts`: validação pela consulta normativa de [access-projection.md](./contracts/access-projection.md) com a credencial `inst_*` da instância, logout (`INSERT IGNORE INTO access_session_logout`) e chamada de `touch` — referência para o SparkPet; sem regras de negócio
+- [X] T051 [US3] Implementar `server/reference-product/client.ts`: validação pela consulta normativa de [access-projection.md](./contracts/access-projection.md) com a credencial `inst_*` da instância, logout (`INSERT IGNORE INTO access_session_logout`) e chamada de `touch` — referência para o Tuteli; sem regras de negócio
 - [X] T052 [US3] Implementar `server/src/modules/internal-api/sessions.ts` com `POST /internal/v1/instances/:slug/sessions` e `/sessions/touch` (produto da credencial resolve a instância por `instance_ref`; limitação por `account:<uuid>` e `app-ip:<credencial>:<clientIp>`, nunca pelo IP do servidor do produto; evento de segurança) usando `access-projection/writer.ts` — até T047–T049 passarem
 - [X] T053 [US3] Implementar `server/src/cli/app-credential.ts` (`create|revoke|list`, segredo exibido uma vez) e registrar `app-credential` no `package.json` raiz
 
-**Checkpoint**: contrato de produto provado sem o SparkPet
+**Checkpoint**: contrato de produto provado sem o Tuteli
 
 ---
 
@@ -276,7 +276,7 @@ Task: "Desempenho em server/tests/integration/access/perf-access.test.ts"
 
 1. Setup e Fundação
 2. US1 (administrador com MFA) e US3 (contrato de produto com isolamento) — as duas P1 que
-   destravam o painel e o futuro SparkPet
+   destravam o painel e o futuro Tuteli
 3. **STOP and VALIDATE**: quickstart §1 e §3
 
 ### Incremental Delivery
@@ -289,5 +289,5 @@ Task: "Desempenho em server/tests/integration/access/perf-access.test.ts"
 ## Notes
 
 - Commits citam IDs (`COM-*`, `SC-*`, `FR-*`); branch `002-f01-identidade-contextos`
-- Nenhuma tarefa toca o SparkPet; o cliente de validação do produto de referência é a
+- Nenhuma tarefa toca o Tuteli; o cliente de validação do produto de referência é a
   implementação de referência do contrato de dados
