@@ -3,6 +3,11 @@
 Mudanças compatíveis mantêm a versão maior e são registradas aqui; incompatíveis exigem `/v2`
 (conventions.md §1).
 
+## v1.3.1 — 2026-11-06
+
+- `GET /internal/v1/instances/{slug}/connection` (compatível): a resposta ganha `displayName` e
+  `timezone` da instância, agnósticos de produto; mesmo escopo `connection`, sem migração.
+
 ## v1.3 — 2026-10-27
 
 - `openapi.yaml` 1.3.0 (compatível): ciclo e operação da instância (`/api/v1/instances/{id}/

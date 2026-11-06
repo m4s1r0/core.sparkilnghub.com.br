@@ -58,6 +58,8 @@ describe("contrato interno de conexão da instância (FR-031, research.md R-10)"
   it("entrega a conexão ao produto dono, sem cache, com o endereço configurado", async () => {
     const [a] = ready;
     if (!a) throw new Error("A");
+    const instance = await getInstance(env.ctx, a.id);
+    if (!instance) throw new Error("instância");
     const response = await get(a.slug);
     expect(response.statusCode).toBe(200);
     expect(response.headers["cache-control"]).toBe("no-store");
@@ -65,6 +67,8 @@ describe("contrato interno de conexão da instância (FR-031, research.md R-10)"
     expect(body).toMatchObject({
       instanceId: a.id,
       state: "PRONTA",
+      displayName: instance.displayName,
+      timezone: instance.timezone,
       host: "db.interno.test",
       port: 3399,
       database: `sparkref_${a.id.replaceAll("-", "")}`,

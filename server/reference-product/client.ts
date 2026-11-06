@@ -149,6 +149,8 @@ export class ReferenceProductClient {
 export interface InstanceConnection {
   instanceId: string;
   state: string;
+  displayName: string;
+  timezone: string;
   host: string;
   port: number;
   database: string;
