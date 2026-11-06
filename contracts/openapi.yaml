@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SparkCore — API administrativa
-  version: 1.3.0
+  version: 1.3.1
   description: >-
     Contratos do SparkCore. F00: situação operacional. F01: identidade, sessões do painel, administradores, vínculos, recuperação e bloqueio (/api/v1), e contratos internos para produtos (/internal/v1), com a projeção de acesso descrita em access-projection.md. Convenções em conventions.md. /api/v1/** usa o cookie sparkcore_session (HttpOnly, SameSite=Strict) e verificação de origem em métodos inseguros; /internal/v1/** usa Authorization: Bearer <credencial de aplicação> e nunca cookie. /api/v1/system/status exige sessão de administrador com MFA; /health/live permanece público e sem detalhes. F02: contratantes, catálogo, solicitação e acompanhamento do provisionamento de instâncias (/api/v1) e conexão da instância para o produto (/internal/v1/instances/{slug}/connection, escopo connection). F03: ativar, suspender, reativar, entrar/sair de manutenção e encerrar uma instância, painel de saúde/backup, executor de migrações e a página pública de indisponibilidade (/i/{slug}, sem sessão).
 servers:
@@ -2433,10 +2433,24 @@ components:
       type: object
       additionalProperties: false
       required:
-        [instanceId, state, host, port, database, accessDatabase, user, password, credentialVersion]
+        [
+          instanceId,
+          state,
+          displayName,
+          timezone,
+          host,
+          port,
+          database,
+          accessDatabase,
+          user,
+          password,
+          credentialVersion,
+        ]
       properties:
         instanceId: { type: string, format: uuid }
         state: { $ref: "#/components/schemas/InstanceState" }
+        displayName: { type: string, description: "Nome de exibição da instância" }
+        timezone: { type: string, description: "Fuso horário IANA da instância" }
         host: { type: string }
         port: { type: integer }
         database: { type: string }
