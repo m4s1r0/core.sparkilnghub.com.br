@@ -56,6 +56,9 @@ export function registerInternalConnectionRoutes(app: FastifyInstance, ctx: AppC
       return reply.header("cache-control", "no-store").send({
         instanceId: instance.id,
         state: instance.state,
+        // Metadados agnósticos de produto: toda instância tem nome de exibição e fuso.
+        displayName: instance.displayName,
+        timezone: instance.timezone,
         host: ctx.config.INSTANCE_DB_HOST ?? ctx.config.MYSQL_HOST,
         port: ctx.config.INSTANCE_DB_PORT ?? ctx.config.MYSQL_PORT,
         database: instance.databaseName,
