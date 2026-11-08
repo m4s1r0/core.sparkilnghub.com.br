@@ -24,10 +24,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON spark_core.* TO 'spark_core_web'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON spark_identity.* TO 'spark_core_web'@'%';
 
 -- Trabalhador: só DML em spark_core; em spark_identity lê a fonte dos vínculos para
--- sincronizar e reconciliar a projeção de acesso e grava eventos de segurança (F01, R-10).
+-- sincronizar e reconciliar a projeção de acesso, grava eventos de segurança (F01, R-10) e
+-- anonimiza ip/user_agent de security_event vencidos (SC-033).
 CREATE USER IF NOT EXISTS 'spark_core_worker'@'%' IDENTIFIED BY '${MYSQL_WORKER_PASSWORD}';
 GRANT SELECT, INSERT, UPDATE, DELETE ON spark_core.* TO 'spark_core_worker'@'%';
-GRANT SELECT, INSERT ON spark_identity.* TO 'spark_core_worker'@'%';
+GRANT SELECT, INSERT, UPDATE ON spark_identity.* TO 'spark_core_worker'@'%';
 
 -- Escritor da projeção de acesso (F01, R-07): nenhum privilégio global. O provisionador concede
 -- DML em cada <instância>_acc ao criar a instância.

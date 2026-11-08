@@ -7,7 +7,7 @@ info:
     Em F01, /api/v1/system/status passa a exigir sessão de administrador da plataforma;
     /health/live permanece público e sem detalhes.
 servers:
-  - url: http://127.0.0.1:3000
+  - url: http://127.0.0.1:5273
     description: Desenvolvimento local
 paths:
   /health/live:

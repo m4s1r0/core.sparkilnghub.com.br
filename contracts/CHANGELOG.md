@@ -3,6 +3,16 @@
 Mudanças compatíveis mantêm a versão maior e são registradas aqui; incompatíveis exigem `/v2`
 (conventions.md §1).
 
+## v1.3.2 — 2026-11-07
+
+- `GET /internal/v1/instances/{slug}/members` e `GET /api/v1/instances/{id}/members`
+  (compatível): cada vínculo ganha `accountId`, nulo em convite pendente. Mesmos escopos, sem
+  migração. O produto já recebe `account.id` no login e o usa como autor na própria auditoria; sem
+  o mesmo identificador na listagem de vínculos, nenhum cadastro do produto podia referenciar um
+  usuário de forma validada nem ser correlacionado com a trilha. `accountId` é identificador
+  opaco, e não altera a regra de e-mail mascarado: o administrador local continua vendo
+  `emailMasked` apenas de convites pendentes.
+
 ## v1.3.1 — 2026-11-06
 
 - `GET /internal/v1/instances/{slug}/connection` (compatível): a resposta ganha `displayName` e

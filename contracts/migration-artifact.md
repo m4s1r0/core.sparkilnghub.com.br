@@ -1,8 +1,8 @@
 # Contrato do artefato de migração de produto — v1 (Especificado)
 
-Formato que todo produto (referência sintética agora; Tuteli depois) entrega ao SparkCore para
-provisionar e migrar bancos de instância. O Core só aplica artefatos neste formato e só versões
-cadastradas (constituição, princípio VII; `SC-009`).
+Formato que todo produto (referência sintética e Tuteli, `produtos/<produto>/artifact/`) entrega
+ao SparkCore para provisionar e migrar bancos de instância. O Core só aplica artefatos neste
+formato e só versões cadastradas (constituição, princípio VII; `SC-009`).
 
 ## Estrutura
 
@@ -55,6 +55,55 @@ cadastradas (constituição, princípio VII; `SC-009`).
   aplicador insere a linha da instância imediatamente após aplicar a v1.
 - `_spark_schema_history` é criada e mantida pelo aplicador, não pelo artefato.
 - Uma versão publicada é imutável; correção é uma nova versão.
+
+## Como testar localmente antes de publicar
+
+1. **Validação estática** (manifesto, checksums, construções proibidas), sem banco nem `.env`:
+
+   ```bash
+   npm run artifact:validate -- produtos/<produto>/artifact
+   ```
+
+2. **Aplicação completa num banco descartável**, para provar que as migrações executam de ponta
+   a ponta num MySQL real antes de registrar o produto em `PROVISIONERS`
+   (`server/src/modules/catalog/provisioners.ts`). Com `SPARK_ENV=development` e o MySQL do
+   `dev:up` no ar, use a credencial `test` (só cria bancos `t_<algo>`, nunca aponte para um banco
+   de instância real) para criar um banco descartável, chamar `migrate()` com o manifesto
+   carregado e depois apagar o banco. Confira: nenhuma versão falha, o número de versões
+   aplicadas é o esperado e `information_schema.TABLES` do banco descartável tem as tabelas
+   esperadas.
+
+3. **Registro do provisionador** em código (nunca pela interface, `SC-008`): adicione a entrada
+   em `PROVISIONERS` com o `productCode` do catálogo (imutável; `SC-007`) como chave — não o
+   nome comercial do produto —, o `artifactDir` apontando para o artefato e os ambientes em que
+   o produto pode ser provisionado.
+
+4. **Ambientes (homologação/produção) são travados pelo banco, não só pelo `.env` isolado**: o
+   marcador `spark_core.environment_marker` é gravado na primeira migração do Core a partir de
+   `SPARK_ENV` e não muda depois (`assertEnvironment`, `contracts/commands.md`). `npm run dev:up`
+   e `dev:reset` só aceitam `development`. Para testar localmente o comportamento em
+   `homologation` ou `production` (por exemplo, confirmar que o produto de referência fica
+   invisível em produção, ou que os ambientes do provisionador novo estão corretos):
+   - suba um MySQL **separado** do `dev:up` (outro projeto/volume/porta do compose, com
+     `MYSQL_PORT` diferente no `.env`);
+   - defina `SPARK_ENV=homologation` (ou `production`) nesse `.env` **antes** da primeira
+     migração — o marcador fica fixo a partir daí e não é reversível;
+   - rode `npm run db:migrate` diretamente (permitido em todos os ambientes) e, se aplicável,
+     `npm run db:seed` (só `development`/`homologation`; recusa em `production` com
+     `env_guard_refused`);
+   - inicie servidor e trabalhador manualmente (`npm run dev:app -w @sparkcore/server`,
+     `npm run dev:worker -w @sparkcore/server`), já que `dev:up` recusa fora de `development`;
+   - confira pelo painel ou pela API (`GET /api/v1/products`) que `provisionable` e
+     `notProvisionableReason` batem com o esperado para o ambiente.
+
+   Esse comportamento já tem teste de integração automatizado
+   (`server/tests/integration/catalog/catalog-production.test.ts`); o roteiro manual acima é só
+   para inspeção exploratória, não substitui a suíte.
+
+5. **Imutabilidade depois de publicado** (`FR-019`): uma vez em `main`, `npm run check:migrations`
+   (parte de `npm run verify`) recusa qualquer alteração nos arquivos já publicados em
+   `produtos/<produto>/artifact/`, `server/reference-product/` e `server/migrations/`. Corrigir
+   um artefato publicado é sempre uma **nova versão**, nunca uma edição.
 
 ## Garantias do aplicador
 

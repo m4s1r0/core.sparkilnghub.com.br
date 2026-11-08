@@ -63,7 +63,7 @@ describe("loadConfig (FR-010)", () => {
     });
     expect(config.secrets.IDENTITY_SECRET_KEY).toBe(key);
     expect(config.IDENTITY_SECRET_KEY_VERSION).toBe(1);
-    expect(config.PUBLIC_ORIGIN).toBe("http://127.0.0.1:3000");
+    expect(config.PUBLIC_ORIGIN).toBe("http://127.0.0.1:5273");
 
     let error: unknown;
     try {
