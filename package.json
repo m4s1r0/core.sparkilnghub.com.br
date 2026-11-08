@@ -33,6 +33,7 @@
     "test:e2e": "playwright test -c web/playwright.config.ts",
     "test:contract": "vitest run --project contract",
     "ref:validate": "tsx server/src/cli/ref-validate.ts",
+    "artifact:validate": "tsx server/src/cli/artifact-validate.ts",
     "access:reconcile": "tsx server/src/cli/access-reconcile.ts",
     "instances:migrate-access": "tsx server/src/cli/instances-migrate-access.ts",
     "instances:report-backup": "tsx server/src/cli/instances-report-backup.ts",
@@ -45,14 +46,14 @@
     "postinstall": "npm run build:contracts"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "^9.39.5",
     "@types/node": "^24.19.2",
-    "eslint": "^10.13.0",
+    "eslint": "^9.39.5",
     "globals": "^17.13.0",
     "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.72.0",
+    "typescript-eslint": "^8.36.0",
     "vite": "^7.3.7",
     "vitest": "^5.0.5",
     "yaml": "^2.9.1"

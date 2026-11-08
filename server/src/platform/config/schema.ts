@@ -75,7 +75,7 @@ export const BaseConfigSchema = Type.Object({
   // Origem pública da interface, aceita na verificação de origem contra CSRF (research.md R-05).
   PUBLIC_ORIGIN: Type.String({
     pattern: "^https?://[a-z0-9.-]+(:[0-9]{1,5})?$",
-    default: "http://127.0.0.1:3000",
+    default: "http://127.0.0.1:5175",
   }),
   // Versão da IDENTITY_SECRET_KEY gravada junto de cada segredo cifrado (research.md R-03).
   IDENTITY_SECRET_KEY_VERSION: Type.Integer({ minimum: 1, maximum: 255, default: 1 }),

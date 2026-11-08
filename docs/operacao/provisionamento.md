@@ -9,6 +9,10 @@ Falhas do **executor de migrações de instância** (F03, atualização de uma i
 e `PROVISIONING_NO_PRIOR_BACKUP` (reconferidos a cada retomada); backup e restauração ficam em
 [backup-restauracao.md](./backup-restauracao.md).
 
+Como validar e testar localmente o artefato de um produto **antes** de publicá-lo (checksums,
+aplicação de ponta a ponta num banco descartável e comportamento por ambiente em
+homologação/produção): [`contracts/migration-artifact.md`](../../contracts/migration-artifact.md#como-testar-localmente-antes-de-publicar).
+
 ## Como diagnosticar
 
 1. No painel, abra `Instâncias → <instância> → Provisionamento` e anote o **protocolo**

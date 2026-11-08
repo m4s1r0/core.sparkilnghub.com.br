@@ -39,7 +39,7 @@ recrie o volume com `docker compose down -v` (apaga os dados locais, todos sint�
 interface. Ao terminar, mostra "SparkCore saudável" e os endereços:
 
 - Interface: <http://127.0.0.1:5173/> (pede login desde F01)
-- Situação do sistema: <http://127.0.0.1:3000/api/v1/system/status> (exige sessão de administrador)
+- Situação do sistema: <http://127.0.0.1:5273/api/v1/system/status> (exige sessão de administrador)
 
 Primeiro acesso ao painel (F01): gere o convite do primeiro administrador e abra o link impresso
 para definir senha e cadastrar o aplicativo autenticador (TOTP):
@@ -56,6 +56,14 @@ Desde F02 as instâncias A e B são criadas **pelo provisionador** (mesmo caminh
 ativadas pelas sementes; no painel, `Contratantes → Instâncias → Nova instância` solicita uma
 instância do produto de referência e acompanha as etapas até `PRONTA` (o trabalhador precisa estar
 rodando). Falhas que exigem procedimento: [`docs/operacao/provisionamento.md`](docs/operacao/provisionamento.md).
+
+Testar o artefato de um produto real (ex.: Tuteli) antes de registrá-lo, inclusive o
+comportamento específico de homologação/produção, usando apenas o ambiente local de
+`development`: [`contracts/migration-artifact.md`](contracts/migration-artifact.md#como-testar-localmente-antes-de-publicar).
+
+Passo a passo completo para criar e configurar um novo produto (catálogo, provisionador,
+credencial, portas) em desenvolvimento, homologação e produção, e para conectar diretamente ao
+MySQL de cada ambiente: [`docs/operacao/novo-produto.md`](docs/operacao/novo-produto.md).
 
 Ao atualizar um ambiente de F01 para F02: acrescente ao `.env` a `INSTANCE_SECRET_KEY` (32 bytes
 base64, ver `.env.example`) e rode `npm run dev:reset` (as instâncias de F01 não têm a credencial
@@ -79,6 +87,7 @@ F02 em [`specs/003-f02-catalogo-provisionamento/quickstart.md`](specs/003-f02-ca
 | `npm run db:migrate`                             | Aplica as migrações de `spark_core` e `spark_identity`                  |
 | `npm run db:seed`                                | Carrega dados sintéticos (só `development`/`homologation`)              |
 | `npm run ref:validate`                           | Valida o artefato do produto de referência                              |
+| `npm run artifact:validate -- <diretório>`       | Valida qualquer artefato de produto (ex.: `produtos/tuteli/artifact`)   |
 | `npm run gate -- <fatia>`                        | Verifica se a fatia pode entrar em implementação (decisões confirmadas) |
 | `npm run bootstrap:admin -- <email>`             | Convite do primeiro administrador da plataforma (link exibido uma vez)  |
 | `npm run app-credential -- create\|revoke\|list` | Credenciais de aplicação dos contratos internos                         |
@@ -91,17 +100,18 @@ Contrato dos comandos: [`contracts/commands.md`](contracts/commands.md).
 
 ## Onde está cada coisa
 
-| Caminho                                | Conteúdo                                                                                        |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `server/`                              | API (Fastify) e trabalhador — mesmo pacote, dois entrypoints                                    |
-| `server/migrations/`                   | Migrações do Core, com manifesto e sha256                                                       |
-| `server/reference-product/`            | Produto de referência sintético (`sparkref`) e cliente de validação                             |
-| `server/migrations/access_projection/` | Projeção de acesso aplicada no banco `<instância>_acc` (D-04)                                   |
-| `web/`                                 | Interface React + Tailwind sobre o design system                                                |
-| `packages/contracts/`                  | Esquemas e tipos compartilhados entre API e interface                                           |
-| `contracts/`                           | Contratos publicados (convenções, OpenAPI, capacidades, artefato, projeção de acesso, comandos) |
-| `docs/adr/`, `docs/slices.yaml`        | Decisões de arquitetura e portão de prontidão das fatias                                        |
-| `docs/escopos/`                        | Cópia versionada dos escopos de produto                                                         |
-| `docs/operacao/`                       | Procedimentos operacionais (falhas de provisionamento, chave das instâncias)                    |
-| `docs/CONTRIBUTING.md`                 | Fluxo de branches, revisão, design system e proteção de `main`                                  |
-| `.specify/memory/constitution.md`      | Constituição do SparkCore                                                                       |
+| Caminho                                | Conteúdo                                                                                                                                                   |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server/`                              | API (Fastify) e trabalhador — mesmo pacote, dois entrypoints                                                                                               |
+| `server/migrations/`                   | Migrações do Core, com manifesto e sha256                                                                                                                  |
+| `server/reference-product/`            | Produto de referência sintético (`sparkref`) e cliente de validação                                                                                        |
+| `produtos/<produto>/artifact/`         | Artefato de migração publicado de cada produto real (ex.: `produtos/tuteli/`); registrado em `PROVISIONERS` (`server/src/modules/catalog/provisioners.ts`) |
+| `server/migrations/access_projection/` | Projeção de acesso aplicada no banco `<instância>_acc` (D-04)                                                                                              |
+| `web/`                                 | Interface React + Tailwind sobre o design system                                                                                                           |
+| `packages/contracts/`                  | Esquemas e tipos compartilhados entre API e interface                                                                                                      |
+| `contracts/`                           | Contratos publicados (convenções, OpenAPI, capacidades, artefato, projeção de acesso, comandos)                                                            |
+| `docs/adr/`, `docs/slices.yaml`        | Decisões de arquitetura e portão de prontidão das fatias                                                                                                   |
+| `docs/escopos/`                        | Cópia versionada dos escopos de produto                                                                                                                    |
+| `docs/operacao/`                       | Procedimentos operacionais (falhas de provisionamento, chave das instâncias)                                                                               |
+| `docs/CONTRIBUTING.md`                 | Fluxo de branches, revisão, design system e proteção de `main`                                                                                             |
+| `.specify/memory/constitution.md`      | Constituição do SparkCore                                                                                                                                  |

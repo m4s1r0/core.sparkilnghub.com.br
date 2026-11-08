@@ -37,7 +37,7 @@ describe("ProvisioningPage — convite inicial (US5)", () => {
       if (url.endsWith("/initial-invitation/issue") && method === "POST") {
         issued = true;
         return json(
-          { link: "http://127.0.0.1:3000/convite/abc", expiresAt: "2026-10-29T12:00:00.000Z" },
+          { link: "http://127.0.0.1:5273/convite/abc", expiresAt: "2026-10-29T12:00:00.000Z" },
           201,
         );
       }
@@ -54,7 +54,7 @@ describe("ProvisioningPage — convite inicial (US5)", () => {
     expect(screen.getByText("Instância pronta")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Emitir link" }));
     expect(
-      await screen.findByDisplayValue("http://127.0.0.1:3000/convite/abc"),
+      await screen.findByDisplayValue("http://127.0.0.1:5273/convite/abc"),
     ).toBeInTheDocument();
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/não poderá ser consultado/i)).toBeInTheDocument();

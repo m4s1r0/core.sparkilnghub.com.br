@@ -54,11 +54,21 @@ if (base === null)
   console.warn(`${baseRef} indisponível: imutabilidade não verificada (rode git fetch)`);
 else problems.push(...checkImmutable(current, base));
 
+// Artefatos de produto publicados (ex.: produtos/tuteli/artifact); descoberta dinâmica para não
+// exigir mudança neste script a cada novo produto.
+const produtosDir = join(repoRoot, "produtos");
+const productArtifactDirs = existsSync(produtosDir)
+  ? readdirSync(produtosDir)
+      .map((slug) => `produtos/${slug}/artifact`)
+      .filter((dir) => existsSync(join(repoRoot, dir)))
+  : [];
+
 for (const dir of [
   "server/migrations/spark_core",
   "server/migrations/spark_identity",
   "server/migrations/access_projection",
   "server/reference-product",
+  ...productArtifactDirs,
 ]) {
   try {
     await loadManifest(join(repoRoot, dir));

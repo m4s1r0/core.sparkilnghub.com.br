@@ -8,7 +8,7 @@ export interface MigrationProblem {
 }
 
 /** Diretórios cujos arquivos, uma vez em `main`, são imutáveis (FR-019). */
-export const MIGRATION_ROOTS = ["server/migrations/", "server/reference-product/"];
+export const MIGRATION_ROOTS = ["server/migrations/", "server/reference-product/", "produtos/"];
 
 /**
  * Compara as migrações atuais com as publicadas na branch base (`origin/main` ou a base da PR). Alterar ou remover arquivo
