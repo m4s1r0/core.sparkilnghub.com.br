@@ -74,6 +74,35 @@ describe("LoginPage (/entrar)", () => {
   });
 });
 
+describe("fluxo completo: painel → entrar → segundo fator", () => {
+  it("confirma o código na primeira tentativa e chega ao painel", async () => {
+    let stage: "anon" | "pre" | "full" = "anon";
+    stubFetch(({ url }) => {
+      if (url.endsWith("/auth/login")) {
+        stage = "pre";
+        return json({ next: "mfa" });
+      }
+      if (url.endsWith("/auth/mfa")) {
+        stage = "full";
+        return json({ next: "done" });
+      }
+      if (url.endsWith("/api/v1/session")) {
+        return stage === "anon"
+          ? noSession()
+          : json(stage === "pre" ? preMfaSession(true) : fullSession);
+      }
+      return json({});
+    });
+    const { router } = renderApp("/");
+    await userEvent.type(await screen.findByLabelText(/E-mail/), "ana@example.test");
+    await userEvent.type(screen.getByLabelText(/^Senha/), "senha qualquer longa");
+    await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
+    await userEvent.type(await screen.findByLabelText(/Código do aplicativo/), "123456");
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+  });
+});
+
 describe("MfaPage (/entrar/segundo-fator)", () => {
   it("código inválido do servidor aparece no campo; recuperação troca o rótulo", async () => {
     stubFetch(({ url }) =>

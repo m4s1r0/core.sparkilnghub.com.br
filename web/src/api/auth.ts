@@ -38,10 +38,14 @@ export function useSession() {
   });
 }
 
-/** Invalida a sessão em cache depois de login, segundo fator, logout ou reautenticação. */
+/**
+ * Rebusca a sessão depois de login, segundo fator, logout ou reautenticação. `type: "all"` inclui
+ * a consulta inativa: só invalidar deixaria a guarda ler o `null` antigo (401) ao montar a próxima
+ * tela e redirecionar de volta para /entrar.
+ */
 export function useRefreshSession() {
   const client = useQueryClient();
-  return () => client.invalidateQueries({ queryKey: SESSION_KEY });
+  return () => client.refetchQueries({ queryKey: SESSION_KEY, type: "all" });
 }
 
 export const authApi = {

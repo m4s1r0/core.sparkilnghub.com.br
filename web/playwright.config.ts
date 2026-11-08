@@ -1,6 +1,14 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
-const port = Number(process.env.HTTP_PORT ?? 3000);
+// Mesma fonte única das portas que o servidor (`loadEnvFile` em server/src/platform/config) e o
+// `vite.config.ts`: o `.env` da raiz, sem sobrescrever o que já veio do shell. Sem isto o e2e
+// caía no default e apontava para uma porta diferente da que o servidor escuta.
+const envFile = fileURLToPath(new URL("../.env", import.meta.url));
+if (existsSync(envFile)) process.loadEnvFile(envFile);
+
+const port = Number(process.env.HTTP_PORT ?? 5273);
 const baseURL = `http://127.0.0.1:${port}`;
 // Navegador já instalado na máquina: Edge local (como no design system); na CI, o Google Chrome
 // da imagem do runner (PLAYWRIGHT_CHANNEL=chrome), sem baixar navegador.

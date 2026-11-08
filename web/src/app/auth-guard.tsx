@@ -38,7 +38,13 @@ export function RequireSession({ children, mfa = true }: { children: ReactNode; 
   }
   const info = session.data;
   if (!info) {
-    return <Navigate to="/entrar" replace state={{ from: location.pathname }} />;
+    return (
+      <Navigate
+        to="/entrar"
+        replace
+        state={isAuthPath(location.pathname) ? null : { from: location.pathname }}
+      />
+    );
   }
   if (mfa && !info.mfa.confirmed) {
     return (
@@ -52,8 +58,20 @@ export function RequireSession({ children, mfa = true }: { children: ReactNode; 
   return <>{children}</>;
 }
 
+const AUTH_PATHS = ["/entrar", "/conta/seguranca/totp", "/convite", "/recuperar"];
+
+/** Telas do fluxo de autenticação nunca são destino de retorno (voltariam para o próprio fluxo). */
+function isAuthPath(path: string): boolean {
+  return AUTH_PATHS.some((base) => path === base || path.startsWith(`${base}/`));
+}
+
 /** Destino guardado pela guarda, ou a página inicial. */
 export function returnPath(state: unknown): string {
   const from = (state as { from?: unknown } | null)?.from;
-  return typeof from === "string" && from.startsWith("/") && !from.startsWith("//") ? from : "/";
+  return typeof from === "string" &&
+    from.startsWith("/") &&
+    !from.startsWith("//") &&
+    !isAuthPath(from)
+    ? from
+    : "/";
 }

@@ -56,6 +56,18 @@
       "name": "0009_auditoria_integracao",
       "file": "migrations/0009_auditoria_integracao.sql",
       "sha256": "54d7f480bdb7ff2022f60a3bf95d9dab626e0993b3f0e407c57a0b6e3e099b6d"
+    },
+    {
+      "version": 10,
+      "name": "0010_agenda_regras",
+      "file": "migrations/0010_agenda_regras.sql",
+      "sha256": "dd229666ff2111c1d62eeb4ef2e3687a080a978fd8acb3b47b7ab7daf1e4d0f7"
+    },
+    {
+      "version": 11,
+      "name": "0011_agenda_idempotencia",
+      "file": "migrations/0011_agenda_idempotencia.sql",
+      "sha256": "0ba5d7571df566b88518b2e8b3feac5ce45d1b9ae8a1f8149244147799a761c5"
     }
   ]
 }
