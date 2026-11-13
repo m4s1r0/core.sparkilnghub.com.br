@@ -68,6 +68,24 @@
       "name": "0011_agenda_idempotencia",
       "file": "migrations/0011_agenda_idempotencia.sql",
       "sha256": "0ba5d7571df566b88518b2e8b3feac5ce45d1b9ae8a1f8149244147799a761c5"
+    },
+    {
+      "version": 12,
+      "name": "0012_autorizado_versao",
+      "file": "migrations/0012_autorizado_versao.sql",
+      "sha256": "c6d59b040fea2b32200c850c3cee830d405617dd4541c91fa47809d410dc9112"
+    },
+    {
+      "version": 13,
+      "name": "0013_atendimento_execucao",
+      "file": "migrations/0013_atendimento_execucao.sql",
+      "sha256": "622a798d11e406e03ccbd5283a8999c9d6d4584891405db37829bfbb6bfcd2e9"
+    },
+    {
+      "version": 14,
+      "name": "0014_pacotes_venda_creditos",
+      "file": "migrations/0014_pacotes_venda_creditos.sql",
+      "sha256": "575ef1ae111e34ec436996822331375f4025571ad1c52751c8fb2e354f526e54"
     }
   ]
 }

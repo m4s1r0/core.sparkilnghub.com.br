@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadManifest } from "../../../src/platform/migrations/manifest.js";
 import { migrate } from "../../../src/platform/migrations/migrator.js";
-import { accessProjectionDir, migrationsDir } from "../../../src/platform/paths.js";
+import { accessProjectionDir, migrationsDir, tuteliProductDir } from "../../../src/platform/paths.js";
 import { checkUpgradePath, compareStructures } from "../../../../scripts/lib/upgrade.js";
 import { MysqlTestContext } from "../../support/mysql.js";
 
@@ -30,6 +30,30 @@ afterAll(async () => {
 });
 
 describe("migração a partir da versão anterior (FR-017, CS-005)", () => {
+  it("Tuteli v11 → v12 preserva autorizações e equivale à instalação nova", async () => {
+    const base = await loadManifest(truncated(tuteliProductDir, 11));
+    const current = await loadManifest(tuteliProductDir);
+    const result = await checkUpgradePath(ctx, "tuteli", base, current);
+    expect(result.baseVersions).toBe(11);
+    expect(result.currentVersions).toBe(12);
+    expect(result.differences).toEqual([]);
+
+    const db = await ctx.createDatabase("tuteli_v12_data");
+    const conn = await ctx.connect("test", db);
+    await migrate(conn, base, { appliedBy: "teste" });
+    await conn.query(`INSERT INTO tutor
+      (id, nome, telefone_normalizado, created_at, updated_at)
+      VALUES (UNHEX('00000000000040008000000000000001'), 'Tutor', '123', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))`);
+    await conn.query(`INSERT INTO autorizado_retirada
+      (id, tutor_id, nome, evidencia_autorizacao, created_by, created_at)
+      VALUES (UNHEX('00000000000040008000000000000002'), UNHEX('00000000000040008000000000000001'),
+              'Contato', 'Telefone', UNHEX('00000000000040008000000000000003'), UTC_TIMESTAMP(6))`);
+    await migrate(conn, current, { appliedBy: "teste" });
+    const [rows] = await conn.query("SELECT nome, version FROM autorizado_retirada");
+    expect(rows).toEqual([{ nome: "Contato", version: 1 }]);
+    await expect(conn.query("UPDATE autorizado_retirada SET version = 0")).rejects.toThrow();
+  });
+
   it("spark_core: base v1 + atual é igual à atual do zero", async () => {
     const current = await loadManifest(migrationsDir("spark_core"));
     const base = await loadManifest(truncated(migrationsDir("spark_core"), 1));
