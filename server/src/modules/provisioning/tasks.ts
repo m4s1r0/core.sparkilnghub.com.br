@@ -125,10 +125,14 @@ export async function getTask(db: Kysely<unknown>, id: string): Promise<Task | n
   return rows[0] ? toTask(rows[0]) : null;
 }
 
-/** Última tarefa da instância (protocolo exibido no painel). */
+/**
+ * Última tarefa de provisionamento da instância (protocolo exibido no painel). Tarefas de migração
+ * têm etapas próprias e aparecem na aba "Migração" (`latestMigrationTask`), não aqui.
+ */
 export async function latestTaskOf(db: Kysely<unknown>, instanceId: string): Promise<Task | null> {
   const { rows } = await sql<TaskRow>`SELECT ${TASK_COLUMNS} FROM admin_task
-     WHERE instance_id = ${uuidToBin(instanceId)} ORDER BY seq DESC LIMIT 1`.execute(db);
+     WHERE instance_id = ${uuidToBin(instanceId)} AND kind = 'provisionamento'
+     ORDER BY seq DESC LIMIT 1`.execute(db);
   return rows[0] ? toTask(rows[0]) : null;
 }
 
