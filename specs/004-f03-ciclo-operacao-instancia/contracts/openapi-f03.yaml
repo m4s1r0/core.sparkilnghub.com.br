@@ -60,13 +60,20 @@ components:
     MigrationTask:
       type: object
       additionalProperties: false
-      required: [ id, protocol, status, fromVersion, toVersion, currentStep, attempt, createdAt, startedAt, finishedAt, error ]
+      required: [ id, protocol, status, fromVersion, toVersion, migrations, currentStep, attempt, createdAt, startedAt, finishedAt, error ]
       properties:
         id: { type: string, format: uuid }
         protocol: { type: string, pattern: "^PRV-[0-9]{6,}$" }
         status: { $ref: "#/components/schemas/TaskStatus" }
-        fromVersion: { type: [ integer, "null" ] }
+        fromVersion:
+          description: Adendo 2026-11-13 — versão efetiva do banco do produto no pedido (admin_task.from_version); null em tarefas anteriores à migração spark_core 0009.
+          type: [ integer, "null" ]
         toVersion: { type: integer }
+        migrations:
+          description: >
+            Adendo 2026-11-13 (FR-034, R-09). Versões fromVersion+1..toVersion do manifesto, cada uma {version, name, status}, status em pendente|em_execucao|aplicada|falhou|interrompida ou null (histórico ilegível). Vazia sem fromVersion. Esquema normativo ArtifactMigration em contracts/openapi.yaml 1.3.3.
+          type: array
+          items: { type: object }
         currentStep:
           oneOf:
             - type: "null"
@@ -217,7 +224,18 @@ paths:
       responses:
         "202": { description: Agendada, content: { application/json: { schema: { $ref: "#/components/schemas/MigrationTask" } } } }
         "403": { description: AUTH_REAUTH_REQUIRED }
-        "409": { description: "CONFLICT_STATE (não está MANUTENCAO), NO_PRIOR_BACKUP ou ALREADY_UP_TO_DATE" }
+        "409": { description: "CONFLICT_STATE (não está MANUTENCAO), NO_PRIOR_BACKUP, ALREADY_UP_TO_DATE ou SCHEMA_HISTORY_BLOCKED (adendo 2026-11-13: histórico do banco do produto em falha ou divergente)" }
+  /api/v1/instances/{instanceId}/migration/plan:
+    get:
+      operationId: getInstanceMigrationPlan
+      description: >
+        Adendo 2026-11-13 (FR-033/FR-035, R-09). Migrações do artefato vigente acima da última versão aplicada no banco do produto (lida de _spark_schema_history com a credencial operacional; sem ela, a versão registrada no Core). Esquema normativo MigrationPlan em contracts/openapi.yaml 1.3.3.
+      security: [ { coreSession: [] } ]
+      parameters: [ { $ref: "#/components/parameters/InstanceId" } ]
+      responses:
+        "200": { description: Plano (MigrationPlan, ver contracts/openapi.yaml) }
+        "404": { description: NOT_FOUND }
+        "409": { description: PROVISIONING_ARTIFACT_INVALID }
   /api/v1/instances/{instanceId}/initial-invitation/issue:
     post:
       operationId: issueInitialInvitation

@@ -7,7 +7,9 @@ FR-023 a FR-026; research.md R-06 a R-09). Nenhum procedimento apaga banco ou us
 Falhas do **executor de migrações de instância** (F03, atualização de uma instância já em
 `MANUTENCAO`) usam os mesmos códigos `PROVISIONING_*` desta tabela, mais `PROVISIONING_NOT_IN_MAINTENANCE`
 e `PROVISIONING_NO_PRIOR_BACKUP` (reconferidos a cada retomada); backup e restauração ficam em
-[backup-restauracao.md](./backup-restauracao.md).
+[backup-restauracao.md](./backup-restauracao.md). O passo a passo da migração de instância, a
+leitura da aba "Migração" e o desbloqueio depois de falha parcial (`SCHEMA_HISTORY_BLOCKED`) ficam
+em [migracao-instancia.md](./migracao-instancia.md).
 
 Como validar e testar localmente o artefato de um produto **antes** de publicá-lo (checksums,
 aplicação de ponta a ponta num banco descartável e comportamento por ambiente em

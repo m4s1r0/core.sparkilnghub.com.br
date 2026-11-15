@@ -13,18 +13,23 @@ import {
   Textarea,
 } from "@sparkling-hub/design-system";
 import { useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ApiError } from "../../api/client";
 import {
   healthKey,
+  type ArtifactMigration,
   type InstanceDetail,
   instanceKey,
   instancesApi,
+  MIGRATION_ACTIVE,
+  type MigrationItemStatus,
   type MigrationStep,
   type MigrationTask,
   migrationKey,
+  migrationPlanKey,
   useInstanceHealth,
   useInstanceMigration,
+  useInstanceMigrationPlan,
 } from "../../api/instances";
 import { ConfirmDialog, type ConfirmRequest } from "../../components/ConfirmDialog";
 import { ReasonDialog, type ReasonRequest } from "../../components/ReasonDialog";
@@ -407,32 +412,112 @@ export function HealthPanel({ instanceId }: { instanceId: string }) {
   );
 }
 
-const migrationColumns: TableColumn<{
-  step: MigrationStep;
-  attempt: number;
-  result: string;
-}>[] = [
-  { id: "step", header: "Etapa", rowHeader: true, cell: (row) => MIGRATION_STEP_LABEL[row.step] },
-  { id: "attempt", header: "Tentativa", cell: (row) => String(row.attempt) },
-  { id: "result", header: "Resultado", cell: (row) => row.result },
+const MIGRATION_STATUS_LABEL: Record<
+  MigrationTask["status"],
+  { label: string; tone: "success" | "warning" | "error" }
+> = {
+  pendente: { label: "Na fila", tone: "warning" },
+  em_execucao: { label: "Em execução", tone: "warning" },
+  aguardando_repeticao: { label: "Aguardando nova tentativa", tone: "warning" },
+  concluida: { label: "Concluída", tone: "success" },
+  falhou: { label: "Falhou", tone: "error" },
+};
+
+const versionLabel = (version: number | null) => (version === null ? "—" : `v${version}`);
+
+const MIGRATION_ITEM_LABEL: Record<
+  MigrationItemStatus,
+  { label: string; tone: "neutral" | "success" | "warning" | "error" }
+> = {
+  pendente: { label: "Pendente", tone: "neutral" },
+  em_execucao: { label: "Em execução", tone: "warning" },
+  aplicada: { label: "Aplicada", tone: "success" },
+  falhou: { label: "Falhou", tone: "error" },
+  interrompida: { label: "Interrompida", tone: "error" },
+};
+
+const artifactMigrationColumns: TableColumn<ArtifactMigration>[] = [
+  { id: "version", header: "Versão", cell: (row) => `v${row.version}` },
+  { id: "name", header: "Migração", rowHeader: true, cell: (row) => row.name },
+  {
+    id: "status",
+    header: "Situação",
+    cell: (row) => {
+      if (row.status === null) return <Text tone="muted">Indisponível</Text>;
+      const item = MIGRATION_ITEM_LABEL[row.status];
+      return <Badge tone={item.tone}>{item.label}</Badge>;
+    },
+  },
 ];
+
+/** Lista de migrações do artefato (pendentes ou de uma tarefa), com a situação de cada uma. */
+function ArtifactMigrationTable({
+  caption,
+  migrations,
+}: {
+  caption: string;
+  migrations: ArtifactMigration[];
+}) {
+  return (
+    <DataTable
+      caption={caption}
+      columns={artifactMigrationColumns}
+      rows={migrations}
+      rowKey={(row) => String(row.version)}
+      compact
+    />
+  );
+}
+
+/** "Aplicando v15 (2 de 3)" a partir da situação de cada migração da tarefa. */
+function progressOf(migrations: ArtifactMigration[]): string | null {
+  if (migrations.length === 0 || migrations.some((m) => m.status === null)) return null;
+  const done = migrations.filter((m) => m.status === "aplicada").length;
+  const running = migrations.find((m) => m.status === "em_execucao");
+  if (running) {
+    const position = migrations.indexOf(running) + 1;
+    return `Aplicando v${running.version} — ${running.name} (${position} de ${migrations.length})`;
+  }
+  return `${done} de ${migrations.length} aplicada${migrations.length === 1 ? "" : "s"}`;
+}
 
 /** Aba "Migração" (US6, SC-044), só quando MANUTENCAO. */
 export function MigrationPanel({ instance }: { instance: InstanceDetail }) {
   const enabled = instance.state === "MANUTENCAO";
   const migration = useInstanceMigration(instance.id, enabled);
+  const plan = useInstanceMigrationPlan(instance.id, enabled);
   const queryClient = useQueryClient();
   const reauth = useReauth();
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Quando a tarefa sai de um estado ativo, a versão de schema mudou: atualiza cabeçalho, saúde e
+  // a lista de pendentes.
+  const status = migration.data?.status;
+  const previousStatus = useRef(status);
+  useEffect(() => {
+    const before = previousStatus.current;
+    previousStatus.current = status;
+    if (before && MIGRATION_ACTIVE.has(before) && status && !MIGRATION_ACTIVE.has(status)) {
+      void queryClient.invalidateQueries({ queryKey: instanceKey(instance.id), exact: true });
+      void queryClient.invalidateQueries({ queryKey: healthKey(instance.id) });
+      void queryClient.invalidateQueries({ queryKey: migrationPlanKey(instance.id) });
+    }
+  }, [status, instance.id, queryClient]);
+
   if (!enabled) {
     return <Text tone="muted">A migração só fica disponível com a instância em manutenção.</Text>;
   }
-  if (migration.isPending) return <Skeleton label="Carregando migração" lines={3} />;
+  if (migration.isPending || plan.isPending) {
+    return <Skeleton label="Carregando migração" lines={3} />;
+  }
 
   const task: MigrationTask | null | undefined = migration.data;
-  const inProgress = task?.status === "pendente" || task?.status === "em_execucao";
+  const inProgress = task ? MIGRATION_ACTIVE.has(task.status) : false;
+  const pending = plan.data?.pending ?? [];
+  const upToDate = plan.isSuccess && pending.length === 0;
+  const blocked = plan.data?.blocked ?? null;
+  const progress = task ? progressOf(task.migrations) : null;
 
   const apply = async () => {
     setError(null);
@@ -448,6 +533,8 @@ export function MigrationPanel({ instance }: { instance: InstanceDetail }) {
     }
   };
 
+  const taskStatus = task ? MIGRATION_STATUS_LABEL[task.status] : null;
+
   return (
     <div className="flex flex-col gap-4">
       {error && (
@@ -455,37 +542,103 @@ export function MigrationPanel({ instance }: { instance: InstanceDetail }) {
           {error}
         </Alert>
       )}
-      {task && (
-        <Alert
-          tone={
-            task.status === "concluida" ? "success" : task.status === "falhou" ? "error" : "warning"
-          }
-          title={`Protocolo ${task.protocol}`}
-        >
-          Para a versão v{task.toVersion}: {task.status}
-          {task.error ? ` · ${MIGRATION_STEP_LABEL[task.error.step]}: ${task.error.message}` : ""}
-        </Alert>
+
+      {task && taskStatus && (
+        <section className="flex flex-col gap-3" aria-label="Tarefa de migração">
+          <Alert
+            tone={taskStatus.tone}
+            title={`${inProgress ? "Migração em andamento" : "Última migração"} · Protocolo ${task.protocol}`}
+          >
+            <div className="flex flex-col gap-1">
+              <span>
+                {versionLabel(task.fromVersion)} → v{task.toVersion} ·{" "}
+                <Badge tone={taskStatus.tone}>{taskStatus.label}</Badge>
+              </span>
+              {inProgress && progress && <span>{progress}</span>}
+              {task.currentStep && (inProgress || task.status === "falhou") && (
+                <span>
+                  Etapa: {MIGRATION_STEP_LABEL[task.currentStep]}
+                  {task.attempt > 1 ? ` (tentativa ${task.attempt})` : ""}
+                </span>
+              )}
+              {task.error && (
+                <span>
+                  {MIGRATION_STEP_LABEL[task.error.step]}: {task.error.message}
+                </span>
+              )}
+              {task.finishedAt && (
+                <span>Finalizada em {dateTime.format(new Date(task.finishedAt))}</span>
+              )}
+            </div>
+          </Alert>
+          {task.migrations.length > 0 && (
+            <ArtifactMigrationTable
+              caption={inProgress ? "Andamento das migrações" : "Migrações desta tarefa"}
+              migrations={task.migrations}
+            />
+          )}
+        </section>
       )}
+
+      {!inProgress && (
+        <section className="flex flex-col gap-3" aria-label="Atualização disponível">
+          {plan.isError ? (
+            <Alert tone="error" title="Não foi possível ler as migrações pendentes">
+              {plan.error instanceof ApiError
+                ? plan.error.message
+                : "Ocorreu uma falha inesperada."}
+            </Alert>
+          ) : upToDate ? (
+            <Text tone="muted">
+              A instância já está na versão vigente do artefato (
+              {versionLabel(plan.data?.targetVersion ?? null)}).
+            </Text>
+          ) : (
+            plan.data && (
+              <>
+                {blocked && (
+                  <Alert tone="error" title="Migração bloqueada pelo histórico do produto">
+                    {blocked.message}. Corrija o banco do produto (a migração com problema e o
+                    registro em <code>_spark_schema_history</code>) antes de aplicar de novo.
+                  </Alert>
+                )}
+                <Text>
+                  {pending.length === 1
+                    ? "1 migração pendente"
+                    : `${pending.length} migrações pendentes`}
+                  : {versionLabel(plan.data.currentVersion)} → v{plan.data.targetVersion}
+                </Text>
+                {plan.data.source === "historico" &&
+                  plan.data.recordedVersion !== plan.data.currentVersion && (
+                    <Text tone="muted">
+                      O banco do produto está em {versionLabel(plan.data.currentVersion)}, mas o
+                      Core registra {versionLabel(plan.data.recordedVersion)}: uma aplicação
+                      anterior parou no meio. O registro do Core é corrigido na próxima aplicação
+                      concluída.
+                    </Text>
+                  )}
+                {plan.data.historyUnavailable && (
+                  <Text tone="muted">
+                    Histórico do banco do produto indisponível ({plan.data.historyUnavailable});
+                    lista calculada pela versão registrada no Core.
+                  </Text>
+                )}
+                <ArtifactMigrationTable caption="Migrações a aplicar" migrations={pending} />
+              </>
+            )
+          )}
+        </section>
+      )}
+
       <div>
-        <Button loading={applying || inProgress} onClick={() => void apply()}>
+        <Button
+          loading={applying || inProgress}
+          disabled={!inProgress && !applying && (upToDate || blocked !== null)}
+          onClick={() => void apply()}
+        >
           Aplicar atualização
         </Button>
       </div>
-      {task && task.status !== "pendente" && (
-        <DataTable
-          caption="Histórico desta tarefa de migração"
-          columns={migrationColumns}
-          rows={[
-            {
-              step: task.currentStep ?? "verificar_pos_migracao",
-              attempt: task.attempt,
-              result: task.status,
-            },
-          ]}
-          rowKey={(row) => row.step}
-          compact
-        />
-      )}
       {reauth.dialog}
     </div>
   );

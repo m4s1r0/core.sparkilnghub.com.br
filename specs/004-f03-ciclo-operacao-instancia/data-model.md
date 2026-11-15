@@ -9,10 +9,10 @@ Convenções de F00 a F02, sem mudança: UUID v7 em `BINARY(16)`, instantes `DAT
 
 | Banco | Mudança em F03 | Quem escreve |
 |---|---|---|
-| `spark_core` | migração 0005: `admin_task.kind`/`admin_task_step_run.step` ampliados; três tabelas novas só inclusão | web (transições, relato de backup) e trabalhador (etapas de migração) |
+| `spark_core` | migração 0005: `admin_task.kind`/`admin_task_step_run.step` ampliados; três tabelas novas só inclusão. Adendo 2026-11-13: migração 0009, `admin_task.from_version` | web (transições, relato de backup, pedido de migração) e trabalhador (etapas de migração) |
 | `access_projection` | **nenhuma** — v2 (F02) já tem `suspensa` e `manutencao` | `spark_access_writer`, chamado pelo Core nas transições |
 | `spark_identity` | nenhuma | — |
-| `<prefixo><uuid>` | nenhuma mudança de schema; só lida pela checagem de saúde e pelo executor de migração | trabalhador (`spark_provisioner`) |
+| `<prefixo><uuid>` | nenhuma mudança de schema; `_spark_schema_history` lida pela checagem de saúde e pela aba "Migração" (credencial operacional, só leitura) e escrita pelo executor de migração | trabalhador (`spark_provisioner`) |
 
 ## `spark_core`
 
@@ -49,6 +49,20 @@ Uma tarefa `migracao` só é criada com a instância em `MANUTENCAO` (conferido 
 que grava a intenção, igual à reserva de slug em F02). `active_instance_key` (já existente) impede
 uma tarefa de migração concorrente com qualquer outra tarefa estrutural da mesma instância —
 mesma regra de `RN-SC-002` herdada, sem alteração de coluna.
+
+#### `admin_task.from_version` *(adendo 2026-11-13, migração `spark_core` 0009)*
+
+```sql
+ALTER TABLE admin_task ADD COLUMN from_version INT UNSIGNED NULL AFTER artifact_version;
+```
+
+| Campo | Regras |
+|---|---|
+| `from_version` | só em `kind = 'migracao'`: versão de schema **efetiva** do banco do produto no pedido (histórico `_spark_schema_history`; sem histórico legível, `instance.schema_version`). `NULL` em provisionamento e em tarefas de migração anteriores à coluna |
+
+A tarefa aplica as versões `from_version + 1 … artifact_version` do manifesto. A API expõe
+`fromVersion`, `toVersion` (= `artifact_version`) e `migrations` (essas versões com a situação de
+cada uma, R-09).
 
 ### `admin_task_step_run` (alterada)
 
@@ -119,6 +133,22 @@ Já existente (F02): `id`, `instance_id`, `from_state`, `to_state`, `actor_kind`
 novas, sempre com `reason` obrigatório quando a ação exigir motivo (suspender, manutenção,
 encerrar) e `actor_kind = 'usuario'` com `actor_id` do administrador.
 
+## Banco operacional (`<prefixo><uuid>`) — `_spark_schema_history` como modelo de leitura *(adendo 2026-11-13)*
+
+Tabela do migrador (F00/F02, sem mudança de schema): `version`, `name`, `checksum`, `artifact`,
+`status ENUM('aplicada','falha')`, `started_at`, `finished_at`, `applied_by`. O migrador grava
+`falha` antes de executar cada versão, troca para `aplicada` no sucesso e preenche `finished_at`
+também em erro. A aba "Migração" deriva daí a situação de cada versão (tabela em
+[research.md](./research.md) R-09) e a versão efetiva (`checkHistory().appliedVersion`).
+
+| Valor exposto | Origem |
+|---|---|
+| `currentVersion` (plano) | última versão `aplicada` em sequência no histórico; sem histórico legível, `instance.schema_version` |
+| `recordedVersion` (plano) | `instance.schema_version` — só avança quando a tarefa inteira conclui; diverge após falha parcial |
+| `targetVersion` (plano) / `toVersion` (tarefa) | número de migrações do manifesto do artefato vigente |
+| `pending[]` / `migrations[]` | manifesto (`version`, `name`) + situação lida do histórico |
+| `blocked` (plano) | `checkHistory().problem` (`SCHEMA_FAILED`, `SCHEMA_CHECKSUM_MISMATCH`, `SCHEMA_UNKNOWN_VERSION`, `SCHEMA_SEQUENCE`), exceto a versão em execução pela tarefa ativa |
+
 ## Banco de acesso (`<prefixo><uuid>_acc`) — projeção v2, sem migração
 
 `access_instance.state` já aceita `pronta`, `ativa`, `suspensa`, `manutencao` (F02). F03 só passa
@@ -137,6 +167,7 @@ projeção antes do Core ao revogar; Core antes da projeção ao conceder.
 | FR-014 | saída de manutenção exige `checkInstanceHealth` com `healthy = TRUE` na mesma operação | `instances/health.ts` |
 | FR-017 | status de backup só "sucesso" com linha em `instance_backup_record`; ausência não é sucesso | `instances/backup.ts` (`latestBackup`) |
 | FR-020/FR-021 | migração de instância só com a instância em `MANUTENCAO`; versão alvo conferida contra o manifesto do provisionador (F02) | `createMigrationTask` + etapa `confirmar_manutencao` |
+| FR-033/FR-034/FR-035 | plano e situação por versão lidos do histórico do produto (credencial operacional); histórico em falha/divergente recusa com `409 SCHEMA_HISTORY_BLOCKED`; `from_version` = versão efetiva no pedido | `instances/migration-view.ts` (`instanceMigrationPlan`, `instanceMigrationView`, `applyInstanceMigration`) |
 | FR-023/FR-024 | encerrar só a partir de `SUSPENSA`; nenhum `DROP DATABASE` nem exclusão de `instance_resource` | `transitions.ts` (`terminateInstance`) + `check:migrations` (sem exceção) |
 | FR-025 | nenhuma rota de reabertura ou exclusão definitiva de instância `ENCERRADA` | ausência deliberada de rota |
 | FR-031 | nenhum campo ou rota altera `instance.contractor_id` após criação (F02 já trata como imutável; F03 confirma sem adicionar caminho) | revisão de código |

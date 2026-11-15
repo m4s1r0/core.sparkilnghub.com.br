@@ -42,9 +42,9 @@ describe("AdminsPage (/administradores)", () => {
         invites += 1;
         return reauthenticated
           ? json(
-            { link: "http://127.0.0.1:5273/convite/abc", expiresAt: "2026-10-28T12:00:00.000Z" },
-            201,
-          )
+              { link: "http://127.0.0.1:5273/convite/abc", expiresAt: "2026-10-28T12:00:00.000Z" },
+              201,
+            )
           : json(errorBody("AUTH_REAUTH_REQUIRED", "Confirme o código."), 403);
       }
       if (url.endsWith("/auth/reauth") && method === "POST") {

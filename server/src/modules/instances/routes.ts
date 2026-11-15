@@ -9,7 +9,11 @@ import { authOf, requireSession } from "../../platform/http/session-guard.js";
 import { isUuid } from "../../platform/ids.js";
 import { checkInstanceHealthNow, instanceHealthStatus } from "./health-view.js";
 import { type Instance, InstanceStates } from "./instances.js";
-import { applyInstanceMigration, instanceMigrationView } from "./migration-view.js";
+import {
+  applyInstanceMigration,
+  instanceMigrationPlan,
+  instanceMigrationView,
+} from "./migration-view.js";
 import { issueInitialInvitation } from "../provisioning/initial-invitation.js";
 import { retryProvisioning } from "../provisioning/retry.js";
 import { provisioningView } from "../provisioning/view.js";
@@ -388,6 +392,13 @@ export function registerInstanceRoutes(app: FastifyInstance, ctx: AppContext): v
     { preHandler: session, schema: { params: Params } },
     async (request) =>
       instanceMigrationView(ctx, (request.params as { instanceId: string }).instanceId),
+  );
+
+  app.get(
+    "/api/v1/instances/:instanceId/migration/plan",
+    { preHandler: session, schema: { params: Params } },
+    async (request) =>
+      instanceMigrationPlan(ctx, (request.params as { instanceId: string }).instanceId),
   );
 
   app.post(

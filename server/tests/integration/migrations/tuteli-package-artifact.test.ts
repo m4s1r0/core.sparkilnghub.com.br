@@ -15,24 +15,24 @@ afterAll(async () => {
 });
 
 describe("artefato de créditos de pacote Tuteli", () => {
-  it("aplica o manifesto completo do zero e a v14 em uma instância v13", async () => {
+  it("aplica o manifesto completo do zero e a v15 em uma instância v14", async () => {
     const manifest = await loadManifest(tuteliProductDir);
-    expect(manifest.migrations.at(-1)?.version).toBe(14);
+    expect(manifest.migrations.at(-1)?.version).toBe(15);
 
     const freshDatabase = await ctx.createDatabase("tuteli_packages_fresh");
     const fresh = await ctx.connect("test", freshDatabase);
     const freshResult = await migrate(fresh, manifest, { appliedBy: "teste" });
-    expect(freshResult.applied).toEqual(Array.from({ length: 14 }, (_, index) => index + 1));
+    expect(freshResult.applied).toEqual(Array.from({ length: 15 }, (_, index) => index + 1));
 
     const upgradeDatabase = await ctx.createDatabase("tuteli_packages_upgrade");
     const upgrade = await ctx.connect("test", upgradeDatabase);
-    await migrate(upgrade, manifest, { appliedBy: "teste", targetVersion: 13 });
+    await migrate(upgrade, manifest, { appliedBy: "teste", targetVersion: 14 });
     const upgradeResult = await migrate(upgrade, manifest, { appliedBy: "teste" });
-    expect(upgradeResult.applied).toEqual([14]);
+    expect(upgradeResult.applied).toEqual([15]);
 
     const history = await readHistory(upgrade);
-    expect(history).toHaveLength(14);
-    expect(history.at(-1)).toMatchObject({ version: 14, status: "aplicada" });
+    expect(history).toHaveLength(15);
+    expect(history.at(-1)).toMatchObject({ version: 15, status: "aplicada" });
 
     const [tables] = await upgrade.query(
       `SELECT TABLE_NAME FROM information_schema.TABLES
@@ -67,5 +67,26 @@ describe("artefato de créditos de pacote Tuteli", () => {
       [upgradeDatabase],
     );
     expect(creditQuantity).toEqual([{ DATA_TYPE: "int", COLUMN_TYPE: "int" }]);
+
+    const [archivalColumn] = await upgrade.query(
+      `SELECT DATA_TYPE, IS_NULLABLE
+       FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'agendamento_item' AND COLUMN_NAME = 'arquivado_em'`,
+      [upgradeDatabase],
+    );
+    expect(archivalColumn).toEqual([{ DATA_TYPE: "datetime", IS_NULLABLE: "YES" }]);
+
+    const [archivalIndex] = await upgrade.query(
+      `SELECT SEQ_IN_INDEX, COLUMN_NAME
+       FROM information_schema.STATISTICS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'agendamento_item'
+         AND INDEX_NAME = 'agendamento_item_ativos'
+       ORDER BY SEQ_IN_INDEX`,
+      [upgradeDatabase],
+    );
+    expect(archivalIndex).toEqual([
+      { SEQ_IN_INDEX: 1, COLUMN_NAME: "agendamento_id" },
+      { SEQ_IN_INDEX: 2, COLUMN_NAME: "arquivado_em" },
+    ]);
   });
 });

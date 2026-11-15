@@ -82,6 +82,22 @@ manutenção e abrir a aba "Migração". Esperado:
   etapas e sem SQL manual (`CS-016`).
 - Fora de `MANUTENCAO` → `409 CONFLICT_STATE` ao tentar aplicar.
 
+Adendo 2026-11-13 (FR-033 a FR-035; pré-requisito: `npm run db:migrate` com a migração
+`spark_core` 0009):
+
+1. Registrar o backup prévio com o **UUID** da instância, depois da entrada em manutenção:
+   `npm run instances:report-backup -- <uuid-da-instância> ok --origin "dump manual"`.
+2. Abrir a aba "Migração": aparece "N migrações pendentes: vAtual → vAlvo" e a tabela "Migrações a
+   aplicar" com versão, nome e situação "Pendente" de cada uma.
+3. "Aplicar atualização": o botão fica em carregamento, o aviso mostra "Migração em andamento",
+   `vOrigem → vAlvo`, "Aplicando vN — nome (k de n)" e a tabela "Andamento das migrações"; a tela
+   sai do carregamento sozinha ao terminar e a lista passa a "já está na versão vigente".
+4. Falha parcial (artefato de teste com uma versão boa seguida de uma inválida): a tarefa fica
+   "Falhou"; a versão boa aparece "Aplicada" e a inválida "Falhou"; o plano mostra a versão
+   efetiva do banco do produto, o aviso de divergência com o Core e o alerta de histórico
+   bloqueado, com "Aplicar atualização" desabilitado (`409 SCHEMA_HISTORY_BLOCKED` pela API).
+   Cenário automatizado em `server/tests/integration/provisioning/migration-task.test.ts`.
+
 ## 7. Encerrar (US7, SC-031)
 
 Com a instância suspensa no passo 2 (ou outra `SUSPENSA`): abrir "Encerrar", informar motivo e

@@ -43,6 +43,13 @@ export type StepRunStatus = "em_execucao" | "concluida" | "falhou" | "interrompi
 export const LEASE_MS = 60_000;
 export const HEARTBEAT_MS = 20_000;
 
+/** Estados em que a tarefa ainda ocupa a instância (mesmos do índice `admin_task_active`). */
+export const TASK_ACTIVE: ReadonlySet<TaskStatus> = new Set([
+  "pendente",
+  "em_execucao",
+  "aguardando_repeticao",
+]);
+
 export interface Task {
   id: string;
   seq: number;
@@ -58,6 +65,8 @@ export interface Task {
   workerId: string | null;
   artifactCode: string;
   artifactVersion: number;
+  /** Versão de schema da instância no pedido; só em migração (nula nas anteriores à coluna). */
+  fromVersion: number | null;
   manifestSha256: string;
   requestedBy: string;
   errorCode: string | null;
@@ -81,6 +90,7 @@ interface TaskRow {
   worker_id: Buffer | null;
   artifact_code: string;
   artifact_version: number;
+  from_version: number | null;
   manifest_sha256: string;
   requested_by: Buffer;
   request_hash: string;
@@ -92,8 +102,8 @@ interface TaskRow {
 }
 
 const TASK_COLUMNS = sql`id, seq, instance_id, kind, status, current_step, run_number, attempt,
-  next_attempt_at, lease_until, worker_id, artifact_code, artifact_version, manifest_sha256,
-  requested_by, request_hash, error_code, error_message, created_at, started_at, finished_at`;
+  next_attempt_at, lease_until, worker_id, artifact_code, artifact_version, from_version,
+  manifest_sha256, requested_by, request_hash, error_code, error_message, created_at, started_at, finished_at`;
 
 const toTask = (row: TaskRow): Task => ({
   id: binToUuid(row.id),
@@ -110,6 +120,7 @@ const toTask = (row: TaskRow): Task => ({
   workerId: row.worker_id ? binToUuid(row.worker_id) : null,
   artifactCode: row.artifact_code,
   artifactVersion: row.artifact_version,
+  fromVersion: row.from_version,
   manifestSha256: row.manifest_sha256,
   requestedBy: binToUuid(row.requested_by),
   errorCode: row.error_code,
@@ -368,11 +379,12 @@ export async function createMigrationTask(
         if (!(await hasBackupSince(ctx, data.instanceId, since))) throw noPriorBackup();
         if (data.currentSchemaVersion === data.artifactVersion) throw alreadyUpToDate();
         await sql`INSERT INTO admin_task (id, instance_id, kind, status, current_step, run_number,
-                    attempt, next_attempt_at, artifact_code, artifact_version, manifest_sha256,
-                    requested_by, idempotency_key, request_hash, created_at)
+                    attempt, next_attempt_at, artifact_code, artifact_version, from_version,
+                    manifest_sha256, requested_by, idempotency_key, request_hash, created_at)
                   VALUES (${uuidToBin(taskId)}, ${uuidToBin(data.instanceId)}, 'migracao',
                           'pendente', NULL, 1, 0, ${now}, ${data.productCode},
-                          ${data.artifactVersion}, ${data.manifestSha256},
+                          ${data.artifactVersion}, ${data.currentSchemaVersion},
+                          ${data.manifestSha256},
                           ${uuidToBin(data.requestedBy)}, ${data.idempotencyKey},
                           ${data.requestHash}, ${now})`.execute(trx);
       }),

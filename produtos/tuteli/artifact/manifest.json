@@ -86,6 +86,12 @@
       "name": "0014_pacotes_venda_creditos",
       "file": "migrations/0014_pacotes_venda_creditos.sql",
       "sha256": "575ef1ae111e34ec436996822331375f4025571ad1c52751c8fb2e354f526e54"
+    },
+    {
+      "version": 15,
+      "name": "0015_agendamento_item_arquivamento",
+      "file": "migrations/0015_agendamento_item_arquivamento.sql",
+      "sha256": "e6ba59788e5341469682d51cdcdc0a0c6b0d1667a17fb65efe90fad47f1c4596"
     }
   ]
 }
