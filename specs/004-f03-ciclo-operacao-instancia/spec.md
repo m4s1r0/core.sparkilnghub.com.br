@@ -50,6 +50,33 @@ instância `ENCERRADA` e eliminação definitiva (`SC-031`); transferência de i
 contratantes (`RN-SC-005`); exclusão de recurso físico ao suspender, reativar ou encerrar
 (`RN-SC-004`); telas e artefato do Tuteli.
 
+## Clarifications
+
+### Session 2026-11-13 — adendo pós-entrega da aba "Migração"
+
+Ajustes feitos depois da entrega da US6, a partir do uso real da aba com o artefato do Tuteli
+(`produtos/tuteli/artifact`). Detalhes de decisão em [research.md](./research.md) (R-09), de dados
+em [data-model.md](./data-model.md), de interface em
+[contracts/ui-f03.md](./contracts/ui-f03.md) e de execução em [tasks.md](./tasks.md) (Phase 11).
+
+- Q: Depois de clicar em "Aplicar atualização", a tela ficava em carregamento para sempre. Qual o
+  comportamento esperado? → A: a aba consulta a tarefa a cada 2 s enquanto ela estiver `pendente`,
+  `em_execucao` ou `aguardando_repeticao`, e para ao terminar; ao terminar, atualiza também o
+  cabeçalho da instância, a aba "Saúde" e a lista de pendentes.
+- Q: A aba deve mostrar qual migração será aplicada, e não só a última executada? → A: sim. Antes
+  de aplicar, lista as migrações do artefato acima da versão atual (versão e nome do manifesto),
+  com "N migrações pendentes: vX → vY" (FR-033).
+- Q: Com mais de uma migração pendente, como acompanhar? → A: uma única tarefa aplica todas, em
+  ordem; a aba mostra a situação de cada uma (pendente, em execução, aplicada, falhou,
+  interrompida) e "Aplicando vN — nome (k de n)" (FR-034). Não há aplicação seletiva.
+- Q: Depois de uma falha no meio (DDL já confirmada), de onde vem a versão atual? → A: do
+  histórico real do banco do produto (`_spark_schema_history`), não de `instance.schema_version`,
+  que só avança quando a tarefa inteira conclui. Histórico em falha ou divergente bloqueia a
+  aplicação até correção no banco (FR-035).
+- Q: A tarefa de migração registra a versão de origem? → A: sim, `admin_task.from_version`
+  (migração `spark_core` 0009), com a versão efetiva do banco do produto no momento do pedido.
+  Tarefas anteriores ficam com `fromVersion = null` e sem lista de migrações.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Ativar a instância pronta (Priority: P1)
@@ -241,6 +268,16 @@ manutenção e confirmar a recusa.
    manual de SQL (`SC-044`).
 4. **Given** uma execução de migração que falha, **When** inspecionada, **Then** o painel mostra
    etapa e mensagem sanitizada, sem terminal, SQL livre ou gerenciador de arquivos (`SC-045`).
+5. **Given** uma instância em `MANUTENCAO` com migrações pendentes no artefato, **When** a aba
+   "Migração" é aberta, **Then** mostra a versão atual, a versão alvo e cada migração pendente
+   (versão e nome) antes de qualquer aplicação (FR-033).
+6. **Given** uma tarefa de migração com várias versões em execução, **When** o administrador
+   acompanha a aba, **Then** vê a situação de cada migração atualizada a cada 2 s e a tela sai do
+   carregamento sozinha quando a tarefa termina (FR-034).
+7. **Given** uma tarefa que aplicou parte das versões e falhou na seguinte, **When** a aba é aberta
+   de novo, **Then** as pendentes partem da última versão realmente aplicada no banco do produto,
+   a versão com falha aparece como tal, a divergência com o registro do Core é explicada e
+   "Aplicar atualização" fica bloqueado até a correção do histórico (FR-035).
 
 ---
 
@@ -283,6 +320,15 @@ com motivo e política de retenção registrados, que o banco operacional contin
 - Ativação ou reativação solicitada para uma instância cujo convite inicial expirou e nunca foi
   aceito: a exceção de `SC-024` não se aplica mais sem convite válido; a ativação é recusada até
   haver um caminho válido para o primeiro administrador (novo convite ou vínculo ativo).
+- Atualização com várias migrações pendentes que falha no meio: as versões anteriores ficam
+  aplicadas (DDL do MySQL confirma na hora, sem rollback automático, `SC-044`); a versão que falhou
+  fica `falha` no histórico do produto e bloqueia nova tentativa até correção manual no banco; o
+  registro de versão no Core só avança na próxima aplicação concluída (FR-035).
+- Histórico do banco do produto ilegível (credencial operacional ausente ou conexão recusada): a
+  aba "Migração" usa a versão registrada no Core, mostra o motivo e marca a situação das migrações
+  como indisponível; a aplicação não é bloqueada por isso.
+- Backup registrado antes da entrada em manutenção (ou com o identificador errado no comando): não
+  conta como backup prévio; a aplicação é recusada com `NO_PRIOR_BACKUP` (FR-020).
 - Checagem de saúde ao sair da manutenção falha repetidamente: a instância permanece `MANUTENCAO`
   indefinidamente até a causa ser corrigida; não há saída automática por tempo.
 - Backup em execução no instante em que a suspensão ou o encerramento é confirmado: a suspensão e
@@ -376,6 +422,20 @@ com motivo e política de retenção registrados, que o banco operacional contin
 - **FR-022**: Uma execução de migração que falhar MUST deixar a instância em `MANUTENCAO` com
   etapa e mensagem sanitizada visíveis, sem terminal, SQL livre ou gerenciador de arquivos
   (`SC-045`).
+
+- **FR-033** *(adendo 2026-11-13)*: A aba "Migração" MUST mostrar, antes de aplicar, as migrações
+  do artefato vigente acima da versão atual da instância (versão e nome do manifesto), a versão
+  atual e a versão alvo; sem pendentes, MUST informar que a instância já está na versão vigente e
+  desabilitar "Aplicar atualização".
+- **FR-034** *(adendo 2026-11-13)*: Enquanto a tarefa de migração estiver ativa, o painel MUST
+  mostrar a situação de cada migração da tarefa (`pendente`, `em_execucao`, `aplicada`, `falhou`,
+  `interrompida`), lida do histórico do banco do produto, e MUST atualizar sozinho até a tarefa
+  terminar. A tarefa MUST registrar a versão de origem (`fromVersion`).
+- **FR-035** *(adendo 2026-11-13)*: A versão atual e as pendentes MUST ser calculadas pelo
+  histórico real do banco do produto quando legível (com a credencial operacional, só leitura),
+  caindo para a versão registrada no Core quando não for, com o motivo exibido. Histórico com
+  versão em falha, interrompida, checksum divergente, versão desconhecida ou fora de sequência MUST
+  bloquear a aplicação (`409 SCHEMA_HISTORY_BLOCKED`), com mensagem sanitizada (`SC-045`).
 
 **Encerramento**
 

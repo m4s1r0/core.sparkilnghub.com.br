@@ -3,6 +3,24 @@
 Mudanças compatíveis mantêm a versão maior e são registradas aqui; incompatíveis exigem `/v2`
 (conventions.md §1).
 
+## v1.3.3 — 2026-11-13
+
+- `GET /api/v1/instances/{id}/migration/plan` (novo, compatível): migrações do artefato vigente
+  acima da versão de schema da instância, para o painel mostrar o que será aplicado antes de
+  agendar a tarefa.
+- `MigrationTask` (compatível): ganha `migrations` (versão e nome de cada migração aplicada pela
+  tarefa) e `fromVersion` passa a ser preenchida nas tarefas novas. A versão de origem é gravada
+  em `admin_task.from_version` (migração `spark_core` 0009); tarefas anteriores seguem com
+  `fromVersion` nula e `migrations` vazia.
+- Situação por migração e pendentes pelo histórico real (compatível, mesma versão): cada item
+  de `migrations` e de `pending` traz `status` (`pendente`, `em_execucao`, `aplicada`, `falhou`,
+  `interrompida`), lido de `_spark_schema_history` do banco do produto com a credencial
+  operacional. O plano passa a calcular a versão efetiva por esse histórico (`currentVersion`),
+  expõe a registrada no Core (`recordedVersion`), a origem (`source`), o motivo quando o histórico
+  não é legível (`historyUnavailable`) e o bloqueio (`blocked`). `POST .../migration` recusa com
+  `409 SCHEMA_HISTORY_BLOCKED` quando o histórico impede aplicar, e grava como `fromVersion` a
+  versão efetiva do banco do produto.
+
 ## v1.3.2 — 2026-11-07
 
 - `GET /internal/v1/instances/{slug}/members` e `GET /api/v1/instances/{id}/members`

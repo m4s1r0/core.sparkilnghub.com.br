@@ -118,7 +118,7 @@ describe("vínculos locais pelo produto (SP-005, COM-012)", () => {
     const list = await productA.members(anaToken, "GET", "/members");
     const pending = (
       list.body as {
-        items: { status: string; emailMasked: string | null; accountId: string | null }[]
+        items: { status: string; emailMasked: string | null; accountId: string | null }[];
       }
     ).items.find((i) => i.status === "convite_pendente");
     expect(pending?.emailMasked).toBe("d***@example.test");

@@ -32,7 +32,8 @@ do produto, ex. `tuteli.sparklinghub.com.br`, que só consome a API do Core).
 2. **Artefato de migração do produto** (o que é aplicado em cada banco de instância): crie
    `produtos/<produto>/artifact/manifest.json` + `migrations/000N_<slug>.sql` seguindo
    [`contracts/migration-artifact.md`](../../contracts/migration-artifact.md). `databasePrefix`
-   deve ser `<code>_`.
+   deve ser `<code>_`. Versões novas publicadas depois chegam às instâncias já existentes pela aba
+   "Migração" de cada instância — procedimento em [migracao-instancia.md](./migracao-instancia.md).
 
    ```bash
    npm run artifact:validate -- produtos/<produto>/artifact   # estático, sem banco
@@ -241,14 +242,14 @@ padrão `3306`). Duas formas:
   host `127.0.0.1`, porta `3307` (ou o valor de `MYSQL_PORT` no seu `.env`), usuário e senha de
   um dos papéis do `.env` (nunca o root para uso rotineiro):
 
-  | Papel | Usuário | Variável da senha | Acesso |
-  |---|---|---|---|
-  | Migrador | `spark_core_migrator` | `MYSQL_MIGRATOR_PASSWORD` | DDL+DML em `spark_core` e `spark_identity` |
-  | Servidor web | `spark_core_web` | `MYSQL_WEB_PASSWORD` | DML em `spark_core` e `spark_identity` |
-  | Trabalhador | `spark_core_worker` | `MYSQL_WORKER_PASSWORD` | DML em `spark_core`; leitura/inserção em `spark_identity` |
+  | Papel              | Usuário               | Variável da senha              | Acesso                                                                  |
+  | ------------------ | --------------------- | ------------------------------ | ----------------------------------------------------------------------- |
+  | Migrador           | `spark_core_migrator` | `MYSQL_MIGRATOR_PASSWORD`      | DDL+DML em `spark_core` e `spark_identity`                              |
+  | Servidor web       | `spark_core_web`      | `MYSQL_WEB_PASSWORD`           | DML em `spark_core` e `spark_identity`                                  |
+  | Trabalhador        | `spark_core_worker`   | `MYSQL_WORKER_PASSWORD`        | DML em `spark_core`; leitura/inserção em `spark_identity`               |
   | Escritor de acesso | `spark_access_writer` | `MYSQL_ACCESS_WRITER_PASSWORD` | sem privilégio global; DML concedido por instância em `<instância>_acc` |
-  | Provisionador | `spark_provisioner` | `MYSQL_PROVISIONER_PASSWORD` | `CREATE USER` global; tudo em `sparkpet_%`/`sparkref_%` |
-  | Testes | `spark_test` | `MYSQL_TEST_PASSWORD` | tudo em `t_%` (só development/CI) |
+  | Provisionador      | `spark_provisioner`   | `MYSQL_PROVISIONER_PASSWORD`   | `CREATE USER` global; tudo em `sparkpet_%`/`sparkref_%`                 |
+  | Testes             | `spark_test`          | `MYSQL_TEST_PASSWORD`          | tudo em `t_%` (só development/CI)                                       |
 
   ```bash
   mysql -h 127.0.0.1 -P 3307 -u spark_core_migrator -p

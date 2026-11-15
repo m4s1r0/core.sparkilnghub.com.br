@@ -108,11 +108,46 @@ documentado em `backup-restauracao.md` para quem for operar isso manualmente.
   por lentidão geral do ambiente; `dev:reset` resolveu por completo, e o `verify` limpo seguinte
   (16/16, `test:e2e` 28/28) confirmou que não havia regressão real.
 
+## Adendo 2026-11-13 — aba "Migração" revista (Phase 11, R-09)
+
+Feito no branch `006-tuteli-artefato-provisionador`, ao aplicar `0015_agendamento_item_arquivamento`
+do artefato do Tuteli numa instância de desenvolvimento (`patas-felizes`, v14 → v15).
+
+**Defeitos encontrados e corrigidos**
+
+- **Carregamento infinito depois de "Aplicar atualização"**: `useInstanceMigration` buscava a
+  tarefa uma única vez (logo após o POST, ainda `pendente`) e nunca de novo; o botão ficava em
+  `loading` para sempre, embora o trabalhador concluísse a tarefa. Corrigido com polling de 2 s
+  enquanto ativa (T060).
+- **Aba mostrava só a última tarefa executada**, sem a versão de origem nem as migrações a aplicar;
+  com várias pendentes, não havia como saber qual estava rodando, e depois de uma falha parcial a
+  versão do Core (que só avança no fim) apontava como pendente o que já estava aplicado.
+  Resolvido pelo plano e pela situação por versão lidos do histórico do produto (T061–T065).
+- **500 nas rotas de migração no ambiente local** (`Unknown column 'from_version'`): o código novo
+  subiu antes de `npm run db:migrate` aplicar a migração `spark_core` 0009. Não é defeito de código;
+  registrado como pré-requisito em `contracts/commands-f03.md` e em R-09 (Consequences).
+- **`NO_PRIOR_BACKUP` mesmo depois de "registrar" o backup**: o comando foi chamado com o `sha256`
+  da migração 0015 no lugar do UUID da instância; `instances:report-backup` imprimiu o uso e saiu
+  com código 2 sem gravar. Não é defeito de código; documentados os erros comuns em
+  `contracts/commands-f03.md` e `docs/operacao/migracao-instancia.md`.
+
+**Verificação do adendo** (rodadas parciais; `npm run verify` completo pendente, T068)
+
+| Etapa | Resultado |
+|---|---|
+| typecheck (servidor, testes, web), lint, prettier | sem erros |
+| test:contract | 29 testes (openapi.yaml 1.3.3) |
+| test:integration — `provisioning/` + `instances/` | 89 testes em 19 arquivos, MySQL real (inclui o cenário de falha parcial e a aba "Saúde" refatorada) |
+| test:integration — `security/` | 3 testes |
+| test:component (web) | 53 testes |
+| build (web) | ok |
+| Conferência manual contra o banco local | plano de `patas-felizes`: `currentVersion` 14 (histórico), `recordedVersion` 14, alvo 15, pendente `0015_agendamento_item_arquivamento`; última tarefa (anterior à coluna) com `fromVersion = null` e `migrations = []` |
+
 ## Desvios registrados
 
-- **`fromVersion` do histórico de migração de instância**: não há coluna dedicada para a versão de
-  origem em `admin_task`; o campo no retorno fica `null`. `toVersion` (a versão alvo) é preciso.
-  Aceito nesta fatia; uma coluna dedicada fica para quando houver necessidade real de exibi-lo.
+- ~~**`fromVersion` do histórico de migração de instância**: sem coluna dedicada; o campo fica
+  `null`.~~ **Resolvido no adendo 2026-11-13**: `admin_task.from_version` (migração `spark_core`
+  0009) grava a versão efetiva do banco do produto no pedido; tarefas anteriores continuam `null`.
 - **Teste de contrato de F03 dentro da suíte de integração**: em vez de um arquivo dedicado em
   `server/tests/contract/`, a validação contra `contracts/openapi.yaml` das rotas novas
   (`expectMatchesContract`) está em `instances/lifecycle-routes.test.ts` (projeto de integração),
@@ -137,6 +172,11 @@ documentado em `backup-restauracao.md` para quem for operar isso manualmente.
 - **Console de restauração com um clique**, **rollout em massa**, **canário automatizado** e
   **rollback automático de schema** do executor de migrações: fora do MVP por decisão de escopo
   (`SC-043`, `SC-044`).
+- **Aba "Migração" (adendo 2026-11-13)**: sem percentual dentro de uma única migração longa (só
+  "Em execução"); depois de falha parcial, `instance.schema_version` (cabeçalho da instância) só é
+  corrigido na próxima aplicação concluída, e o desbloqueio do histórico exige correção manual no
+  banco do produto (procedimento em `docs/operacao/migracao-instancia.md`); o E2E ainda não cobre a
+  aba revista (T068).
 - **Ensaio de restauração em servidor MySQL totalmente separado**: o ensaio registrado acima usou
   um esquema isolado no mesmo servidor; repetir com um servidor separado antes do piloto
   (`NFR-007`).

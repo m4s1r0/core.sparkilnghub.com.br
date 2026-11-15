@@ -1,6 +1,6 @@
 # Contrato de comandos do repositório
 
-Comandos estáveis que documentação, CI e agentes usam (F00, F01 e F02). Executam igual em Windows (PowerShell) e
+Comandos estáveis que documentação, CI e agentes usam (F00 a F03). Executam igual em Windows (PowerShell) e
 Linux; implementados como scripts Node chamados por `npm run`. Nenhum comando aceita segredo por
 argumento de linha de comando. Origem: F00 (`specs/001-f00-base-decisoes/contracts/commands.md`)
 e F01 (`specs/002-f01-identidade-contextos/contracts/commands-f01.md`).
@@ -44,3 +44,13 @@ O trabalhador passa a exigir `MYSQL_PROVISIONER_PASSWORD` e `INSTANCE_SECRET_KEY
 tarefas de provisionamento; o servidor exige `INSTANCE_SECRET_KEY` (contrato de conexão).
 Variáveis novas: `INSTANCE_SECRET_KEY`, `INSTANCE_SECRET_KEY_VERSION`, `INSTANCE_DB_HOST`,
 `INSTANCE_DB_PORT`, `PROVISIONING_MAX_ATTEMPTS` (`.env.example`).
+
+## Ciclo e operação da instância (F03)
+
+Detalhes em `specs/004-f03-ciclo-operacao-instancia/contracts/commands-f03.md`; procedimento de
+migração de instância em [`docs/operacao/migracao-instancia.md`](../docs/operacao/migracao-instancia.md).
+
+| Comando                                                                                                               | Efeito                                                                                                                                                                                                                                 | Ambientes permitidos | Código de saída                                                   |
+| --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | ----------------------------------------------------------------- |
+| `npm run instances:report-backup -- <instanceId> <ok\|falhou> [--origin <nome>] [--detail <texto>] [--takenAt <ISO>]` | Grava `instance_backup_record`. `<instanceId>` é o **UUID** da instância (não slug nem checksum). Conta como backup prévio da migração só com `taken_at` ≥ última entrada em `MANUTENCAO`; sem `--takenAt`, vale o instante do comando | todos                | 0 / 1 instância inexistente / 2 argumento inválido (nada gravado) |
+| `npm run db:migrate`                                                                                                  | Também aplica `spark_core` 0009 (`admin_task.from_version`, adendo 2026-11-13); obrigatório antes de subir servidor/trabalhador com a aba "Migração" revista                                                                           | todos                | inalterado                                                        |

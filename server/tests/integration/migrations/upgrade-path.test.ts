@@ -4,7 +4,11 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadManifest } from "../../../src/platform/migrations/manifest.js";
 import { migrate } from "../../../src/platform/migrations/migrator.js";
-import { accessProjectionDir, migrationsDir, tuteliProductDir } from "../../../src/platform/paths.js";
+import {
+  accessProjectionDir,
+  migrationsDir,
+  tuteliProductDir,
+} from "../../../src/platform/paths.js";
 import { checkUpgradePath, compareStructures } from "../../../../scripts/lib/upgrade.js";
 import { MysqlTestContext } from "../../support/mysql.js";
 
@@ -30,12 +34,15 @@ afterAll(async () => {
 });
 
 describe("migração a partir da versão anterior (FR-017, CS-005)", () => {
-  it("Tuteli v11 → v12 preserva autorizações e equivale à instalação nova", async () => {
+  it("Tuteli v11 → atual (v12+) preserva autorizações e equivale à instalação nova", async () => {
     const base = await loadManifest(truncated(tuteliProductDir, 11));
     const current = await loadManifest(tuteliProductDir);
     const result = await checkUpgradePath(ctx, "tuteli", base, current);
     expect(result.baseVersions).toBe(11);
-    expect(result.currentVersions).toBe(12);
+    // A v12 (`0012_autorizado_versao`) é a que este teste protege; versões novas do artefato
+    // entram no mesmo caminho sem precisar mudar o teste.
+    expect(result.currentVersions).toBe(current.migrations.length);
+    expect(result.currentVersions).toBeGreaterThanOrEqual(12);
     expect(result.differences).toEqual([]);
 
     const db = await ctx.createDatabase("tuteli_v12_data");

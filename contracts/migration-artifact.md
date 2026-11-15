@@ -117,7 +117,13 @@ formato e só versões cadastradas (constituição, princípio VII; `SC-009`).
   `PROVISIONING_ARTIFACT_CHANGED`, sem misturar versões.
 - Uma versão interrompida no meio (linha `falha` no histórico) não é repetida automaticamente:
   o MySQL não desfaz DDL; a instância fica em falha e segue procedimento operacional
-  (`docs/operacao/provisionamento.md`). Prefira versões curtas.
+  (`docs/operacao/provisionamento.md`; numa instância já em uso, migrada pela aba "Migração",
+  `docs/operacao/migracao-instancia.md`). Prefira versões curtas.
+- Instâncias existentes recebem versões novas pela aba "Migração" (F03): uma tarefa aplica todas
+  as pendentes em ordem; a interface lê `_spark_schema_history` (credencial operacional, só
+  leitura) para mostrar a situação de cada versão e as pendentes reais, e recusa aplicar com
+  histórico em falha ou divergente (`SCHEMA_HISTORY_BLOCKED`). Ver
+  `specs/004-f03-ciclo-operacao-instancia/research.md` (R-09).
 
 ## Prontidão (F02)
 
