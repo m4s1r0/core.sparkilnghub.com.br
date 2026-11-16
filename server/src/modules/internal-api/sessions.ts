@@ -7,12 +7,12 @@ import { createProductSession, touchProductSession } from "../access-projection/
 import { findAccountByEmail, passwordHashOf } from "../identity/accounts.js";
 import { normalizeEmail } from "../identity/email.js";
 import { identityErrors } from "../identity/errors.js";
-import { isActivePlatformAdmin } from "../identity/login.js";
+import { isActivePlatformAdmin, notifyAccountLocked } from "../identity/login.js";
 import { burnPasswordCheck, verifyPassword } from "../identity/password.js";
 import { recordSecurityEvent } from "../identity/security-events.js";
 import {
   clearFailures,
-  registerFailure,
+  registerFailureDetailed,
   throttleRules,
   throttleStatus,
 } from "../identity/throttle.js";
@@ -38,13 +38,34 @@ const instanceUnavailable = () =>
     { retryable: true, retryAfterSeconds: 10 },
   );
 
-/** Instância pelo produto da credencial: instância de outro produto é inexistente (R-09). */
+/**
+ * Instância da credencial (R-09, SEC-01): o slug da rota só resolve se for a instância vinculada à
+ * credencial e do mesmo produto. Outra instância — do mesmo produto ou não — é inexistente para o
+ * chamador (cada rota responde como a slug que não existe); a tentativa gera evento de segurança.
+ */
 export async function instanceForCredential(
   ctx: AppContext,
   credential: AppCredential,
   slug: string,
+  correlationId: string,
 ): Promise<Instance | null> {
-  return findInstanceBySlug(ctx, credential.productCode, slug);
+  const instance = await findInstanceBySlug(ctx, credential.productCode, slug);
+  if (!instance) return null;
+  if (credential.instanceId !== null && instance.id === credential.instanceId) return instance;
+  await recordSecurityEvent(ctx.identity, {
+    type: "instancia_divergente",
+    actorKind: "aplicacao",
+    instanceId: instance.id,
+    result: "negado",
+    detail: { credencial: credential.id, instanciaDaCredencial: credential.instanceId },
+    correlationId,
+    at: ctx.clock(),
+  });
+  ctx.logger.warn(
+    { alert: "instancia_divergente", credentialId: credential.id, instanceId: instance.id },
+    "Credencial de aplicação pediu instância que não é a sua",
+  );
+  return null;
 }
 
 const sessionToken = (request: FastifyRequest): string => {
@@ -67,14 +88,20 @@ async function productLogin(
 ) {
   const now = ctx.clock();
   const email = normalizeEmail(input.email);
+  // SEC-02/SEC-14: atraso progressivo por (e-mail, credencial+IP), volume por e-mail, origem
+  // informada pelo produto e teto global da credencial — tudo antes de verificar a senha.
+  const emailRule = throttleRules.loginEmail(email);
+  const pairRule = throttleRules.loginPair(email, `${credential.id}:${input.clientIp}`);
   const rules = [
-    throttleRules.loginEmail(email),
+    emailRule,
+    pairRule,
     throttleRules.appOrigin(credential.id, input.clientIp),
+    throttleRules.appCredential(credential.id),
   ];
   const locked = await throttleStatus(ctx, rules);
   if (locked) throw identityErrors.throttled(locked);
 
-  const instance = await instanceForCredential(ctx, credential, slug);
+  const instance = await instanceForCredential(ctx, credential, slug, correlationId);
   const account = await findAccountByEmail(ctx.identity, email);
   const stored = account ? await passwordHashOf(ctx.identity, account.id) : null;
   const passwordOk = stored
@@ -105,17 +132,25 @@ async function productLogin(
     at: now,
   };
   if (!account || !instance || !member) {
-    const nowLocked = await registerFailure(ctx, rules);
+    const { lockedSeconds: nowLocked, newlyLocked } = await registerFailureDetailed(ctx, rules);
     await recordSecurityEvent(ctx.identity, {
       ...event,
       result: "falha",
       detail: { credencial: credential.id },
     });
+    await notifyAccountLocked(ctx, account, newlyLocked, emailRule.key, {
+      actorKind: "aplicacao",
+      instanceId: instance?.id ?? null,
+      ip: input.clientIp,
+      userAgent: input.userAgent ?? null,
+      correlationId,
+      at: now,
+    });
     if (nowLocked) throw identityErrors.throttled(nowLocked);
     throw identityErrors.invalidCredentials();
   }
 
-  await clearFailures(ctx, [throttleRules.loginEmail(email)]);
+  await clearFailures(ctx, [pairRule]);
   let created: { token: string; expiresAt: Date };
   try {
     created = await createProductSession(ctx, instance, member);
@@ -152,7 +187,11 @@ export function registerInternalSessionRoutes(app: FastifyInstance, ctx: AppCont
           {
             email: Type.String({ format: "email", maxLength: 254 }),
             password: Type.String({ minLength: 1, maxLength: 128 }),
-            clientIp: Type.String({ minLength: 1, maxLength: 45 }),
+            // SEC-02: só IPv4 ou IPv6 (sem zona); o produto informa o IP real do usuário.
+            clientIp: Type.Union([
+              Type.String({ format: "ipv4", maxLength: 15 }),
+              Type.String({ format: "ipv6", maxLength: 45 }),
+            ]),
             userAgent: Type.Optional(Type.String({ maxLength: 300 })),
           },
           { additionalProperties: false },
@@ -180,7 +219,7 @@ export function registerInternalSessionRoutes(app: FastifyInstance, ctx: AppCont
     async (request, reply) => {
       const { slug } = request.params as { slug: string };
       const instance = await withIdentity(() =>
-        instanceForCredential(ctx, credentialOf(request), slug),
+        instanceForCredential(ctx, credentialOf(request), slug, request.id),
       );
       const invalid = () =>
         new AppError(401, "AUTH_SESSION_INVALID", "Sessão inválida ou encerrada.");
@@ -193,7 +232,13 @@ export function registerInternalSessionRoutes(app: FastifyInstance, ctx: AppCont
         throw error;
       }
       if (!session) throw invalid();
-      return reply.status(204).send();
+      // Contrato v1.4 (SEC-04): papel e situação do vínculo vêm da projeção a cada confirmação; o
+      // produto autoriza por eles, não pelo papel do login. A regra normativa só valida vínculo
+      // ativo. Produtos v1.3 conferem apenas o sucesso (2xx) e seguem compatíveis.
+      return reply
+        .status(200)
+        .header("cache-control", "no-store")
+        .send({ role: session.role, membershipStatus: "ativo" as const });
     },
   );
 }

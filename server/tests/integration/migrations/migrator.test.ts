@@ -155,14 +155,26 @@ describe("migrate", () => {
 
 describe("guarda de ambiente do apoio dos testes", () => {
   it("recusa com SPARK_ENV=production antes de qualquer CREATE/DROP", async () => {
-    const previous = process.env.SPARK_ENV;
-    process.env.SPARK_ENV = "production";
+    const previous = {
+      SPARK_ENV: process.env.SPARK_ENV,
+      MYSQL_TLS: process.env.MYSQL_TLS,
+      INSTANCE_DB_USER_HOST: process.env.INSTANCE_DB_USER_HOST,
+    };
+    // Configuração de produção válida (SEC-15 exige TLS e host restrito): a recusa vem da guarda.
+    Object.assign(process.env, {
+      SPARK_ENV: "production",
+      MYSQL_TLS: "required",
+      INSTANCE_DB_USER_HOST: "10.0.%",
+    });
     try {
       await expect(MysqlTestContext.create()).rejects.toSatisfy(
         (e) => e instanceof EnvGuardError && e.exitCode === 2,
       );
     } finally {
-      process.env.SPARK_ENV = previous;
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
     }
   });
 });

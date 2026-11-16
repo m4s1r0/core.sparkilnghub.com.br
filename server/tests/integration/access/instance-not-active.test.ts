@@ -9,7 +9,8 @@ let env: F01TestEnv;
 let app: F01App;
 let ready: TestInstance;
 let active: TestInstance;
-let credential: string;
+/** Uma credencial por instância (SEC-01). */
+const credentials: Record<string, string> = {};
 let ana: { id: string; email: string; password: string };
 
 beforeAll(async () => {
@@ -17,7 +18,8 @@ beforeAll(async () => {
   app = await buildF01App(env);
   ready = await env.createInstance("pronta-a");
   active = await env.createInstance("ativa-b");
-  credential = await appCredential(env);
+  credentials[ready.slug] = await appCredential(env, "sparkref", undefined, ready.id);
+  credentials[active.slug] = await appCredential(env, "sparkref", undefined, active.id);
   ana = await env.insertAccount();
   await env.insertMembership(ana.id, ready.id, "administrador");
   await env.insertMembership(ana.id, active.id, "administrador");
@@ -31,7 +33,7 @@ const login = (slug: string) =>
   app.app.inject({
     method: "POST",
     url: `/internal/v1/instances/${slug}/sessions`,
-    headers: { authorization: `Bearer ${credential}` },
+    headers: { authorization: `Bearer ${credentials[slug] ?? ""}` },
     payload: { email: ana.email, password: ana.password, clientIp: "198.51.100.7" },
   });
 
@@ -63,14 +65,14 @@ describe("instância ainda não ativa (CA-SC-007, FR-028, projeção v2)", () =>
     expect(Number(rows[0]?.n)).toBe(1);
 
     // A regra normativa do contrato (state = 'ativa') nega a sessão anterior na instância pronta.
-    const product = await productFor(env, app, ready, credential);
+    const product = await productFor(env, app, ready, credentials[ready.slug] ?? "");
     expect(await product.validate(token, env.clock.now())).toBeNull();
   });
 
   it("instâncias ATIVA continuam aceitando login e validando sessões", async () => {
     const response = await login(active.slug);
     expect(response.statusCode).toBe(201);
-    const product = await productFor(env, app, active, credential);
+    const product = await productFor(env, app, active, credentials[active.slug] ?? "");
     expect(
       await product.validate(response.json<{ token: string }>().token, env.clock.now()),
     ).not.toBeNull();

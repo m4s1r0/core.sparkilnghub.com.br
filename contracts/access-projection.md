@@ -112,7 +112,13 @@ Qualquer outro resultado → `401` (sessão inválida) sem distinguir o motivo a
 Em v1 o produto **não** escreve `last_seen_at`. A inatividade é medida pelo Core: o produto chama
 `POST /internal/v1/instances/{slug}/sessions/touch` com o token no máximo uma vez a cada 5 minutos
 por sessão, e o Core atualiza `last_seen_at`. Se o Core estiver indisponível, a sessão segue válida
-até a janela de inatividade vencer (FR-028). _(Alternativa avaliada e rejeitada: conceder ao produto
+até a janela de inatividade vencer (FR-028).
+
+**v1.4 (SEC-04):** o `touch` responde `200 { role, membershipStatus }` lidos da projeção (antes
+`204` sem corpo). O produto MUST autorizar pelo `role` devolvido — ou pelo `m.role` da regra de
+validação acima, lido a cada requisição —, nunca pelo papel guardado no login; com Core anterior
+(`204`) mantém o papel do login. Um rebaixamento passa a valer na confirmação seguinte. A
+credencial usada no `touch` MUST estar vinculada à instância (SEC-01). _(Alternativa avaliada e rejeitada: conceder ao produto
 `UPDATE (last_seen_at)` — permitiria estender sessões indefinidamente.)_
 
 ## Garantias do Core

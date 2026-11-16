@@ -5,13 +5,19 @@ import { ReferenceProductClient } from "../../reference-product/client.js";
 import type { F01TestEnv, TestInstance } from "./f01.js";
 import type { F01App } from "./f01-app.js";
 
-/** Credencial de aplicação do produto de referência (ou de outro produto, para negativos). */
+/**
+ * Credencial de aplicação do produto de referência (ou de outro produto, para negativos).
+ * Escopos `connection`, `sessions` e `members` exigem instância vinculada (SEC-01); sem
+ * `instanceId` a credencial é "por produto" e só serve aos testes que provam a recusa.
+ */
 export async function appCredential(
   env: F01TestEnv,
   productCode = "sparkref",
   scopes: AppScope[] = ["sessions", "members"],
+  instanceId: string | null = null,
 ): Promise<string> {
-  return (await createAppCredential(env.ctx, { productCode, label: "teste", scopes })).value;
+  return (await createAppCredential(env.ctx, { productCode, label: "teste", scopes, instanceId }))
+    .value;
 }
 
 /**

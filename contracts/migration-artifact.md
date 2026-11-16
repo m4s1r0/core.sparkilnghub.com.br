@@ -38,13 +38,20 @@ formato e só versões cadastradas (constituição, princípio VII; `SC-009`).
 }
 ```
 
-| Campo                  | Regras                                                                      |
-| ---------------------- | --------------------------------------------------------------------------- |
-| `formatVersion`        | `1`                                                                         |
-| `productCode`          | `^[a-z][a-z0-9]{2,15}$`, imutável, igual ao código no catálogo (F02)        |
-| `databasePrefix`       | `productCode` + `_`; nome do banco = prefixo + UUID da instância sem hífens |
-| `migrations[].version` | inteiros 1..N contíguos, crescentes                                         |
-| `migrations[].sha256`  | hash do arquivo normalizado (LF, UTF-8 sem BOM)                             |
+| Campo                  | Regras                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| `formatVersion`        | `1`                                                                                                    |
+| `productCode`          | `^[a-z][a-z0-9]{2,15}$`, imutável, igual ao código no catálogo (F02)                                   |
+| `databasePrefix`       | `productCode` + `_`; nome do banco = prefixo + UUID da instância sem hífens                            |
+| `migrations[].version` | inteiros 1..N contíguos, crescentes                                                                    |
+| `migrations[].sha256`  | hash do arquivo normalizado (LF, UTF-8 sem BOM)                                                        |
+| `appendOnlyTables`     | opcional (SEC-12); tabelas só-inserção, criadas por alguma migração do artefato, sem prefixo `_spark_` |
+
+**Privilégios da credencial operacional (SEC-12):** `SELECT` no banco inteiro; `INSERT, UPDATE,
+DELETE` por tabela; só `INSERT` nas tabelas de `appendOnlyTables` (trilhas de auditoria, livros
+de lançamento); nenhuma escrita nas tabelas internas `_spark_*`. O Core reaplica após cada
+migração e em `npm run instances:sync-grants`. Fora do desenvolvimento a conta é
+`'inst_*'@'<INSTANCE_DB_USER_HOST>'` e exige TLS (`REQUIRE SSL`, SEC-15).
 
 ## Regras dos arquivos SQL
 

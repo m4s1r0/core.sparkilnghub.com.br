@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SparkCore — API administrativa
-  version: 1.3.3
+  version: 1.4.0
   description: >-
     Contratos do SparkCore. F00: situação operacional. F01: identidade, sessões do painel, administradores, vínculos, recuperação e bloqueio (/api/v1), e contratos internos para produtos (/internal/v1), com a projeção de acesso descrita em access-projection.md. Convenções em conventions.md. /api/v1/** usa o cookie sparkcore_session (HttpOnly, SameSite=Strict) e verificação de origem em métodos inseguros; /internal/v1/** usa Authorization: Bearer <credencial de aplicação> e nunca cookie. /api/v1/system/status exige sessão de administrador com MFA; /health/live permanece público e sem detalhes. F02: contratantes, catálogo, solicitação e acompanhamento do provisionamento de instâncias (/api/v1) e conexão da instância para o produto (/internal/v1/instances/{slug}/connection, escopo connection). F03: ativar, suspender, reativar, entrar/sair de manutenção e encerrar uma instância, painel de saúde/backup, executor de migrações e a página pública de indisponibilidade (/i/{slug}, sem sessão).
 servers:
@@ -895,7 +895,27 @@ paths:
           { $ref: "#/components/parameters/InstanceSessionHeader" },
         ]
       responses:
-        "204": { description: Atividade registrada (no máximo 1 vez a cada 5 min por sessão) }
+        "200":
+          {
+            description: "Sessão válida; atividade registrada no máximo 1 vez a cada 5 min. v1.4 (SEC-04): papel e situação do vínculo lidos da projeção — o produto autoriza por eles, não pelo papel do login. Core anterior respondia 204 sem corpo.",
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        type: object,
+                        additionalProperties: false,
+                        required: [role, membershipStatus],
+                        properties:
+                          {
+                            role: { type: string, enum: [administrador, colaborador] },
+                            membershipStatus: { type: string, enum: [ativo] },
+                          },
+                      },
+                  },
+              },
+          }
         "401": { description: AUTH_SESSION_INVALID }
   /internal/v1/instances/{slug}/members:
     get:
@@ -2478,6 +2498,10 @@ components:
         user: { type: string }
         password: { type: string, description: "Segredo; nunca registrar em log" }
         credentialVersion: { type: integer }
+        tls:
+          type: string
+          enum: [required, disabled]
+          description: "v1.4 (SEC-15): required — a credencial exige TLS e o produto MUST usar ssl no pool; disabled só em desenvolvimento. Ausente em Core anterior (tratar como disabled)."
     ContractorDetail:
       type: object
       additionalProperties: false

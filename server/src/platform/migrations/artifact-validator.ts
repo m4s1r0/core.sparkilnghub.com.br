@@ -67,6 +67,23 @@ export function validateArtifactManifest(manifest: {
   return problems;
 }
 
+/**
+ * Tabelas só-inserção declaradas que nenhuma migração cria (SEC-12). Uma declaração que não
+ * corresponde a tabela alguma daria falsa sensação de proteção, por isso é erro.
+ */
+export function undeclaredAppendOnlyTables(loaded: LoadedManifest): string[] {
+  const created = new Set<string>();
+  const pattern = /\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([A-Za-z0-9_$]+)`?/gi;
+  for (const migration of loaded.migrations) {
+    for (const match of stripCommentsAndStrings(migration.sql).matchAll(pattern)) {
+      if (match[1]) created.add(match[1].toLowerCase());
+    }
+  }
+  return (loaded.manifest.appendOnlyTables ?? []).filter(
+    (table) => table.startsWith("_spark_") || !created.has(table),
+  );
+}
+
 /** Valida um artefato de produto já carregado; lança MigrationError no primeiro problema. */
 export function validateArtifact(loaded: LoadedManifest): void {
   const [problem] = validateArtifactManifest(loaded.manifest);
@@ -74,6 +91,13 @@ export function validateArtifact(loaded: LoadedManifest): void {
     throw new MigrationError(
       "MANIFEST_INVALID",
       `${problem}: productCode/databasePrefix inválidos`,
+    );
+  }
+  const unknown = undeclaredAppendOnlyTables(loaded);
+  if (unknown.length > 0) {
+    throw new MigrationError(
+      "MANIFEST_INVALID",
+      `appendOnlyTables sem CREATE TABLE no artefato (ou tabela interna): ${unknown.join(", ")}`,
     );
   }
   for (const migration of loaded.migrations) {

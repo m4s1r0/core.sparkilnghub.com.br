@@ -3,6 +3,30 @@
 Mudanças compatíveis mantêm a versão maior e são registradas aqui; incompatíveis exigem `/v2`
 (conventions.md §1).
 
+## v1.4 — 2026-11-15 (endurecimento de segurança, compatível)
+
+Auditoria de 15/11/2026; linha de base `docs/ecossistema/05-baseline-seguranca.md`;
+`specs/008-endurecimento-seguranca-core/contracts/internal-v1.4.md`. Ordem de implantação: vincular
+as credenciais (abaixo) → implantar o Core → implantar os produtos v1.4.
+
+- **Credencial por instância (SEC-01, mudança de comportamento):** credenciais com escopo
+  `connection`, `sessions` ou `members` MUST estar vinculadas a uma instância; credencial por
+  produto nesses escopos → `401 AUTH_APP_CREDENTIAL_INVALID` (evento `credencial_aplicacao/negado`).
+  Slug de outra instância → resposta idêntica à de slug inexistente na mesma rota (evento
+  `instancia_divergente`). Migração sem parada: `npm run app-credential -- bind <id> --instance
+<slug|uuid>` antes de implantar o Core (segredo inalterado). `utilizacao` não muda.
+- `POST /internal/v1/instances/{slug}/sessions/touch` (SEC-04, compatível): `200 { role,
+membershipStatus }` em vez de `204`. Produtos v1.3 que conferem só `2xx` seguem funcionando.
+- `POST /internal/v1/instances/{slug}/sessions` (SEC-02): `clientIp` MUST ser IPv4/IPv6 (`422`
+  senão); teto de 300 falhas/15 min por credencial (`429`); atraso progressivo por (e-mail,
+  credencial+IP) a partir da 5ª falha; bloqueio total do e-mail só com 100 falhas/1 h (SEC-14).
+- `GET /internal/v1/instances/{slug}/connection` (SEC-15, compatível): ganha `tls`
+  (`required` | `disabled`); com `required` o produto MUST abrir o pool com TLS.
+- Manifesto do artefato (compatível, `formatVersion` 1): `appendOnlyTables` opcional (SEC-12).
+- `/api/v1` (SEC-14): mesmas regras de atraso progressivo e volume no login do painel; evento
+  `login_bloqueado` ao titular. Todas as respostas trazem os cabeçalhos de segurança, HSTS fora
+  do desenvolvimento e `Cache-Control: no-store` em `/api` e `/internal` (SEC-22).
+
 ## v1.3.3 — 2026-11-13
 
 - `GET /api/v1/instances/{id}/migration/plan` (novo, compatível): migrações do artefato vigente

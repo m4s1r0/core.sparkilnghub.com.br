@@ -3,7 +3,8 @@ import { sql } from "kysely";
 import { type Connection, createConnection } from "mysql2/promise";
 import type { Config } from "../../platform/config/load.js";
 import type { AppContext } from "../../platform/context.js";
-import { openAdminConnection } from "../../platform/db/pools.js";
+import { instanceAccountOf, syncOperationalGrants, tlsClause } from "../../platform/db/grants.js";
+import { openAdminConnection, sslField } from "../../platform/db/pools.js";
 import { grantDatabaseName, instanceUserName, uuidToBin } from "../../platform/ids.js";
 import {
   ACCESS_HISTORY_TABLE,
@@ -144,10 +145,14 @@ export async function createCredential(sc: StepContext): Promise<StepOutcome> {
     if (!intent) throw new Error("Intenção do usuário não gravada");
   }
   const password = resourceSecret(ctx, instance.id, intent);
+  // SEC-15: conta restrita à rede da aplicação e TLS obrigatório fora do desenvolvimento.
+  const { account, requireTls } = instanceAccountOf(config, user);
   let created = false;
   await withAdmin(config, undefined, async (admin) => {
     try {
-      await admin.query(`CREATE USER '${user}'@'%' IDENTIFIED BY ?`, [password]);
+      await admin.query(`CREATE USER ${account} IDENTIFIED BY ?${tlsClause(requireTls)}`, [
+        password,
+      ]);
       created = true;
       await sc.afterEffect?.("criar_credencial");
     } catch (error) {
@@ -157,13 +162,15 @@ export async function createCredential(sc: StepContext): Promise<StepOutcome> {
         throw conflict("usuário MySQL existe sem intenção");
       }
       if (intent.status === "pretendido") {
-        await admin.query(`ALTER USER '${user}'@'%' IDENTIFIED BY ?`, [password]);
+        await admin.query(`ALTER USER ${account} IDENTIFIED BY ?${tlsClause(requireTls)}`, [
+          password,
+        ]);
       }
     }
-    // DML só no operacional (idempotente). Os privilégios do banco de acesso são concedidos em
-    // `aplicar_migracoes`, depois que as tabelas da projeção existem.
+    // Só leitura no operacional por enquanto (idempotente): o DML é concedido tabela a tabela em
+    // `aplicar_migracoes`, quando as tabelas existem e as só-inserção são conhecidas (SEC-12).
     await admin.query(
-      `GRANT SELECT, INSERT, UPDATE, DELETE ON \`${grantDatabaseName(instance.databaseName)}\`.* TO '${user}'@'%'`,
+      `GRANT SELECT ON \`${grantDatabaseName(instance.databaseName)}\`.* TO ${account}`,
     );
   });
   const wasPending = intent.status === "pretendido";
@@ -198,13 +205,22 @@ export async function applyMigrations(sc: StepContext): Promise<StepOutcome> {
     }),
   );
   // Leitura e logout para o usuário da instância; DML para o escritor do Core (F01 R-07).
-  await withAdmin(config, undefined, (admin) =>
-    grantAccessProjection(
+  // Operacional: DML por tabela, só INSERT nas tabelas só-inserção do artefato (SEC-12).
+  await withAdmin(config, undefined, async (admin) => {
+    await grantAccessProjection(
       admin,
       accessDatabaseName(instance.databaseName),
       instanceUserName(instance.id),
-    ),
-  );
+      config.INSTANCE_DB_USER_HOST,
+    );
+    const { account, requireTls } = instanceAccountOf(config, instanceUserName(instance.id));
+    await syncOperationalGrants(admin, {
+      database: instance.databaseName,
+      account,
+      appendOnlyTables: manifest.manifest.appendOnlyTables ?? [],
+      requireTls,
+    });
+  });
   await sql`UPDATE instance SET schema_version = ${manifest.migrations.length}
              WHERE id = ${uuidToBin(instance.id)}`.execute(ctx.core);
   return product.applied.length + access.applied.length > 0 ? "concluida" : "ignorada";
@@ -279,6 +295,8 @@ export async function verify(sc: StepContext): Promise<StepOutcome> {
       database,
       timezone: "Z",
       connectTimeout: 5_000,
+      // A credencial operacional exige TLS fora do desenvolvimento (SEC-15).
+      ...sslField(config),
     });
   const failed = (detail: string) =>
     new ProvisioningFailure("PROVISIONING_VERIFICATION_FAILED", detail);

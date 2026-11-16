@@ -1,6 +1,7 @@
 import { type Connection, createConnection } from "mysql2/promise";
 import type { AppContext } from "../../platform/context.js";
 import { getResource, resourceSecret } from "../provisioning/resources.js";
+import { sslField } from "../../platform/db/pools.js";
 import type { Instance } from "./instances.js";
 
 export type OperationalAccess<T> = { ok: true; value: T } | { ok: false; reason: string };
@@ -35,6 +36,8 @@ export async function withOperationalConnection<T>(
       database: instance.databaseName,
       timezone: "Z",
       connectTimeout: 5_000,
+      // A credencial operacional exige TLS fora do desenvolvimento (SEC-15).
+      ...sslField(ctx.config),
     });
   } catch {
     return { ok: false, reason: "conexão recusada" };

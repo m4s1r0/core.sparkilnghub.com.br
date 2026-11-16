@@ -2,6 +2,7 @@
   "formatVersion": 1,
   "productCode": "sparkpet",
   "databasePrefix": "sparkpet_",
+  "appendOnlyTables": ["auditoria_evento"],
   "migrations": [
     {
       "version": 1,

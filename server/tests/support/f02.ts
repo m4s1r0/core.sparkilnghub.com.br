@@ -118,13 +118,18 @@ export async function taskRow(env: F01TestEnv, taskId: string) {
  * Cópia do artefato do produto de referência com versões trocadas ou acrescentadas (manifesto
  * coerente), registrada como provisionador de teste do `sparkref`.
  */
-export function artifactVariant(files: Record<string, string>): ProvisionerRegistry {
+export function artifactVariant(
+  files: Record<string, string>,
+  extra: { appendOnlyTables?: string[] } = {},
+): ProvisionerRegistry {
   const dir = mkdtempSync(join(tmpdir(), "artefato-teste-"));
   cpSync(referenceProductDir, dir, { recursive: true });
   const manifestPath = join(dir, "manifest.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
     migrations: { version: number; name: string; file: string; sha256: string }[];
+    appendOnlyTables?: string[];
   };
+  if (extra.appendOnlyTables) manifest.appendOnlyTables = extra.appendOnlyTables;
   for (const [name, content] of Object.entries(files)) {
     const file = `migrations/${name}.sql`;
     writeFileSync(join(dir, file), content);

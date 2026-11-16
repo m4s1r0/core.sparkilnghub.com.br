@@ -4,9 +4,20 @@ import { AppError } from "../../app/errors.js";
 import type { AppContext } from "../context.js";
 import { sha256Hex, timingSafeEqualHex } from "../crypto/index.js";
 import { binToUuid, isUuid, uuidToBin } from "../ids.js";
+import { recordSecurityEvent } from "../../modules/identity/security-events.js";
 import { withIdentity } from "./identity-errors.js";
 
 export type AppScope = "sessions" | "members" | "connection" | "utilizacao";
+
+/**
+ * Escopos que agem sobre UMA instância (senha de banco, sessões, vínculos): a credencial MUST estar
+ * vinculada a ela (SEC-01, SEC-BASE-01). `utilizacao` confronta a instância do lote por conta própria.
+ */
+export const INSTANCE_SCOPES: ReadonlySet<AppScope> = new Set([
+  "sessions",
+  "members",
+  "connection",
+]);
 
 export interface AppCredential {
   id: string;
@@ -29,7 +40,9 @@ const LAST_USED_WRITE_MS = 60_000;
 
 /**
  * Autentica `/internal/v1` por `Authorization: Bearer <id>.<segredo>` (R-09): credencial ativa,
- * no prazo e com o escopo pedido. A credencial define o produto; nenhum cookie é lido aqui.
+ * no prazo e com o escopo pedido. A credencial define o produto e, nos escopos de instância, a
+ * única instância alcançável; credencial "por produto" nesses escopos é recusada (SEC-01).
+ * Nenhum cookie é lido aqui.
  */
 export function requireAppCredential(ctx: AppContext, scope: AppScope) {
   return async (request: FastifyRequest): Promise<void> => {
@@ -62,6 +75,23 @@ export function requireAppCredential(ctx: AppContext, scope: AppScope) {
     }
     const scopes = new Set(row.scopes.split(",").filter(Boolean) as AppScope[]);
     if (!scopes.has(scope)) throw invalid();
+    if (INSTANCE_SCOPES.has(scope) && !row.instance_id) {
+      await withIdentity(() =>
+        recordSecurityEvent(ctx.identity, {
+          type: "credencial_aplicacao",
+          actorKind: "aplicacao",
+          result: "negado",
+          detail: { credencial: id, motivo: "sem_instancia", escopo: scope },
+          correlationId: request.id,
+          at: now,
+        }),
+      );
+      request.log.warn(
+        { alert: "credencial_por_produto", credentialId: id, scope },
+        "Credencial de aplicação sem instância recusada; vincule-a (app-credential bind)",
+      );
+      throw invalid();
+    }
     if (!row.last_used_at || now.getTime() - row.last_used_at.getTime() >= LAST_USED_WRITE_MS) {
       await sql`UPDATE app_credential SET last_used_at = ${now} WHERE id = ${uuidToBin(id)}`.execute(
         ctx.core,

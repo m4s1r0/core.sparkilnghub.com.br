@@ -27,9 +27,9 @@ beforeAll(async () => {
   admin = await flow.admin("plataforma@example.test");
   a = await env.createInstance("ref-a");
   b = await env.createInstance("ref-b");
-  const credential = await appCredential(env);
-  productA = await productFor(env, app, a, credential);
-  productB = await productFor(env, app, b, credential);
+  // Uma credencial por instância (SEC-01): cada implantação do produto tem a sua.
+  productA = await productFor(env, app, a, await appCredential(env, "sparkref", undefined, a.id));
+  productB = await productFor(env, app, b, await appCredential(env, "sparkref", undefined, b.id));
 });
 afterAll(async () => {
   await app?.close();

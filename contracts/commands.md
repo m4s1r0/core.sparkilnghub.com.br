@@ -54,3 +54,20 @@ migração de instância em [`docs/operacao/migracao-instancia.md`](../docs/oper
 | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | ----------------------------------------------------------------- |
 | `npm run instances:report-backup -- <instanceId> <ok\|falhou> [--origin <nome>] [--detail <texto>] [--takenAt <ISO>]` | Grava `instance_backup_record`. `<instanceId>` é o **UUID** da instância (não slug nem checksum). Conta como backup prévio da migração só com `taken_at` ≥ última entrada em `MANUTENCAO`; sem `--takenAt`, vale o instante do comando | todos                | 0 / 1 instância inexistente / 2 argumento inválido (nada gravado) |
 | `npm run db:migrate`                                                                                                  | Também aplica `spark_core` 0009 (`admin_task.from_version`, adendo 2026-11-13); obrigatório antes de subir servidor/trabalhador com a aba "Migração" revista                                                                           | todos                | inalterado                                                        |
+
+## Endurecimento de segurança (v1.4)
+
+Detalhes em `specs/008-endurecimento-seguranca-core/contracts/internal-v1.4.md`; procedimento em
+[`docs/operacao/credenciais-aplicacao.md`](../docs/operacao/credenciais-aplicacao.md).
+
+| Comando                                                                                                            | Efeito                                                                                                                                               | Ambientes | Código de saída               |
+| ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------------------------- |
+| `npm run app-credential -- create <produto> <rótulo> --scopes sessions,members,connection --instance <slug\|uuid>` | Credencial vinculada à instância (SEC-01). Escopos `connection`, `sessions` e `members` sem `--instance`, ou instância de outro produto → recusa     | todos     | 0 / 1                         |
+| `npm run app-credential -- bind <id> --instance <slug\|uuid>`                                                      | Vincula credencial por produto existente à instância, sem trocar o segredo (migração sem parada); credencial já vinculada a outra instância → recusa | todos     | 0 / 1                         |
+| `npm run app-credential -- list`                                                                                   | Mostra a instância de cada credencial e marca `POR PRODUTO — recusada` as que precisam de `bind`                                                     | todos     | 0                             |
+| `npm run instances:sync-grants`                                                                                    | Reaplica os privilégios da credencial operacional de todas as instâncias: só-inserção (SEC-12), `REQUIRE SSL` e projeção (SEC-15)                    | todos     | 0 todas; 4 alguma inacessível |
+| `npm run audit:deps`                                                                                               | `npm audit --omit=dev --audit-level=moderate` (SEC-09); etapa de `npm run verify` e da CI                                                            | —         | 0 limpo / 1 achado            |
+
+Variáveis novas (`.env.example`): `TRUSTED_PROXIES`, `MYSQL_TLS`, `MYSQL_TLS_CA`,
+`INSTANCE_DB_USER_HOST`. Fora de `development`, `MYSQL_TLS=off` e `INSTANCE_DB_USER_HOST=%` impedem
+a inicialização.

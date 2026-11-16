@@ -20,7 +20,7 @@ beforeAll(async () => {
   app = await buildF01App(env);
   a = await env.createInstance("ref-a");
   b = await env.createInstance("ref-b");
-  credential = await appCredential(env);
+  credential = await appCredential(env, "sparkref", undefined, a.id);
   ana = await env.insertAccount({ email: "ana@example.test", displayName: "[SINTÉTICO] Ana" });
   await env.insertMembership(ana.id, a.id, "administrador");
 });
@@ -76,7 +76,8 @@ describe("login de produto pelo Core (US3, FR-012, FR-024)", () => {
   it("sem vínculo, senha errada, conta bloqueada e outro produto: mesma resposta 401", async () => {
     const blocked = await env.insertAccount({ status: "bloqueada" });
     await env.insertMembership(blocked.id, a.id, "colaborador");
-    const otherProduct = await appCredential(env, "outroproduto");
+    // Credencial de outro produto (vinculada a uma instância que não é dele: dado inconsistente).
+    const otherProduct = await appCredential(env, "outroproduto", undefined, b.id);
     const responses = [
       await login("ref-b", { email: ana.email, password: ana.password, clientIp: "198.51.100.2" }),
       await login("ref-a", {
@@ -109,7 +110,7 @@ describe("login de produto pelo Core (US3, FR-012, FR-024)", () => {
 
   it("credencial ausente, malformada, revogada ou sem escopo → 401", async () => {
     const membersOnly = await appCredential(env, "sparkref", ["members"]);
-    const revoked = await appCredential(env);
+    const revoked = await appCredential(env, "sparkref", undefined, a.id);
     await revokeAppCredential(env.ctx, revoked.split(".")[0] ?? "");
     for (const bearer of [null, "lixo", revoked, membersOnly]) {
       const response = await login(
@@ -146,13 +147,13 @@ describe("login de produto pelo Core (US3, FR-012, FR-024)", () => {
     await checked(await touch(created.token), "touchInstanceSession");
     expect(await lastSeen()).toBe(start);
     env.clock.advance(5 * 60_000);
-    expect((await touch(created.token)).statusCode).toBe(204);
+    expect((await touch(created.token)).statusCode).toBe(200);
     expect(await lastSeen()).toBe(env.clock.now().getTime());
     const invalid = await checked(await touch("x".repeat(43)), "touchInstanceSession");
     expect(invalid.statusCode).toBe(401);
   });
 
-  it("50 falhas de um clientIp bloqueiam só ele; 10 falhas da conta bloqueiam a conta", async () => {
+  it("50 falhas de um clientIp bloqueiam só ele; 10 falhas de origens distintas não bloqueiam a conta; 100 bloqueiam (SEC-14)", async () => {
     for (let i = 0; i < 50; i += 1) {
       await login("ref-a", {
         email: `x${i}@example.test`,
@@ -177,6 +178,15 @@ describe("login de produto pelo Core (US3, FR-012, FR-024)", () => {
     const carla = await env.insertAccount();
     await env.insertMembership(carla.id, a.id, "colaborador");
     for (let i = 0; i < 10; i += 1) {
+      await login("ref-a", { email: carla.email, password: "errada", clientIp: `192.0.2.${i}` });
+    }
+    const stillOpen = await login("ref-a", {
+      email: carla.email,
+      password: carla.password,
+      clientIp: "192.0.2.98",
+    });
+    expect(stillOpen.statusCode).toBe(201);
+    for (let i = 10; i < 110; i += 1) {
       await login("ref-a", { email: carla.email, password: "errada", clientIp: `192.0.2.${i}` });
     }
     const locked = await checked(

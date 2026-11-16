@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { isIP } from "node:net";
 import { join } from "node:path";
 import Value from "typebox/value";
 import { repoRoot } from "../paths.js";
@@ -94,6 +95,10 @@ export function loadConfig(
     }
   }
 
+  if (Value.Check(BaseConfigSchema, converted)) {
+    problems.push(...securityProblems(converted));
+  }
+
   if (problems.length > 0) {
     if (!options.env && !existsSync(join(repoRoot, ".env"))) {
       problems.push(
@@ -104,4 +109,44 @@ export function loadConfig(
   }
   const base = converted as BaseConfig;
   return { ...base, APP_VERSION: base.APP_VERSION ?? appVersion(), credentials, secrets };
+}
+
+/** Lista de `TRUSTED_PROXIES` (IP ou CIDR), já sem espaços nem itens vazios. */
+export function trustedProxies(config: Pick<BaseConfig, "TRUSTED_PROXIES">): string[] {
+  return config.TRUSTED_PROXIES.split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Regras de segurança entre variáveis (SEC-13, SEC-15): proxies válidos; fora do desenvolvimento,
+ * TLS obrigatório até o MySQL e credenciais operacionais restritas à rede da aplicação.
+ */
+export function securityProblems(config: BaseConfig): string[] {
+  const problems: string[] = [];
+  for (const proxy of trustedProxies(config)) {
+    const [address, prefix, extra] = proxy.split("/");
+    const family = isIP(address ?? "");
+    const bits = family === 4 ? 32 : 128;
+    const prefixOk = prefix === undefined || (/^\d{1,3}$/.test(prefix) && Number(prefix) <= bits);
+    if (family === 0 || !prefixOk || extra !== undefined) {
+      problems.push(`TRUSTED_PROXIES: "${proxy}" não é IP nem CIDR`);
+    }
+  }
+  if (config.MYSQL_TLS === "verify" && !config.MYSQL_TLS_CA) {
+    problems.push("MYSQL_TLS_CA ausente (obrigatória com MYSQL_TLS=verify)");
+  }
+  if (config.SPARK_ENV !== "development") {
+    if (config.MYSQL_TLS === "off") {
+      problems.push(
+        `MYSQL_TLS=off não é permitido em ${config.SPARK_ENV} (use required ou verify)`,
+      );
+    }
+    if (config.INSTANCE_DB_USER_HOST === "%") {
+      problems.push(
+        `INSTANCE_DB_USER_HOST='%' não é permitido em ${config.SPARK_ENV} (use a rede da aplicação)`,
+      );
+    }
+  }
+  return problems;
 }

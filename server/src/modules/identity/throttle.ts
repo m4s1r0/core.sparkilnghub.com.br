@@ -11,6 +11,12 @@ export interface ThrottleRule {
   /** Janela da contagem; `null` = falhas consecutivas, zeradas só no sucesso. */
   windowMs: number | null;
   lockMs: number;
+  /**
+   * Atraso progressivo (SEC-14): a partir de `after` falhas, cada nova falha bloqueia por
+   * `min(lockMs, baseMs × 2^(falhas − after))`. A contagem só zera no sucesso ou ao vencer a
+   * janela — não ao vencer o bloqueio, senão o atraso nunca cresceria.
+   */
+  progressive?: { after: number; baseMs: number };
 }
 
 const digest = (value: string) => sha256Hex(value).slice(0, 40);
@@ -28,13 +34,36 @@ export const throttleRules = {
     lockMs: 15 * MINUTE,
   }),
   /**
-   * Login por e-mail informado (existente ou não): a 11ª tentativa é limitada igualmente nos dois
-   * casos, sem revelar se a conta existe (FR-004, CS-007).
+   * Bloqueio total do e-mail informado (existente ou não), de qualquer origem: só com volume alto
+   * (100 falhas em 1 h), igual nos dois casos, sem revelar se a conta existe (FR-004, CS-007,
+   * SEC-14). O sucesso não zera: falhas de outras origens continuam contando.
    */
   loginEmail: (emailNormalized: string): ThrottleRule => ({
     key: `login:${digest(emailNormalized)}`,
-    max: 10,
-    windowMs: null,
+    max: 100,
+    windowMs: 60 * MINUTE,
+    lockMs: 15 * MINUTE,
+  }),
+  /**
+   * Par (e-mail, origem) — SEC-14: atraso progressivo a partir da 5ª falha (1 s, 2 s, 4 s… até
+   * 15 min). Uma origem atacando não atrasa o titular em outra origem. A origem é o IP no painel e
+   * `credencial:IP do usuário` no login de produto.
+   */
+  loginPair: (emailNormalized: string, origin: string): ThrottleRule => ({
+    key: `login-pair:${digest(emailNormalized)}:${digest(origin)}`,
+    max: 5,
+    windowMs: 24 * 60 * MINUTE,
+    lockMs: 15 * MINUTE,
+    progressive: { after: 5, baseMs: 1000 },
+  }),
+  /**
+   * Teto global de falhas de login por credencial de aplicação (SEC-02): protege o Core do custo
+   * de Argon2 e de spraying com IPs informados pelo produto. Checado antes da senha.
+   */
+  appCredential: (credentialId: string): ThrottleRule => ({
+    key: `app-cred:${credentialId}`,
+    max: 300,
+    windowMs: 15 * MINUTE,
     lockMs: 15 * MINUTE,
   }),
   origin: (ip: string): ThrottleRule => ({
@@ -104,6 +133,15 @@ export async function registerFailure(
   ctx: AppContext,
   rules: readonly ThrottleRule[],
 ): Promise<number | null> {
+  return (await registerFailureDetailed(ctx, rules)).lockedSeconds;
+}
+
+/** Como `registerFailure`, informando também as chaves que passaram a bloquear agora. */
+export async function registerFailureDetailed(
+  ctx: AppContext,
+  rules: readonly ThrottleRule[],
+): Promise<{ lockedSeconds: number | null; newlyLocked: string[] }> {
+  const newlyLocked: string[] = [];
   const now = ctx.clock();
   const sorted = [...rules].sort((a, b) => a.key.localeCompare(b.key));
   // Cria as linhas fora da transação: INSERT IGNORE sobre chave existente toma trava
@@ -126,22 +164,29 @@ export async function registerFailure(
       const lockExpired = locked !== null && locked <= now;
       const windowExpired =
         rule.windowMs !== null && now.getTime() - windowStart.getTime() >= rule.windowMs;
-      if (lockExpired || windowExpired) {
+      const wasLocked = locked !== null && !lockExpired;
+      if (windowExpired || (lockExpired && !rule.progressive)) {
         failures = 0;
         windowStart = now;
         locked = null;
       }
       failures += 1;
-      if (failures >= rule.max && locked === null) {
+      if (rule.progressive) {
+        if (failures >= rule.progressive.after) {
+          const delay = rule.progressive.baseMs * 2 ** (failures - rule.progressive.after);
+          locked = new Date(now.getTime() + Math.min(rule.lockMs, delay));
+        }
+      } else if (failures >= rule.max && (locked === null || lockExpired)) {
         locked = new Date(now.getTime() + rule.lockMs);
       }
+      if (locked && locked > now && !wasLocked) newlyLocked.push(rule.key);
       await sql`UPDATE auth_throttle
                    SET failures = ${failures}, window_started_at = ${windowStart}, locked_until = ${locked}
                  WHERE throttle_key = ${rule.key}`.execute(trx);
       if (locked && locked > now && (!lockedUntil || locked > lockedUntil)) lockedUntil = locked;
     }
   });
-  return lockedUntil ? secondsUntil(lockedUntil, now) : null;
+  return { lockedSeconds: lockedUntil ? secondsUntil(lockedUntil, now) : null, newlyLocked };
 }
 
 /** Sucesso zera a contagem (falhas consecutivas por conta). */

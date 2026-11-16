@@ -84,7 +84,7 @@ describe("solicitação, provisionamento e conexão × contracts/openapi.yaml 1.
       }),
     );
 
-    const credential = await appCredential(env, "sparkref", ["connection"]);
+    const credential = await appCredential(env, "sparkref", ["connection"], instance.id);
     const connection = (slug: string) =>
       app.app.inject({
         method: "GET",

@@ -87,6 +87,18 @@ export const BaseConfigSchema = Type.Object({
   INSTANCE_DB_PORT: Type.Optional(Type.Integer({ minimum: 1, maximum: 65535 })),
   // Tentativas por etapa de provisionamento em cada execução (F02 R-08).
   PROVISIONING_MAX_ATTEMPTS: Type.Integer({ minimum: 1, maximum: 20, default: 5 }),
+  // Proxies reversos confiáveis (IP ou CIDR, separados por vírgula). Só deles o Core aceita
+  // X-Forwarded-For e usa o salto mais à direita não confiável; vazio = IP do socket (SEC-13).
+  TRUSTED_PROXIES: Type.String({ default: "" }),
+  // TLS nas conexões do Core ao MySQL (SEC-15): off só em desenvolvimento; required cifra sem
+  // verificar a CA; verify cifra e verifica com MYSQL_TLS_CA (arquivo PEM).
+  MYSQL_TLS: Type.Union([Type.Literal("off"), Type.Literal("required"), Type.Literal("verify")], {
+    default: "off",
+  }),
+  MYSQL_TLS_CA: Type.Optional(Type.String({ minLength: 1 })),
+  // Host das credenciais operacionais das instâncias: a rede da aplicação (ex.: 10.0.%), nunca
+  // '%' fora do desenvolvimento (SEC-15).
+  INSTANCE_DB_USER_HOST: Type.String({ pattern: "^[A-Za-z0-9.%_:-]{1,255}$", default: "%" }),
 });
 
 export type BaseConfig = Static<typeof BaseConfigSchema>;

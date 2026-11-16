@@ -1,6 +1,7 @@
 import { sql } from "kysely";
 import { syncToInstances } from "../src/modules/access-projection/sync.js";
 import {
+  bindAppCredential,
   createAppCredential,
   listAppCredentials,
 } from "../src/modules/app-credentials/app-credentials.js";
@@ -164,14 +165,21 @@ export async function seedF01(
     if (current?.state === "PRONTA") await activateSyntheticInstance(ctx, instance.id);
   }
 
+  // Credencial vinculada à instância A (SEC-01): uma credencial por implantação do produto.
+  // Uma semente antiga, por produto, é vinculada a A sem trocar o segredo.
+  const instanceA = instances.get("ref-a");
   const existing = (await listAppCredentials(ctx)).find(
     (c) => c.productCode === "sparkref" && c.label === CREDENTIAL_LABEL && !c.revokedAt,
   );
+  if (existing && !existing.instanceId && instanceA) {
+    await bindAppCredential(ctx, existing.id, instanceA.id);
+  }
   if (!existing) {
     const created = await createAppCredential(ctx, {
       productCode: "sparkref",
       label: CREDENTIAL_LABEL,
       scopes: ["sessions", "members", "connection"],
+      instanceId: instanceA?.id ?? null,
     });
     result.appCredential = created.value;
   }

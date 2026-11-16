@@ -14,7 +14,9 @@ import { appCredential } from "../../support/product.js";
 
 let env: F01TestEnv;
 let app: F01App;
-let credential: string;
+/** Uma credencial por instância (SEC-01), pelo slug. */
+const credentials: Record<string, string> = {};
+const credentialOf = (slug: string) => credentials[slug] ?? "";
 const ready: { slug: string; id: string }[] = [];
 
 const http = (request: { method: "GET" | "POST"; url: string; headers: Record<string, string> }) =>
@@ -32,7 +34,6 @@ beforeAll(async () => {
     INSTANCE_DB_HOST: "db.interno.test",
     INSTANCE_DB_PORT: 3399,
   });
-  credential = await appCredential(env, "sparkref", ["sessions", "members", "connection"]);
   const accountId = await requester(env);
   for (let i = 0; i < 2; i += 1) {
     const { instanceId, taskId } = await requestViaService(env, accountId);
@@ -40,6 +41,12 @@ beforeAll(async () => {
     const instance = await getInstance(env.ctx, instanceId);
     if (!instance) throw new Error("instância");
     ready.push({ slug: instance.slug, id: instance.id });
+    credentials[instance.slug] = await appCredential(
+      env,
+      "sparkref",
+      ["sessions", "members", "connection"],
+      instance.id,
+    );
   }
 });
 afterAll(async () => {
@@ -47,7 +54,7 @@ afterAll(async () => {
   await env?.cleanup();
 });
 
-const get = (slug: string, bearer: string | null = credential) =>
+const get = (slug: string, bearer: string | null = credentialOf(slug)) =>
   app.app.inject({
     method: "GET",
     url: `/internal/v1/instances/${slug}/connection`,
@@ -89,15 +96,16 @@ describe("contrato interno de conexão da instância (FR-031, research.md R-10)"
   it("sem escopo connection → 401; outro produto e slug inexistente → 404 idêntico", async () => {
     const [a] = ready;
     if (!a) throw new Error("A");
-    const withoutScope = await appCredential(env, "sparkref", ["sessions", "members"]);
+    const withoutScope = await appCredential(env, "sparkref", ["sessions", "members"], a.id);
     const noScope = await get(a.slug, withoutScope);
     expect(noScope.statusCode).toBe(401);
     expect(noScope.json<{ error: { code: string } }>().error.code).toBe(
       "AUTH_APP_CREDENTIAL_INVALID",
     );
-    const other = await appCredential(env, "outroproduto", ["connection"]);
+    // Credencial de outro produto (vinculada a uma instância que não é dele: dado inconsistente).
+    const other = await appCredential(env, "outroproduto", ["connection"], a.id);
     const foreign = await get(a.slug, other);
-    const missing = await get("nao-existe");
+    const missing = await get("nao-existe", credentialOf(a.slug));
     expect(foreign.statusCode).toBe(404);
     expect(missing.statusCode).toBe(404);
     const strip = (r: typeof foreign) => {
@@ -110,6 +118,12 @@ describe("contrato interno de conexão da instância (FR-031, research.md R-10)"
   it("instância ainda sem recursos prontos → 409 INSTANCE_NOT_READY", async () => {
     const { instanceId } = await requestViaService(env, await requester(env));
     const instance = await getInstance(env.ctx, instanceId);
+    credentials[instance?.slug ?? ""] = await appCredential(
+      env,
+      "sparkref",
+      ["connection"],
+      instanceId,
+    );
     for (const state of ["CADASTRADA", "PROVISIONANDO", "FALHA_PROVISIONAMENTO"]) {
       await sql`UPDATE instance SET state = ${state} WHERE id = ${uuidToBin(instanceId)}`.execute(
         env.ctx.core,
@@ -125,7 +139,7 @@ describe("contrato interno de conexão da instância (FR-031, research.md R-10)"
     if (!a || !b) throw new Error("A/B");
     const pools = await Promise.all(
       [a, b].map(async (item) => {
-        const connection = await fetchInstanceConnection(http, credential, item.slug);
+        const connection = await fetchInstanceConnection(http, credentialOf(item.slug), item.slug);
         // O host entregue aos produtos é configurável; o teste usa o MySQL local.
         return {
           item,

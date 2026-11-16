@@ -8,6 +8,9 @@ export function scrub(value: unknown, depth = 0, seen = new WeakSet<object>()): 
   if (value === null || typeof value !== "object" || depth > 8) return value;
   // Erros seguem para o serializer (serializeError), que já remove dados sensíveis.
   if (value instanceof Error) return value;
+  // Requisição do Fastify/Node: só os campos do serializer, com a URL mascarada (SEC-16). O
+  // formatter roda antes dos serializers do pino; sem isto a requisição viraria `{}`.
+  if (isRequestLike(value)) return serializeRequest(value);
   if (seen.has(value)) return "[Circular]";
   seen.add(value);
   if (Array.isArray(value)) return value.map((item) => scrub(item, depth + 1, seen));
@@ -50,10 +53,52 @@ export function serializeError(err: unknown): Record<string, unknown> {
   return out;
 }
 
+/**
+ * Segmentos de URL que carregam token de uso único (convite, recuperação de senha) e o parâmetro
+ * `token=`: trocados por `[REDACTED]` antes de qualquer log (SEC-16, SEC-BASE-16).
+ */
+const TOKEN_SEGMENT = /(\/convite\/|\/api\/v1\/invitations\/|\/api\/v1\/password-resets\/)[^/?#]+/g;
+const TOKEN_PARAM = /([?&]token=)[^&#]*/gi;
+
+export function redactUrl(url: string): string {
+  return url.replace(TOKEN_SEGMENT, "$1[REDACTED]").replace(TOKEN_PARAM, "$1[REDACTED]");
+}
+
+interface LoggableRequest {
+  method?: string;
+  url?: string;
+  host?: string;
+  hostname?: string;
+  ip?: string;
+  remoteAddress?: string;
+  remotePort?: number;
+  socket?: { remoteAddress?: string; remotePort?: number };
+}
+
+function isRequestLike(value: object): value is LoggableRequest {
+  const candidate = value as LoggableRequest & { raw?: unknown };
+  return (
+    typeof candidate.method === "string" &&
+    typeof candidate.url === "string" &&
+    (candidate.raw !== undefined || candidate.socket !== undefined)
+  );
+}
+
+/** Serializer da requisição do Fastify: mesmos campos do padrão, com a URL mascarada. */
+export function serializeRequest(req: LoggableRequest): Record<string, unknown> {
+  return {
+    method: req.method,
+    url: req.url === undefined ? undefined : redactUrl(req.url),
+    host: req.host ?? req.hostname,
+    remoteAddress: req.ip ?? req.remoteAddress ?? req.socket?.remoteAddress,
+    remotePort: req.remotePort ?? req.socket?.remotePort,
+  };
+}
+
 export const loggerOptions: LoggerOptions = {
   base: { product: "sparkcore" },
   messageKey: "msg",
-  serializers: { err: serializeError, error: serializeError },
+  serializers: { err: serializeError, error: serializeError, req: serializeRequest },
   formatters: {
     log: (object) => scrub(object) as Record<string, unknown>,
   },

@@ -1,11 +1,12 @@
 /**
- * Neutraliza fórmulas em células CSV: prefixa com `'` valores que começam com `=`, `+`, `-` ou
- * `@` para prevenir CSV Injection (OWASP, SC-041). O cabeçalho nunca começa com esses caracteres.
+ * Neutraliza fórmulas em células CSV: prefixa com `'` valores que começam com `=`, `+`, `-`, `@`,
+ * TAB ou CR para prevenir CSV Injection (OWASP, SC-041, SEC-21). O cabeçalho nunca começa com
+ * esses caracteres.
  */
 export function sanitizeCsvCell(value: string | null | undefined): string {
   if (value === null || value === undefined) return "";
   const s = String(value);
-  if (/^[=+\-@]/.test(s)) return "'" + s;
+  if (/^[=+\-@\t\r]/.test(s)) return "'" + s;
   return s;
 }
 

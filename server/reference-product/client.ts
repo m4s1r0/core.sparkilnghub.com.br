@@ -129,8 +129,19 @@ export class ReferenceProductClient {
 
   /** Atividade (inatividade de 2 h medida pelo Core); chamar no máximo a cada 5 min. */
   async touch(token: string): Promise<number> {
+    return (await this.touchRole(token)).status;
+  }
+
+  /**
+   * Touch v1.4 (SEC-04): o papel atual vem do Core; com Core v1.3 (`204`) o produto mantém o papel
+   * do login. Autorizar sempre pelo papel devolvido aqui.
+   */
+  async touchRole(
+    token: string,
+  ): Promise<{ status: number; role: "administrador" | "colaborador" | null }> {
     const response = await this.#call("POST", "/sessions/touch", { "x-instance-session": token });
-    return response.status;
+    const body = response.body as { role?: "administrador" | "colaborador" } | undefined;
+    return { status: response.status, role: response.status === 200 ? (body?.role ?? null) : null };
   }
 
   /** Contrato de vínculos locais (US4): chamada genérica com a sessão do administrador local. */
@@ -158,6 +169,8 @@ export interface InstanceConnection {
   user: string;
   password: string;
   credentialVersion: number;
+  /** v1.4 (SEC-15): `required` → pool com TLS. Ausente em Core anterior. */
+  tls?: "required" | "disabled";
 }
 
 /**
@@ -194,6 +207,7 @@ export function openInstancePools(connection: InstanceConnection): {
     password: connection.password,
     timezone: "Z",
     connectionLimit: 2,
+    ...(connection.tls === "required" ? { ssl: { rejectUnauthorized: false } } : {}),
   };
   const operational = createPool({ ...base, database: connection.database });
   const access = createPool({ ...base, database: connection.accessDatabase });

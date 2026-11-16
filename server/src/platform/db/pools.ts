@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { Kysely, MysqlDialect } from "kysely";
 import { createPool, type Pool } from "mysql2";
 import { createConnection, type Connection } from "mysql2/promise";
@@ -5,6 +6,28 @@ import type { Config } from "../config/load.js";
 import { type CredentialRole, mysqlUser } from "../config/schema.js";
 
 const DATABASE_NAME = /^[a-z][a-z0-9_]{1,63}$/;
+
+/**
+ * TLS até o MySQL (SEC-15): `required` cifra sem verificar a CA (rede interna com certificado
+ * próprio do servidor); `verify` cifra e verifica com `MYSQL_TLS_CA`. `off` só em desenvolvimento
+ * (a configuração recusa nos demais ambientes).
+ */
+export function sslOptions(
+  config: Pick<Config, "MYSQL_TLS"> & Partial<Pick<Config, "MYSQL_TLS_CA">>,
+): { rejectUnauthorized: boolean; ca?: string } | undefined {
+  if (config.MYSQL_TLS === "off") return undefined;
+  if (config.MYSQL_TLS === "required") return { rejectUnauthorized: false };
+  if (!config.MYSQL_TLS_CA) throw new Error("MYSQL_TLS_CA ausente (MYSQL_TLS=verify)");
+  return { rejectUnauthorized: true, ca: readFileSync(config.MYSQL_TLS_CA, "utf8") };
+}
+
+/** `{ ssl }` para espalhar nas opções do mysql2, ou nada com TLS desligado. */
+export function sslField(
+  config: Pick<Config, "MYSQL_TLS"> & Partial<Pick<Config, "MYSQL_TLS_CA">>,
+): { ssl: { rejectUnauthorized: boolean; ca?: string } } | Record<string, never> {
+  const ssl = sslOptions(config);
+  return ssl ? { ssl } : {};
+}
 
 interface Entry {
   pool: Pool;
@@ -57,6 +80,7 @@ export class PoolRegistry {
       multipleStatements: false,
       connectTimeout: 2_000,
       supportBigNumbers: true,
+      ...sslField(this.config),
     });
     const db = new Kysely<DB>({ dialect: new MysqlDialect({ pool }) });
     this.#entries.set(key, { pool, db: db as Kysely<unknown>, limit });
@@ -93,5 +117,6 @@ export async function openAdminConnection(
     timezone: "Z",
     multipleStatements: true,
     connectTimeout: 5_000,
+    ...sslField(config),
   });
 }

@@ -4,7 +4,14 @@ import { loadConfig } from "../../../src/platform/config/load.js";
 import type { Env } from "../../../src/platform/config/schema.js";
 import { createLogger } from "../../../src/platform/logging/logger.js";
 
-const config = (env: Env) => loadConfig({ env: { SPARK_ENV: env } });
+// Fora do desenvolvimento a configuração exige TLS até o MySQL e host restrito (SEC-15).
+const config = (env: Env) =>
+  loadConfig({
+    env: {
+      SPARK_ENV: env,
+      ...(env === "development" ? {} : { MYSQL_TLS: "required", INSTANCE_DB_USER_HOST: "10.0.%" }),
+    },
+  });
 const logger = createLogger({ level: "silent" });
 
 describe("assertEnvironment (FR-011, FR-028; constituição IV)", () => {

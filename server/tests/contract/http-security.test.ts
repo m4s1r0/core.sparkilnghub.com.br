@@ -141,3 +141,39 @@ describe("idempotência (COM-026)", () => {
     }
   });
 });
+
+describe("SEC-22 / SEC-BASE-10: cabeçalhos de segurança em todas as respostas", () => {
+  const common = (headers: Record<string, unknown>) => {
+    expect(String(headers["content-security-policy"])).toMatch(/default-src 'self'/);
+    expect(String(headers["content-security-policy"])).toMatch(/frame-ancestors 'none'/);
+    expect(headers["x-content-type-options"]).toBe("nosniff");
+    expect(headers["referrer-policy"]).toBe("no-referrer");
+    expect(String(headers["permissions-policy"])).toMatch(/camera=\(\)/);
+    expect(headers["x-frame-options"]).toBe("DENY");
+  };
+
+  it("API, interno, erro 404 e health trazem os cabeçalhos; API sem cache", async () => {
+    for (const url of [
+      "/api/v1/session",
+      "/internal/v1/instances/nao-existe/connection",
+      "/api/v1/nao-existe",
+      "/health/live",
+    ]) {
+      const response = await app.app.inject({ method: "GET", url });
+      common(response.headers);
+      if (url.startsWith("/api/") || url.startsWith("/internal/")) {
+        expect(response.headers["cache-control"]).toBe("no-store");
+      }
+      // HSTS só fora do desenvolvimento.
+      expect(response.headers["strict-transport-security"]).toBeUndefined();
+    }
+  });
+
+  it("fora do desenvolvimento acrescenta HSTS", async () => {
+    const response = await prodApp.app.inject({ method: "GET", url: "/api/v1/session" });
+    common(response.headers);
+    expect(response.headers["strict-transport-security"]).toBe(
+      "max-age=31536000; includeSubDomains",
+    );
+  });
+});

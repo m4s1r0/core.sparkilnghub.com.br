@@ -1,7 +1,8 @@
 import { sql } from "kysely";
 import type { Config } from "../../platform/config/load.js";
 import type { AppContext } from "../../platform/context.js";
-import { uuidToBin } from "../../platform/ids.js";
+import { instanceAccountOf, syncOperationalGrants } from "../../platform/db/grants.js";
+import { instanceUserName, uuidToBin } from "../../platform/ids.js";
 import { appliedBy } from "../../platform/migrations/core-migrations.js";
 import type { LoadedManifest } from "../../platform/migrations/manifest.js";
 import { checkHistory, migrate, readHistory } from "../../platform/migrations/migrator.js";
@@ -49,6 +50,17 @@ export async function applyInstanceMigrations(sc: MigrationStepContext): Promise
   const product = await withAdmin(sc.config, sc.instance.databaseName, (connection) =>
     migrate(connection, sc.manifest, { appliedBy: appliedBy("spark_provisioner") }),
   );
+  // Tabelas novas recebem o DML (ou só INSERT, se só-inserção) da credencial operacional (SEC-12).
+  // Idempotente: retomada da etapa reaplica sem efeito.
+  await withAdmin(sc.config, undefined, async (admin) => {
+    const { account, requireTls } = instanceAccountOf(sc.config, instanceUserName(sc.instance.id));
+    await syncOperationalGrants(admin, {
+      database: sc.instance.databaseName,
+      account,
+      appendOnlyTables: sc.manifest.manifest.appendOnlyTables ?? [],
+      requireTls,
+    });
+  });
   await sql`UPDATE instance SET schema_version = ${sc.manifest.migrations.length}
              WHERE id = ${uuidToBin(sc.instance.id)}`.execute(sc.ctx.core);
   if (product.applied.length > 0) await sc.afterEffect?.("aplicar_migracoes_instancia");
