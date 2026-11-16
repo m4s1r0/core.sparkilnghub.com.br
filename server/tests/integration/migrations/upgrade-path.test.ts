@@ -97,7 +97,8 @@ describe("migração a partir da versão anterior (FR-017, CS-005)", () => {
       { state: "ATIVA", authorization_revision: 3, contractor: "0192F6000000700080000000000000C1" },
     ]);
     const [products] = await conn.query("SELECT code FROM product ORDER BY code");
-    expect(products).toEqual([{ code: "sparkpet" }, { code: "sparkref" }]);
+    // `cortivo` vem da 0010 (spec 009), incluída no manifesto atual.
+    expect(products).toEqual([{ code: "cortivo" }, { code: "sparkpet" }, { code: "sparkref" }]);
     const [transitions] = await conn.query(
       "SELECT from_state, to_state, actor_kind, reason FROM instance_transition",
     );
@@ -105,13 +106,14 @@ describe("migração a partir da versão anterior (FR-017, CS-005)", () => {
       { from_state: null, to_state: "ATIVA", actor_kind: "sistema", reason: "migracao_f01" },
     ]);
 
-    // Sem instâncias sintéticas (produção): só o Tuteli no catálogo, nenhum contratante.
+    // Sem instâncias sintéticas (produção): só produtos reais (Tuteli e, desde a 0010, Cortivo),
+    // sem o produto de referência e sem contratante.
     const empty = await ctx.createDatabase("upgrade_f01_empty");
     const emptyConn = await ctx.connect("test", empty);
     await migrate(emptyConn, v3, { appliedBy: "teste" });
     await migrate(emptyConn, current, { appliedBy: "teste" });
-    const [onlyPet] = await emptyConn.query("SELECT code FROM product");
-    expect(onlyPet).toEqual([{ code: "sparkpet" }]);
+    const [realProducts] = await emptyConn.query("SELECT code FROM product ORDER BY code");
+    expect(realProducts).toEqual([{ code: "cortivo" }, { code: "sparkpet" }]);
     const [contractors] = await emptyConn.query("SELECT COUNT(*) AS n FROM contractor");
     expect(Number((contractors as { n: number }[])[0]?.n)).toBe(0);
   });

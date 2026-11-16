@@ -6,7 +6,7 @@ import type { CredentialRole } from "../../src/platform/config/schema.js";
 import { openAdminConnection } from "../../src/platform/db/pools.js";
 import { createLogger } from "../../src/platform/logging/logger.js";
 
-const INSTANCE_PREFIXES = ["sparkref_", "sparkpet_"];
+const INSTANCE_PREFIXES = ["sparkref_", "sparkpet_", "cortivo_"];
 
 /**
  * Apoio dos testes de integração. Cria apenas bancos `t_<runid>_*` e remove somente o que ele

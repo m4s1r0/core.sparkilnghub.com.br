@@ -39,6 +39,7 @@ CREATE USER IF NOT EXISTS 'spark_provisioner'@'%' IDENTIFIED BY '${MYSQL_PROVISI
 GRANT CREATE USER ON *.* TO 'spark_provisioner'@'%';
 GRANT ALL PRIVILEGES ON \`sparkref\_%\`.* TO 'spark_provisioner'@'%' WITH GRANT OPTION;
 GRANT ALL PRIVILEGES ON \`sparkpet\_%\`.* TO 'spark_provisioner'@'%' WITH GRANT OPTION;
+GRANT ALL PRIVILEGES ON \`cortivo\_%\`.* TO 'spark_provisioner'@'%' WITH GRANT OPTION;
 
 -- Testes de integração: apenas bancos temporários t_<runid>_*. Não existe em produção.
 CREATE USER IF NOT EXISTS 'spark_test'@'%' IDENTIFIED BY '${MYSQL_TEST_PASSWORD}';

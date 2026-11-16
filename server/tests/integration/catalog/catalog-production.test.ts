@@ -34,3 +34,34 @@ describe("produto de referência fora do catálogo de produção (FR-010, consti
     expect(resolved.ok).toBe(true);
   });
 });
+
+describe("Cortivo no catálogo, em todos os ambientes (spec 009, US1.4, US4)", () => {
+  it("aparece em produção como produto real, ativo e não de referência", async () => {
+    const codes = (await listProducts(production)).map((p) => p.code);
+    expect(codes).toContain("cortivo");
+    await expect(getProduct(production, "cortivo")).resolves.toMatchObject({
+      code: "cortivo",
+      name: "Cortivo",
+      description: "Gestão para barbearias",
+      status: "ativo",
+    });
+  });
+
+  it("o provisionador cortivo-v1 está disponível em development, homologation e production", async () => {
+    for (const environment of ["development", "homologation", "production"] as const) {
+      const resolved = await resolveProvisioner("cortivo", environment);
+      expect(resolved).toMatchObject({ ok: true, version: 1 });
+      if (resolved.ok) expect(resolved.provisioner.id).toBe("cortivo-v1");
+    }
+  });
+
+  it("registrar o Cortivo não altera a resolução de sparkpet nem de sparkref", async () => {
+    const pet = await resolveProvisioner("sparkpet", "production");
+    expect(pet).toMatchObject({ ok: true });
+    if (pet.ok) expect(pet.provisioner.id).toBe("sparkpet-v1");
+    expect(await resolveProvisioner("sparkref", "production")).toEqual({
+      ok: false,
+      reason: "AMBIENTE_NAO_PERMITIDO",
+    });
+  });
+});

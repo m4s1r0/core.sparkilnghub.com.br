@@ -2,7 +2,7 @@ import type { Env } from "../../platform/config/schema.js";
 import { sha256Hex } from "../../platform/crypto/index.js";
 import { validateArtifact } from "../../platform/migrations/artifact-validator.js";
 import { type LoadedManifest, loadManifest } from "../../platform/migrations/manifest.js";
-import { referenceProductDir, tuteliProductDir } from "../../platform/paths.js";
+import { cortivoProductDir, referenceProductDir, tuteliProductDir } from "../../platform/paths.js";
 
 /** Provisionador publicado com o código implantado do Core (research.md R-14). */
 export interface ProvisionerDef {
@@ -29,6 +29,13 @@ export const PROVISIONERS: ProvisionerRegistry = {
   sparkpet: {
     id: "sparkpet-v1",
     artifactDir: tuteliProductDir,
+    environments: ["development", "homologation", "production"],
+  },
+  // Cortivo (gestão para barbearias): código técnico imutável `cortivo` (SC-007, D-COR-01); o
+  // artefato vem de `produtos/cortivo/artifact`.
+  cortivo: {
+    id: "cortivo-v1",
+    artifactDir: cortivoProductDir,
     environments: ["development", "homologation", "production"],
   },
 };

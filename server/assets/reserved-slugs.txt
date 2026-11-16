@@ -6,6 +6,7 @@ assets
 auth
 core
 convite
+cortivo
 entrar
 health
 i

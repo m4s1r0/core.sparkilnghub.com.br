@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "productCode": "cortivo",
+  "databasePrefix": "cortivo_",
+  "appendOnlyTables": ["auditoria"],
+  "migrations": [
+    {
+      "version": 1,
+      "name": "0001_base",
+      "file": "migrations/0001_base.sql",
+      "sha256": "dabe6092b04a92fa92d5a25f4d51e2eb5994e1625e2838cbf557c3c7364bcedb"
+    }
+  ]
+}
