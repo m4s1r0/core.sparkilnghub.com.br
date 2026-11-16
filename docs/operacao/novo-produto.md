@@ -118,6 +118,18 @@ do produto, ex. `tuteli.sparklinghub.com.br`, que só consome a API do Core).
    do produto. Use só o escopo que o produto realmente chama (`connection` entrega a senha
    operacional do banco da instância — só para o processo que abre essa conexão).
 
+   Com o Core v1.4 (`CONF-01`) a credencial dos escopos `connection`, `sessions` e `members`
+   **precisa** estar vinculada a uma instância; credencial por produto é recusada. Para o
+   Cortivo, crie uma credencial por instância já vinculada ao slug dela:
+
+   ```bash
+   npm run app-credential -- create cortivo "cortivo <slug> dev" --scopes sessions,members,connection --instance <slug>
+   ```
+
+   (Credencial existente: `npm run app-credential -- bind <id> --instance <slug>`, segredo
+   inalterado; detalhes em [credenciais-aplicacao.md](./credenciais-aplicacao.md).) Cada processo do
+   Cortivo atende uma única instância (`SPARKCORE_INSTANCE_SLUG`), então usa a credencial dela.
+
 4. Instale e suba o produto (exemplo com o layout `api/` + `web/` do Tuteli):
 
    ```bash
@@ -248,7 +260,7 @@ padrão `3306`). Duas formas:
   | Servidor web       | `spark_core_web`      | `MYSQL_WEB_PASSWORD`           | DML em `spark_core` e `spark_identity`                                  |
   | Trabalhador        | `spark_core_worker`   | `MYSQL_WORKER_PASSWORD`        | DML em `spark_core`; leitura/inserção em `spark_identity`               |
   | Escritor de acesso | `spark_access_writer` | `MYSQL_ACCESS_WRITER_PASSWORD` | sem privilégio global; DML concedido por instância em `<instância>_acc` |
-  | Provisionador      | `spark_provisioner`   | `MYSQL_PROVISIONER_PASSWORD`   | `CREATE USER` global; tudo em `sparkpet_%`/`sparkref_%`                 |
+  | Provisionador      | `spark_provisioner`   | `MYSQL_PROVISIONER_PASSWORD`   | `CREATE USER` global; tudo em `sparkpet_%`/`sparkref_%`/`cortivo_%`     |
   | Testes             | `spark_test`          | `MYSQL_TEST_PASSWORD`          | tudo em `t_%` (só development/CI)                                       |
 
   ```bash

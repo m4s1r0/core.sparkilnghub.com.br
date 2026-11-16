@@ -13,7 +13,7 @@ produto do ecossistema. **Substitui** a tabela de portas de
 | *(referência sintética)* | `sparkref` | `sparkref_` | dentro do Core | — | Somente desenvolvimento/homologação |
 | Tuteli | `sparkpet` | `sparkpet_` | `tuteli/tuteli.sparklinghub.com.br` | `tuteli/` | Em implementação (specs 001–021) |
 | Paginor | `sparkcms` *(a confirmar no C00)* | `sparkcms_` | `cms/cms.sparklinghub.com.br` | `paginor/` | Escopo inicial |
-| Cortivo | `cortivo` *(proposto, D-COR-01)* | `cortivo_` | `cortivo/cortivo.sparklinghub.com.br` | `cortivo/` | Escopo e modelagem preliminar |
+| Cortivo | `cortivo` *(confirmado, D-COR-01)* | `cortivo_` | `cortivo/cortivo.sparklinghub.com.br` | `cortivo/` | C00 lado do Core entregue (catálogo, artefato v1, provisionador `cortivo-v1`; spec 009); produto em C00/C01. Portas 3003/5177 |
 | Forneli | a definir | a definir | a criar | `forneli/` | Somente marca |
 | Reparum | a definir | a definir | a criar | `reparum/` | Somente marca |
 | Pulsari | a definir | a definir | a criar | `pulsari/` | Somente marca |

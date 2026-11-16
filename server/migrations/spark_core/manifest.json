@@ -55,6 +55,12 @@
       "name": "0009_admin_task_from_version",
       "file": "migrations/0009_admin_task_from_version.sql",
       "sha256": "a5fa2d0cd59db033876d302fd53302a534cb9cd5180add6f157bdc00bce1d2ea"
+    },
+    {
+      "version": 10,
+      "name": "0010_cadastro_cortivo",
+      "file": "migrations/0010_cadastro_cortivo.sql",
+      "sha256": "8eabe449cfacad0ab741148847430d8e57bd99cbfce0e9607f583f118181c406"
     }
   ]
 }
