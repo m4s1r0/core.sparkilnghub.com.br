@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { sql } from "kysely";
 import type { ProvisionerRegistry } from "../../src/modules/catalog/provisioners.js";
 import { normalizeSql, sha256 } from "../../src/platform/migrations/manifest.js";
-import { referenceProductDir } from "../../src/platform/paths.js";
+import { cortivoProductDir, referenceProductDir } from "../../src/platform/paths.js";
 import { getInstance } from "../../src/modules/instances/instances.js";
 import { type InstanceRequestBody, requestInstance } from "../../src/modules/instances/request.js";
 import {
@@ -147,4 +147,17 @@ export function artifactVariant(
   }
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
   return { sparkref: { id: "sparkref-teste", artifactDir: dir, environments: ["development"] } };
+}
+
+/** Provisionador temporário do Cortivo v1, para provar a tarefa real de migração para a v2. */
+export function cortivoV1Variant(): ProvisionerRegistry {
+  const dir = mkdtempSync(join(tmpdir(), "cortivo-v1-teste-"));
+  cpSync(cortivoProductDir, dir, { recursive: true });
+  const manifestPath = join(dir, "manifest.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+    migrations: { version: number; name: string; file: string; sha256: string }[];
+  };
+  manifest.migrations = manifest.migrations.slice(0, 1);
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  return { cortivo: { id: "cortivo-v1-teste", artifactDir: dir, environments: ["development"] } };
 }

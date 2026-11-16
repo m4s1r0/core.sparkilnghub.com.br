@@ -26,6 +26,7 @@
     "dev:reset": "tsx scripts/dev-reset.ts",
     "db:migrate": "tsx server/src/cli/db-migrate.ts",
     "db:seed": "tsx server/src/cli/db-seed.ts",
+    "dev:prepare-cortivo-c01": "tsx server/src/cli/dev-prepare-cortivo-c01.ts",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "check:ds": "tsx scripts/check-ds.ts",

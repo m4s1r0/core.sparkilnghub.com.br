@@ -1,10 +1,13 @@
+import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Connection } from "mysql2/promise";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { validateArtifact } from "../../../src/platform/migrations/artifact-validator.js";
-import { loadManifest } from "../../../src/platform/migrations/manifest.js";
+import { loadManifest, MigrationError } from "../../../src/platform/migrations/manifest.js";
 import { migrate, readHistory } from "../../../src/platform/migrations/migrator.js";
 import { cortivoProductDir } from "../../../src/platform/paths.js";
-import { MysqlTestContext } from "../../support/mysql.js";
+import { MysqlTestContext, tableStructure } from "../../support/mysql.js";
 
 let ctx: MysqlTestContext;
 let db: Connection;
@@ -23,9 +26,55 @@ afterAll(async () => {
 });
 
 const now = "UTC_TIMESTAMP(6)";
+const uuid = () => Buffer.from(crypto.randomUUID().replaceAll("-", ""), "hex");
 
-describe("artefato do Cortivo, versão 1 (spec 009, FR-004 a FR-010)", () => {
-  it("manifesto v1 do produto cortivo, com auditoria declarada só-inserção", async () => {
+function truncated(dir: string, versions: number): string {
+  const target = mkdtempSync(join(tmpdir(), "cortivo-base-"));
+  cpSync(dir, target, { recursive: true });
+  const manifestPath = join(target, "manifest.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+    migrations: unknown[];
+  };
+  manifest.migrations = manifest.migrations.slice(0, versions);
+  writeFileSync(manifestPath, JSON.stringify(manifest));
+  return target;
+}
+
+async function completeStructure(connection: Connection, schema: string) {
+  const [constraints] = await connection.query(
+    `SELECT TABLE_NAME, CONSTRAINT_NAME, CONSTRAINT_TYPE
+       FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = ?
+      ORDER BY TABLE_NAME, CONSTRAINT_NAME`,
+    [schema],
+  );
+  const [foreignKeys] = await connection.query(
+    `SELECT TABLE_NAME, CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME,
+            REFERENCED_COLUMN_NAME, POSITION_IN_UNIQUE_CONSTRAINT
+       FROM information_schema.KEY_COLUMN_USAGE
+      WHERE CONSTRAINT_SCHEMA = ? AND REFERENCED_TABLE_NAME IS NOT NULL
+      ORDER BY TABLE_NAME, CONSTRAINT_NAME, ORDINAL_POSITION`,
+    [schema],
+  );
+  const [checks] = await connection.query(
+    `SELECT tc.TABLE_NAME, tc.CONSTRAINT_NAME, cc.CHECK_CLAUSE
+       FROM information_schema.TABLE_CONSTRAINTS tc
+       JOIN information_schema.CHECK_CONSTRAINTS cc
+         ON cc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA
+        AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
+      WHERE tc.CONSTRAINT_SCHEMA = ? AND tc.CONSTRAINT_TYPE = 'CHECK'
+      ORDER BY tc.TABLE_NAME, tc.CONSTRAINT_NAME`,
+    [schema],
+  );
+  return {
+    tables: await tableStructure(connection, schema),
+    constraints,
+    foreignKeys,
+    checks,
+  };
+}
+
+describe("artefato do Cortivo, versão 2 (spec 010, FR-001 a FR-007)", () => {
+  it("manifesto v1+v2 do produto cortivo, com auditoria declarada só-inserção", async () => {
     const loaded = await loadManifest(cortivoProductDir);
     expect(loaded.manifest).toMatchObject({
       formatVersion: 1,
@@ -33,17 +82,20 @@ describe("artefato do Cortivo, versão 1 (spec 009, FR-004 a FR-010)", () => {
       databasePrefix: "cortivo_",
       appendOnlyTables: ["auditoria"],
     });
-    expect(loaded.migrations.map((m) => m.version)).toEqual([1]);
+    expect(loaded.migrations.map((m) => m.version)).toEqual([1, 2]);
     expect(() => validateArtifact(loaded)).not.toThrow();
   });
 
-  it("aplica a versão 1 do zero e registra o histórico sem pendência", async () => {
+  it("aplica as versões 1 e 2 do zero e registra o histórico sem pendência", async () => {
     const history = await readHistory(db);
-    expect(history).toHaveLength(1);
-    expect(history[0]).toMatchObject({ version: 1, status: "aplicada" });
+    expect(history).toHaveLength(2);
+    expect(history.map(({ version, status }) => ({ version, status }))).toEqual([
+      { version: 1, status: "aplicada" },
+      { version: 2, status: "aplicada" },
+    ]);
   });
 
-  it("cria somente a base: nenhuma tabela de negócio (FR-005, FR-009)", async () => {
+  it("cria somente a base e o cadastro mínimo de profissional (FR-006)", async () => {
     const [rows] = await db.query(
       "SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?",
       [database],
@@ -57,6 +109,7 @@ describe("artefato do Cortivo, versão 1 (spec 009, FR-004 a FR-010)", () => {
         "idempotencia",
         "outbox_evento",
         "perfil_colaborador",
+        "profissional",
         "unidade",
       ].sort(),
     );
@@ -117,12 +170,22 @@ describe("unidade: linha única imposta pelo banco (FR-007)", () => {
 
 describe("perfil_colaborador: perfis locais acumuláveis (FR-008, D-COR-03)", () => {
   const membership = () => Buffer.from(crypto.randomUUID().replaceAll("-", ""), "hex");
-  const insert = (perfis: string, id = membership()) =>
-    db.query(
-      `INSERT INTO perfil_colaborador (membership_id, perfis, definido_por, criado_em, atualizado_em)
-       VALUES (?, ?, ?, ${now}, ${now})`,
-      [id, perfis, membership()],
+  const insert = async (perfis: string, id = membership()) => {
+    const professionalId = perfis.includes("barbeiro") ? uuid() : null;
+    if (professionalId) {
+      await db.query(
+        `INSERT INTO profissional (profissional_id, nome, criado_em, atualizado_em)
+         VALUES (?, 'Profissional de teste', ${now}, ${now})`,
+        [professionalId],
+      );
+    }
+    return db.query(
+      `INSERT INTO perfil_colaborador
+         (membership_id, profissional_id, perfis, definido_por, criado_em, atualizado_em)
+       VALUES (?, ?, ?, ?, ${now}, ${now})`,
+      [id, professionalId, perfis, membership()],
     );
+  };
 
   it("aceita recepcao, barbeiro e os dois juntos", async () => {
     await insert("recepcao");
@@ -146,7 +209,7 @@ describe("perfil_colaborador: perfis locais acumuláveis (FR-008, D-COR-03)", ()
     await expect(insert("barbeiro", id)).rejects.toMatchObject({ code: "ER_DUP_ENTRY" });
   });
 
-  it("a referência ao profissional nasce anulável e sem chave estrangeira", async () => {
+  it("a referência ao profissional continua anulável e agora tem chave estrangeira", async () => {
     const [cols] = await db.query(
       `SELECT IS_NULLABLE AS nullable FROM information_schema.COLUMNS
         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'perfil_colaborador' AND COLUMN_NAME = 'profissional_id'`,
@@ -155,10 +218,177 @@ describe("perfil_colaborador: perfis locais acumuláveis (FR-008, D-COR-03)", ()
     expect(cols).toEqual([{ nullable: "YES" }]);
     const [fks] = await db.query(
       `SELECT COUNT(*) AS n FROM information_schema.TABLE_CONSTRAINTS
-        WHERE TABLE_SCHEMA = ? AND CONSTRAINT_TYPE = 'FOREIGN KEY'`,
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'perfil_colaborador'
+          AND CONSTRAINT_TYPE = 'FOREIGN KEY'`,
       [database],
     );
-    expect(Number((fks as { n: number }[])[0]?.n)).toBe(0);
+    expect(Number((fks as { n: number }[])[0]?.n)).toBe(1);
+    const [indexes] = await db.query(
+      `SELECT NON_UNIQUE AS nonUnique FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'perfil_colaborador'
+          AND COLUMN_NAME = 'profissional_id'`,
+      [database],
+    );
+    expect(indexes).toContainEqual({ nonUnique: 0 });
+  });
+
+  it("profissional tem os campos requeridos e situação ativa por padrão", async () => {
+    const id = uuid();
+    await db.query(
+      `INSERT INTO profissional (profissional_id, nome, criado_em, atualizado_em)
+       VALUES (?, ?, ${now}, ${now})`,
+      [id, "Profissional sintético"],
+    );
+    const [rows] = await db.query(
+      `SELECT situacao, version, apelido, telefone FROM profissional WHERE profissional_id = ?`,
+      [id],
+    );
+    expect(rows).toEqual([{ situacao: "ativo", version: 1, apelido: null, telefone: null }]);
+    const [columns] = await db.query(
+      `SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type, IS_NULLABLE AS nullable,
+              COLUMN_DEFAULT AS defaultValue
+         FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'profissional'`,
+      [database],
+    );
+    expect(columns).toEqual(
+      expect.arrayContaining([
+        { name: "profissional_id", type: "binary(16)", nullable: "NO", defaultValue: null },
+        { name: "nome", type: "varchar(120)", nullable: "NO", defaultValue: null },
+        { name: "apelido", type: "varchar(40)", nullable: "YES", defaultValue: null },
+        { name: "telefone", type: "varchar(16)", nullable: "YES", defaultValue: null },
+        {
+          name: "situacao",
+          type: "enum('ativo','inativo')",
+          nullable: "NO",
+          defaultValue: "ativo",
+        },
+        { name: "version", type: "int unsigned", nullable: "NO", defaultValue: "1" },
+      ]),
+    );
+  });
+
+  it("recusa incoerência entre barbeiro e profissional", async () => {
+    const membership = uuid();
+    const actor = uuid();
+    await expect(
+      db.query(
+        `INSERT INTO perfil_colaborador
+           (membership_id, perfis, definido_por, criado_em, atualizado_em)
+         VALUES (?, 'barbeiro', ?, ${now}, ${now})`,
+        [membership, actor],
+      ),
+    ).rejects.toMatchObject({ code: "ER_CHECK_CONSTRAINT_VIOLATED" });
+
+    await expect(
+      db.query(
+        `INSERT INTO perfil_colaborador
+           (membership_id, perfis, profissional_id, definido_por, criado_em, atualizado_em)
+         VALUES (?, 'recepcao', ?, ?, ${now}, ${now})`,
+        [uuid(), uuid(), actor],
+      ),
+    ).rejects.toMatchObject({ code: "ER_CHECK_CONSTRAINT_VIOLATED" });
+  });
+
+  it("recusa profissional inexistente ou já associado a outro barbeiro", async () => {
+    const actor = uuid();
+    await expect(
+      db.query(
+        `INSERT INTO perfil_colaborador
+           (membership_id, perfis, profissional_id, definido_por, criado_em, atualizado_em)
+         VALUES (?, 'barbeiro', ?, ?, ${now}, ${now})`,
+        [uuid(), uuid(), actor],
+      ),
+    ).rejects.toMatchObject({ code: "ER_NO_REFERENCED_ROW_2" });
+
+    const professionalId = uuid();
+    await db.query(
+      `INSERT INTO profissional (profissional_id, nome, criado_em, atualizado_em)
+       VALUES (?, 'Barbeiro sintético', ${now}, ${now})`,
+      [professionalId],
+    );
+    await db.query(
+      `INSERT INTO perfil_colaborador
+         (membership_id, perfis, profissional_id, definido_por, criado_em, atualizado_em)
+       VALUES (?, 'barbeiro', ?, ?, ${now}, ${now})`,
+      [uuid(), professionalId, actor],
+    );
+    await expect(
+      db.query(
+        `INSERT INTO perfil_colaborador
+           (membership_id, perfis, profissional_id, definido_por, criado_em, atualizado_em)
+         VALUES (?, 'recepcao,barbeiro', ?, ?, ${now}, ${now})`,
+        [uuid(), professionalId, actor],
+      ),
+    ).rejects.toMatchObject({ code: "ER_DUP_ENTRY" });
+  });
+
+  it("migra v1 para v2 preservando dados e equivale à aplicação limpa", async () => {
+    const baseManifest = await loadManifest(truncated(cortivoProductDir, 1));
+    const fullManifest = await loadManifest(cortivoProductDir);
+    const migratedDb = await ctx.createDatabase("cortivo_upgrade");
+    const freshDb = await ctx.createDatabase("cortivo_fresh");
+    const migrated = await ctx.connect("test", migratedDb);
+    const fresh = await ctx.connect("test", freshDb);
+    await migrate(migrated, baseManifest, { appliedBy: "teste" });
+    await migrated.query(
+      `INSERT INTO perfil_colaborador
+         (membership_id, perfis, definido_por, criado_em, atualizado_em)
+       VALUES (?, 'recepcao', ?, ${now}, ${now})`,
+      [uuid(), uuid()],
+    );
+    await migrated.query(
+      `INSERT INTO unidade (nome_atendimento, criado_em, atualizado_em)
+       VALUES ('[SINTÉTICO] Unidade existente', ${now}, ${now})`,
+    );
+    await migrate(migrated, fullManifest, { appliedBy: "teste" });
+    await migrate(fresh, fullManifest, { appliedBy: "teste" });
+
+    const [profiles] = await migrated.query("SELECT perfis FROM perfil_colaborador");
+    const [units] = await migrated.query("SELECT nome_atendimento FROM unidade");
+    expect(profiles).toEqual([{ perfis: "recepcao" }]);
+    expect(units).toEqual([{ nome_atendimento: "[SINTÉTICO] Unidade existente" }]);
+    expect(await completeStructure(migrated, migratedDb)).toEqual(
+      await completeStructure(fresh, freshDb),
+    );
+    expect((await readHistory(migrated)).map((row) => row.version)).toEqual([1, 2]);
+  });
+
+  it("falha com segurança em barbeiro v1 sem profissional e preserva dados e recursos", async () => {
+    const baseManifest = await loadManifest(truncated(cortivoProductDir, 1));
+    const fullManifest = await loadManifest(cortivoProductDir);
+    const legacyDb = await ctx.createDatabase("cortivo_legacy_invalid");
+    const legacy = await ctx.connect("test", legacyDb);
+    await migrate(legacy, baseManifest, { appliedBy: "teste" });
+    const membership = uuid();
+    await legacy.query(
+      `INSERT INTO perfil_colaborador
+         (membership_id, perfis, definido_por, criado_em, atualizado_em)
+       VALUES (?, 'barbeiro', ?, ${now}, ${now})`,
+      [membership, uuid()],
+    );
+    await expect(migrate(legacy, fullManifest, { appliedBy: "teste" })).rejects.toMatchObject({
+      code: "MIGRATION_FAILED",
+      version: 2,
+    } satisfies Partial<MigrationError>);
+    const history = await readHistory(legacy);
+    expect(history.map(({ version, status }) => ({ version, status }))).toEqual([
+      { version: 1, status: "aplicada" },
+      { version: 2, status: "falha" },
+    ]);
+    const [rows] = await legacy.query(
+      "SELECT perfis, profissional_id FROM perfil_colaborador WHERE membership_id = ?",
+      [membership],
+    );
+    expect(rows).toEqual([{ perfis: "barbeiro", profissional_id: null }]);
+    const [tables] = await legacy.query(
+      "SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?",
+      [legacyDb],
+    );
+    expect((tables as { name: string }[]).map((row) => row.name)).toContain("profissional");
+    await expect(migrate(legacy, fullManifest, { appliedBy: "teste" })).rejects.toMatchObject({
+      code: "SCHEMA_FAILED",
+    });
   });
 });
 

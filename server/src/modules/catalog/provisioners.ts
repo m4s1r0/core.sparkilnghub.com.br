@@ -34,7 +34,7 @@ export const PROVISIONERS: ProvisionerRegistry = {
   // Cortivo (gestão para barbearias): código técnico imutável `cortivo` (SC-007, D-COR-01); o
   // artefato vem de `produtos/cortivo/artifact`.
   cortivo: {
-    id: "cortivo-v1",
+    id: "cortivo-v2",
     artifactDir: cortivoProductDir,
     environments: ["development", "homologation", "production"],
   },

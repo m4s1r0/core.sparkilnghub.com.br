@@ -10,10 +10,10 @@ produto do ecossistema. **Substitui** a tabela de portas de
 | Nome comercial | Código técnico (`product.code`) | Prefixo de banco | Repositório | Marca (pasta em `UX/assets/logomarcas-produtos/final-v1/`) | Situação |
 | --- | --- | --- | --- | --- | --- |
 | Spark Core | — (plataforma) | `spark_core`, `spark_identity` | `core/core.sparkilnghub.com.br` | `spark-core/` | Em implementação (F00–F03 entregues; F08 em verificação) |
-| *(referência sintética)* | `sparkref` | `sparkref_` | dentro do Core | — | Somente desenvolvimento/homologação |
+| _(referência sintética)_ | `sparkref` | `sparkref_` | dentro do Core | — | Somente desenvolvimento/homologação |
 | Tuteli | `sparkpet` | `sparkpet_` | `tuteli/tuteli.sparklinghub.com.br` | `tuteli/` | Em implementação (specs 001–021) |
-| Paginor | `sparkcms` *(a confirmar no C00)* | `sparkcms_` | `cms/cms.sparklinghub.com.br` | `paginor/` | Escopo inicial |
-| Cortivo | `cortivo` *(confirmado, D-COR-01)* | `cortivo_` | `cortivo/cortivo.sparklinghub.com.br` | `cortivo/` | C00 lado do Core entregue (catálogo, artefato v1, provisionador `cortivo-v1`; spec 009); produto em C00/C01. Portas 3003/5177 |
+| Paginor | `sparkcms` _(a confirmar no C00)_ | `sparkcms_` | `cms/cms.sparklinghub.com.br` | `paginor/` | Escopo inicial |
+| Cortivo | `cortivo` _(confirmado, D-COR-01)_ | `cortivo_` | `cortivo/cortivo.sparklinghub.com.br` | `cortivo/` | C00 lado do Core entregue (catálogo, artefato v2, provisionador `cortivo-v2`; spec 010, preserva v1); produto em C00/C01. Portas 3003/5177 |
 | Forneli | a definir | a definir | a criar | `forneli/` | Somente marca |
 | Reparum | a definir | a definir | a criar | `reparum/` | Somente marca |
 | Pulsari | a definir | a definir | a criar | `pulsari/` | Somente marca |
@@ -45,7 +45,7 @@ Cada produto DEVE declarar estes valores como padrão no próprio `.env.example`
 | Paginor | 3002 | **5176** | — |
 | Cortivo | **3003** | **5177** | — |
 | Forneli | 3004 | 5178 | — |
-| *(design system — catálogo/E2E)* | — | 5179 | Reservada pelo `playwright.config.ts` do DS |
+| _(design system — catálogo/E2E)_ | — | 5179 | Reservada pelo `playwright.config.ts` do DS |
 | Reparum | 3005 | 5180 | — |
 | Pulsari | 3006 | 5181 | — |
 | Sutila | 3007 | 5182 | — |

@@ -47,11 +47,11 @@ describe("Cortivo no catálogo, em todos os ambientes (spec 009, US1.4, US4)", (
     });
   });
 
-  it("o provisionador cortivo-v1 está disponível em development, homologation e production", async () => {
+  it("o provisionador cortivo-v2 está disponível em development, homologation e production", async () => {
     for (const environment of ["development", "homologation", "production"] as const) {
       const resolved = await resolveProvisioner("cortivo", environment);
-      expect(resolved).toMatchObject({ ok: true, version: 1 });
-      if (resolved.ok) expect(resolved.provisioner.id).toBe("cortivo-v1");
+      expect(resolved).toMatchObject({ ok: true, version: 2 });
+      if (resolved.ok) expect(resolved.provisioner.id).toBe("cortivo-v2");
     }
   });
 

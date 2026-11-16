@@ -9,6 +9,12 @@
       "name": "0001_base",
       "file": "migrations/0001_base.sql",
       "sha256": "dabe6092b04a92fa92d5a25f4d51e2eb5994e1625e2838cbf557c3c7364bcedb"
+    },
+    {
+      "version": 2,
+      "name": "0002_profissional",
+      "file": "migrations/0002_profissional.sql",
+      "sha256": "e91df6b00f95722bc2c6fde6285f19dacfb4f94e8d2cb76f0d5334aadf8a59c9"
     }
   ]
 }
