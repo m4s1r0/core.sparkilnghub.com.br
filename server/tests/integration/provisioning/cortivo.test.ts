@@ -7,8 +7,17 @@ import { SimulatedCrash } from "../../../src/modules/provisioning/errors.js";
 import { LEASE_MS } from "../../../src/modules/provisioning/tasks.js";
 import { decryptSecret } from "../../../src/platform/crypto/index.js";
 import { instanceUserName, uuidToBin } from "../../../src/platform/ids.js";
+import {
+  activateSyntheticInstance,
+  enterMaintenance,
+} from "../../../src/modules/instances/transitions.js";
+import {
+  applyInstanceMigration,
+  instanceMigrationView,
+} from "../../../src/modules/instances/migration-view.js";
 import { F01TestEnv } from "../../support/f01.js";
 import {
+  cortivoV1Variant,
   requestBody,
   requester,
   requestViaService,
@@ -16,6 +25,7 @@ import {
   taskRow,
   trackInstance,
 } from "../../support/f02.js";
+import { insertBackupRecord } from "../../support/f03.js";
 
 // Spec 009 (cadastro do Cortivo no Core): duas instâncias sintéticas, isolamento, falha e retomada
 // contra MySQL 8.4 real (FR-013, FR-014, FR-019; CS-COR-002 a CS-COR-005; AC-COR-001, parte Core).
@@ -58,7 +68,7 @@ async function provision() {
 }
 
 describe("duas instâncias Cortivo isoladas (US1, CS-COR-002, CS-COR-004)", () => {
-  it("cada uma chega a PRONTA com 2 bancos, marcador próprio e esquema na versão 1", async () => {
+  it("cada uma chega a PRONTA com 2 bancos, marcador próprio e esquema na versão 2", async () => {
     const a = await provision();
     const b = await provision();
     expect(a.instanceId).not.toBe(b.instanceId);
@@ -87,8 +97,79 @@ describe("duas instâncias Cortivo isoladas (US1, CS-COR-002, CS-COR-004)", () =
       const [history] = await op.query(
         "SELECT version, status FROM _spark_schema_history ORDER BY version",
       );
-      expect(history).toEqual([{ version: 1, status: "aplicada" }]);
+      expect(history).toEqual([
+        { version: 1, status: "aplicada" },
+        { version: 2, status: "aplicada" },
+      ]);
+      const [professionalTable] = await op.query(
+        `SELECT TABLE_NAME AS name FROM information_schema.TABLES
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'profissional'`,
+      );
+      expect(professionalTable).toEqual([{ name: "profissional" }]);
     }
+  });
+
+  describe("migração Cortivo v1 com perfil barbeiro legado (US2, FR-009 a FR-011)", () => {
+    it("falha com segurança, mantém recursos e bloqueia nova tentativa", async () => {
+      const registry = cortivoV1Variant();
+      const created = await requestViaService(
+        env,
+        accountId,
+        { productCode: "cortivo", slug: `cortivo-v1-${crypto.randomUUID().slice(-8)}` },
+        crypto.randomUUID(),
+        registry,
+      );
+      expect(await runProvisioning(env, created.taskId, { registry })).toBe("concluida");
+      const instance = await getInstance(env.ctx, created.instanceId);
+      if (!instance) throw new Error("Instância legada Cortivo não encontrada");
+      const operationalDb = await operational(instance.id);
+      await operationalDb.query(
+        `INSERT INTO perfil_colaborador
+           (membership_id, perfis, definido_por, criado_em, atualizado_em)
+         VALUES (?, 'barbeiro', ?, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))`,
+        [
+          Buffer.from(crypto.randomUUID().replaceAll("-", ""), "hex"),
+          Buffer.from(crypto.randomUUID().replaceAll("-", ""), "hex"),
+        ],
+      );
+      const administrator = await env.insertAccount();
+      await env.insertMembership(administrator.id, instance.id, "administrador");
+      await activateSyntheticInstance(env.ctx, instance.id);
+      await enterMaintenance(
+        env.ctx,
+        instance.id,
+        { kind: "usuario", id: administrator.id },
+        "[SINTÉTICO] migração Cortivo",
+      );
+      await insertBackupRecord(env, instance.id);
+
+      const migration = await applyInstanceMigration(
+        env.ctx,
+        instance.id,
+        accountId,
+        crypto.randomUUID(),
+      );
+      expect(await runProvisioning(env, migration.id)).toBe("falhou");
+      const failed = await instanceMigrationView(env.ctx, instance.id);
+      expect(failed?.status).toBe("falhou");
+      expect(failed?.migrations).toEqual([
+        { version: 2, name: "0002_profissional", status: "falhou" },
+      ]);
+      expect(failed?.error?.message).toBeTruthy();
+      expect((await getInstance(env.ctx, instance.id))?.state).toBe("MANUTENCAO");
+
+      const provisioner = await env.mysql.connect("provisioner");
+      const [schemas] = await provisioner.query(
+        "SELECT SCHEMA_NAME AS name FROM information_schema.SCHEMATA WHERE SCHEMA_NAME IN (?, ?)",
+        [instance.databaseName, instance.accessDatabaseName],
+      );
+      expect((schemas as { name: string }[]).map(({ name }) => name).sort()).toEqual(
+        [instance.databaseName, instance.accessDatabaseName].sort(),
+      );
+      await expect(
+        applyInstanceMigration(env.ctx, instance.id, accountId, crypto.randomUUID()),
+      ).rejects.toMatchObject({ code: "SCHEMA_HISTORY_BLOCKED" });
+    });
   });
 
   it("a credencial de uma instância não acessa os bancos da outra (0 acessos cruzados)", async () => {
