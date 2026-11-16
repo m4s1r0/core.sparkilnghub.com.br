@@ -2,6 +2,7 @@
   "formatVersion": 1,
   "productCode": "sparkpet",
   "databasePrefix": "sparkpet_",
+  "appendOnlyTables": ["auditoria_evento"],
   "migrations": [
     {
       "version": 1,
@@ -56,6 +57,42 @@
       "name": "0009_auditoria_integracao",
       "file": "migrations/0009_auditoria_integracao.sql",
       "sha256": "54d7f480bdb7ff2022f60a3bf95d9dab626e0993b3f0e407c57a0b6e3e099b6d"
+    },
+    {
+      "version": 10,
+      "name": "0010_agenda_regras",
+      "file": "migrations/0010_agenda_regras.sql",
+      "sha256": "dd229666ff2111c1d62eeb4ef2e3687a080a978fd8acb3b47b7ab7daf1e4d0f7"
+    },
+    {
+      "version": 11,
+      "name": "0011_agenda_idempotencia",
+      "file": "migrations/0011_agenda_idempotencia.sql",
+      "sha256": "0ba5d7571df566b88518b2e8b3feac5ce45d1b9ae8a1f8149244147799a761c5"
+    },
+    {
+      "version": 12,
+      "name": "0012_autorizado_versao",
+      "file": "migrations/0012_autorizado_versao.sql",
+      "sha256": "c6d59b040fea2b32200c850c3cee830d405617dd4541c91fa47809d410dc9112"
+    },
+    {
+      "version": 13,
+      "name": "0013_atendimento_execucao",
+      "file": "migrations/0013_atendimento_execucao.sql",
+      "sha256": "622a798d11e406e03ccbd5283a8999c9d6d4584891405db37829bfbb6bfcd2e9"
+    },
+    {
+      "version": 14,
+      "name": "0014_pacotes_venda_creditos",
+      "file": "migrations/0014_pacotes_venda_creditos.sql",
+      "sha256": "575ef1ae111e34ec436996822331375f4025571ad1c52751c8fb2e354f526e54"
+    },
+    {
+      "version": 15,
+      "name": "0015_agendamento_item_arquivamento",
+      "file": "migrations/0015_agendamento_item_arquivamento.sql",
+      "sha256": "e6ba59788e5341469682d51cdcdc0a0c6b0d1667a17fb65efe90fad47f1c4596"
     }
   ]
 }

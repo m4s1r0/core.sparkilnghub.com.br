@@ -35,7 +35,7 @@ async function localAdmin(
 ): Promise<{ instance: Instance; accountId: string }> {
   const { slug } = request.params as { slug: string };
   const instance = await withIdentity(() =>
-    instanceForCredential(ctx, credentialOf(request), slug),
+    instanceForCredential(ctx, credentialOf(request), slug, request.id),
   );
   if (!instance) throw sessionInvalid();
   let session;

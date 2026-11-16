@@ -20,7 +20,7 @@ beforeAll(async () => {
   env = await F01TestEnv.create();
   app = await buildF01App(env);
   a = await env.createInstance("ref-a");
-  const credential = await appCredential(env);
+  const credential = await appCredential(env, "sparkref", undefined, a.id);
   product = await productFor(env, app, a, credential);
   const created = await env.insertAccount();
   account = created;
@@ -64,7 +64,9 @@ describe("Core indisponível (T-15, FR-028, CS-009)", () => {
       const login = await downApp.inject({
         method: "POST",
         url: `/internal/v1/instances/${a.slug}/sessions`,
-        headers: { authorization: `Bearer ${await appCredential(env)}` },
+        headers: {
+          authorization: `Bearer ${await appCredential(env, "sparkref", undefined, a.id)}`,
+        },
         payload: { email: account.email, password: account.password, clientIp: "198.51.100.31" },
       });
       expect(login.statusCode).toBe(503);

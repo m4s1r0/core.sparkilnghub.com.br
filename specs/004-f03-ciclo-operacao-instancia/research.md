@@ -141,3 +141,50 @@ Nenhum item do contexto técnico ficou como NEEDS CLARIFICATION.
   no Core criaria uma segunda fonte de verdade.
 - **Alternatives considered**: token de sessão com estado embutido (JWT) — exigiria revogação
   distribuída; fora do modelo já adotado (sessão opaca validada no banco, F01).
+
+## R-09 — Acompanhamento da migração pelo histórico real do banco do produto *(adendo 2026-11-13)*
+
+- **Decision**: a aba "Migração" e a API passam a ler `_spark_schema_history` do banco operacional
+  da instância com a **credencial operacional** (só leitura, mesma conexão curta da checagem de
+  saúde de R-04, extraída para `instances/operational-connection.ts`). Com isso:
+  1. `GET /api/v1/instances/{id}/migration/plan` devolve a versão efetiva (última aplicada em
+     sequência no histórico), a registrada no Core (`instance.schema_version`), a alvo (tamanho do
+     manifesto), as pendentes com a situação de cada uma e um eventual bloqueio;
+  2. `GET .../migration` devolve, em `migrations`, cada versão de `fromVersion+1` a `toVersion` com
+     a situação lida do histórico; a interface consulta a cada 2 s enquanto a tarefa está ativa;
+  3. `POST .../migration` grava em `admin_task.from_version` a versão efetiva (não a do Core) e
+     recusa com `409 SCHEMA_HISTORY_BLOCKED` quando o histórico impede aplicar.
+
+  Situação de cada versão, derivada do protocolo do migrador (`migrator.ts`: grava `falha` antes de
+  executar, `aplicada` só no sucesso, `finished_at` também no erro):
+
+  | Linha no histórico | Tarefa ativa | Situação |
+  |---|---|---|
+  | ausente | — | `pendente` |
+  | `aplicada` | — | `aplicada` |
+  | `falha` com `finished_at` | — | `falhou` |
+  | `falha` sem `finished_at` | sim | `em_execucao` |
+  | `falha` sem `finished_at` | não | `interrompida` (queda do trabalhador) |
+
+  O bloqueio vem de `checkHistory` (o mesmo usado pelo migrador): `SCHEMA_FAILED`,
+  `SCHEMA_CHECKSUM_MISMATCH`, `SCHEMA_UNKNOWN_VERSION`, `SCHEMA_SEQUENCE`; uma versão `falha` sem
+  término com tarefa ativa é a execução corrente, não bloqueio. Sem histórico legível, cai para
+  `instance.schema_version` (`source = "registro"`) e mostra o motivo sanitizado, sem bloquear.
+- **Rationale**: `instance.schema_version` só é atualizado depois de `migrate()` aplicar todas as
+  versões (etapa `aplicar_migracoes_instancia`), e DDL no MySQL confirma na hora — então, depois de
+  uma falha parcial, o Core fica com a versão antiga e uma lista calculada por ele mostraria como
+  pendente o que já está aplicado. O histórico do produto é a fonte de verdade que o próprio
+  migrador e a checagem de saúde já usam; ler com a credencial operacional não exige DDL nem a
+  credencial do provisionador fora do trabalhador. Recusar cedo (`SCHEMA_HISTORY_BLOCKED`) evita
+  criar uma tarefa que falharia de novo pelo mesmo motivo (`migrate()` recusa histórico em falha).
+- **Alternatives considered**: progresso gravado pelo trabalhador em `spark_core` (ex.: uma linha
+  por versão em `admin_task_step_run`) — duplicaria o histórico do produto e exigiria nova etapa ou
+  tabela; atualizar `instance.schema_version` também na falha — corrige o cabeçalho, mas não dá a
+  situação por versão nem resolve históricos divergentes; permitir aplicar versões seletivamente —
+  rejeitado, o artefato é sequencial (`MANIFEST_VERSION_SEQUENCE`). Consultar o banco do produto a
+  cada 2 s só acontece com a aba aberta e a tarefa ativa; aceito para um painel administrativo.
+- **Consequences**: a migração `spark_core` 0009 (`admin_task.from_version`) precisa de
+  `npm run db:migrate` antes de subir o servidor com este código — sem ela, as rotas de migração
+  respondem 500 (`Unknown column 'from_version'`). Tarefas anteriores à coluna ficam com
+  `fromVersion = null` e `migrations = []`.
+

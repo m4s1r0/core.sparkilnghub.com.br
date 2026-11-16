@@ -23,8 +23,8 @@ npm run dev:up
 Esperado: o comando termina com "SparkCore saudável" e lista as URLs. Cronometre do clone até
 aqui (meta ≤ 30 min).
 
-- `GET http://127.0.0.1:3000/health/live` → `200 {"status":"ok"}`.
-- `GET http://127.0.0.1:3000/api/v1/system/status` → `200`, `status: "SAUDAVEL"`, quatro
+- `GET http://127.0.0.1:5273/health/live` → `200 {"status":"ok"}`.
+- `GET http://127.0.0.1:5273/api/v1/system/status` → `200`, `status: "SAUDAVEL"`, quatro
   componentes saudáveis, `X-Correlation-Id` no cabeçalho.
 - Abrir `http://127.0.0.1:5173/` → página base com a marca e a tabela de componentes.
 

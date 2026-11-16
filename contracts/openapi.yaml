@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
   title: SparkCore — API administrativa
-  version: 1.3.0
+  version: 1.4.0
   description: >-
     Contratos do SparkCore. F00: situação operacional. F01: identidade, sessões do painel, administradores, vínculos, recuperação e bloqueio (/api/v1), e contratos internos para produtos (/internal/v1), com a projeção de acesso descrita em access-projection.md. Convenções em conventions.md. /api/v1/** usa o cookie sparkcore_session (HttpOnly, SameSite=Strict) e verificação de origem em métodos inseguros; /internal/v1/** usa Authorization: Bearer <credencial de aplicação> e nunca cookie. /api/v1/system/status exige sessão de administrador com MFA; /health/live permanece público e sem detalhes. F02: contratantes, catálogo, solicitação e acompanhamento do provisionamento de instâncias (/api/v1) e conexão da instância para o produto (/internal/v1/instances/{slug}/connection, escopo connection). F03: ativar, suspender, reativar, entrar/sair de manutenção e encerrar uma instância, painel de saúde/backup, executor de migrações e a página pública de indisponibilidade (/i/{slug}, sem sessão).
 servers:
-  - url: http://127.0.0.1:3000
+  - url: http://127.0.0.1:5273
     description: Desenvolvimento local
 paths:
   /health/live:
@@ -895,7 +895,27 @@ paths:
           { $ref: "#/components/parameters/InstanceSessionHeader" },
         ]
       responses:
-        "204": { description: Atividade registrada (no máximo 1 vez a cada 5 min por sessão) }
+        "200":
+          {
+            description: "Sessão válida; atividade registrada no máximo 1 vez a cada 5 min. v1.4 (SEC-04): papel e situação do vínculo lidos da projeção — o produto autoriza por eles, não pelo papel do login. Core anterior respondia 204 sem corpo.",
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        type: object,
+                        additionalProperties: false,
+                        required: [role, membershipStatus],
+                        properties:
+                          {
+                            role: { type: string, enum: [administrador, colaborador] },
+                            membershipStatus: { type: string, enum: [ativo] },
+                          },
+                      },
+                  },
+              },
+          }
         "401": { description: AUTH_SESSION_INVALID }
   /internal/v1/instances/{slug}/members:
     get:
@@ -1653,8 +1673,22 @@ paths:
         "403": { description: AUTH_REAUTH_REQUIRED }
         "409":
           {
-            description: "CONFLICT_STATE (não está MANUTENCAO), NO_PRIOR_BACKUP ou ALREADY_UP_TO_DATE",
+            description: "CONFLICT_STATE (não está MANUTENCAO), NO_PRIOR_BACKUP, ALREADY_UP_TO_DATE ou SCHEMA_HISTORY_BLOCKED (histórico do banco do produto em falha ou divergente)",
           }
+  /api/v1/instances/{instanceId}/migration/plan:
+    get:
+      operationId: getInstanceMigrationPlan
+      description: >
+        Migrações do artefato vigente acima da última versão aplicada no banco do produto (lida de _spark_schema_history com a credencial operacional; sem ela, a versão registrada no Core) — o que "Aplicar atualização" executaria agora. Lista vazia quando já está na versão do artefato.
+      security: [{ coreSession: [] }]
+      parameters: [{ $ref: "#/components/parameters/InstanceId" }]
+      responses:
+        "200":
+          description: Plano
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/MigrationPlan" } }
+        "404": { description: NOT_FOUND }
+        "409": { description: PROVISIONING_ARTIFACT_INVALID }
   /i/{slug}:
     get:
       operationId: getInstanceStatusPage
@@ -1915,9 +1949,15 @@ components:
     Member:
       type: object
       additionalProperties: false
-      required: [membershipId, invitationId, displayName, role, status, version]
+      required: [membershipId, accountId, invitationId, displayName, role, status, version]
       properties:
         membershipId: { type: [string, "null"], format: uuid }
+        accountId:
+          {
+            type: [string, "null"],
+            format: uuid,
+            description: nulo quando status = convite_pendente,
+          }
         invitationId:
           {
             type: [string, "null"],
@@ -2433,10 +2473,24 @@ components:
       type: object
       additionalProperties: false
       required:
-        [instanceId, state, host, port, database, accessDatabase, user, password, credentialVersion]
+        [
+          instanceId,
+          state,
+          displayName,
+          timezone,
+          host,
+          port,
+          database,
+          accessDatabase,
+          user,
+          password,
+          credentialVersion,
+        ]
       properties:
         instanceId: { type: string, format: uuid }
         state: { $ref: "#/components/schemas/InstanceState" }
+        displayName: { type: string, description: "Nome de exibição da instância" }
+        timezone: { type: string, description: "Fuso horário IANA da instância" }
         host: { type: string }
         port: { type: integer }
         database: { type: string }
@@ -2444,6 +2498,10 @@ components:
         user: { type: string }
         password: { type: string, description: "Segredo; nunca registrar em log" }
         credentialVersion: { type: integer }
+        tls:
+          type: string
+          enum: [required, disabled]
+          description: "v1.4 (SEC-15): required — a credencial exige TLS e o produto MUST usar ssl no pool; disabled só em desenvolvimento. Ausente em Core anterior (tratar como disabled)."
     ContractorDetail:
       type: object
       additionalProperties: false
@@ -2625,6 +2683,7 @@ components:
           status,
           fromVersion,
           toVersion,
+          migrations,
           currentStep,
           attempt,
           createdAt,
@@ -2638,6 +2697,11 @@ components:
         status: { $ref: "#/components/schemas/TaskStatus" }
         fromVersion: { type: [integer, "null"] }
         toVersion: { type: integer }
+        migrations:
+          description: >
+            Migrações do artefato que a tarefa aplica (fromVersion+1 até toVersion). Vazia quando a versão de origem não foi registrada (tarefas anteriores à v1.3.3) ou o artefato não pôde ser lido.
+          type: array
+          items: { $ref: "#/components/schemas/ArtifactMigration" }
         currentStep:
           oneOf:
             - type: "null"
@@ -2656,6 +2720,56 @@ components:
                 code: { type: string }
                 message: { type: string }
                 step: { $ref: "#/components/schemas/MigrationStepName" }
+    ArtifactMigration:
+      type: object
+      additionalProperties: false
+      required: [version, name, status]
+      properties:
+        version: { type: integer, minimum: 1 }
+        name: { type: string }
+        status:
+          description: >
+            Situação lida de _spark_schema_history do banco do produto; null quando o histórico não pôde ser lido. "em_execucao" é a versão sendo aplicada pela tarefa ativa; "interrompida" é uma versão iniciada sem término e sem tarefa ativa.
+          oneOf:
+            - type: "null"
+            - type: string
+              enum: [pendente, em_execucao, aplicada, falhou, interrompida]
+    MigrationPlan:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          currentVersion,
+          recordedVersion,
+          targetVersion,
+          source,
+          historyUnavailable,
+          pending,
+          blocked,
+        ]
+      properties:
+        currentVersion:
+          description: Última versão aplicada em sequência no banco do produto (ou a registrada no Core quando source = registro).
+          type: [integer, "null"]
+        recordedVersion:
+          description: Versão de schema registrada no Core; diverge de currentVersion depois de uma falha parcial.
+          type: [integer, "null"]
+        targetVersion: { type: integer }
+        source: { type: string, enum: [historico, registro] }
+        historyUnavailable: { type: [string, "null"] }
+        pending:
+          type: array
+          items: { $ref: "#/components/schemas/ArtifactMigration" }
+        blocked:
+          description: Histórico que impede aplicar (versão em falha ou interrompida, checksum divergente, versão desconhecida, fora de sequência).
+          oneOf:
+            - type: "null"
+            - type: object
+              additionalProperties: false
+              required: [code, message]
+              properties:
+                code: { type: string }
+                message: { type: string }
     TerminationRequest:
       type: object
       additionalProperties: false

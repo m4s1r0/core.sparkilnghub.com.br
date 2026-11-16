@@ -56,6 +56,8 @@ jobs:
       - run: npm run gate
       - run: npm run check:ds
       - run: npm run check:migrations
+      # SEC-09 / SEC-BASE-09: dependências de produção sem achado moderado ou superior.
+      - run: npm run audit:deps
 
   secrets:
     runs-on: ubuntu-24.04

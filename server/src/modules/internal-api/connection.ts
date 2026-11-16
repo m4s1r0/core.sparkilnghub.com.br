@@ -30,8 +30,12 @@ export function registerInternalConnectionRoutes(app: FastifyInstance, ctx: AppC
     async (request, reply) => {
       const { slug } = request.params as { slug: string };
       const credential = credentialOf(request);
-      const instance = await withIdentity(() => instanceForCredential(ctx, credential, slug));
-      if (!instance) throw notFound();
+      const instance = await withIdentity(() =>
+        instanceForCredential(ctx, credential, slug, request.id),
+      );
+      // Encerrada nega todo acesso de negócio (F03 FR-026): a senha não sai mais, e a resposta é a
+      // mesma de instância inexistente (SEC-01).
+      if (!instance || instance.state === "ENCERRADA") throw notFound();
       if (NOT_READY.has(instance.state)) {
         throw new AppError(
           409,
@@ -56,6 +60,9 @@ export function registerInternalConnectionRoutes(app: FastifyInstance, ctx: AppC
       return reply.header("cache-control", "no-store").send({
         instanceId: instance.id,
         state: instance.state,
+        // Metadados agnósticos de produto: toda instância tem nome de exibição e fuso.
+        displayName: instance.displayName,
+        timezone: instance.timezone,
         host: ctx.config.INSTANCE_DB_HOST ?? ctx.config.MYSQL_HOST,
         port: ctx.config.INSTANCE_DB_PORT ?? ctx.config.MYSQL_PORT,
         database: instance.databaseName,
@@ -63,6 +70,8 @@ export function registerInternalConnectionRoutes(app: FastifyInstance, ctx: AppC
         user: user.identifier,
         password,
         credentialVersion: user.secretKeyVersion ?? 1,
+        // v1.4 (SEC-15): "required" — a credencial exige TLS; o produto MUST usar ssl no pool.
+        tls: ctx.config.MYSQL_TLS === "off" ? "disabled" : "required",
       });
     },
   );

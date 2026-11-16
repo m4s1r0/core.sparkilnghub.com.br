@@ -1,9 +1,15 @@
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 
-const apiTarget = `http://${process.env.HTTP_HOST ?? "127.0.0.1"}:${process.env.HTTP_PORT ?? "3000"}`;
+// O `.env` da raiz é a fonte única das portas (HTTP_HOST/HTTP_PORT do servidor, WEB_PORT do Vite);
+// variáveis do shell têm precedência, igual ao `process.loadEnvFile` da config do servidor. Sem
+// isso o proxy caía no fallback e apontava para outra porta que não a do servidor em execução.
+const rootEnv = loadEnv("development", fileURLToPath(new URL("..", import.meta.url)), "");
+const pick = (name: string, fallback: string) => process.env[name] ?? rootEnv[name] ?? fallback;
+
+const apiTarget = `http://${pick("HTTP_HOST", "127.0.0.1")}:${pick("HTTP_PORT", "5273")}`;
 
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
@@ -18,7 +24,7 @@ export default defineConfig({
   },
   server: {
     host: "127.0.0.1",
-    port: Number(process.env.WEB_PORT ?? 5173),
+    port: Number(pick("WEB_PORT", "5173")),
     strictPort: true,
     proxy: { "/api": apiTarget, "/health": apiTarget },
   },

@@ -46,6 +46,10 @@ const ManifestSchema = Type.Object(
     productCode: Type.Optional(Type.String()),
     databasePrefix: Type.Optional(Type.String()),
     migrations: Type.Array(Entry, { minItems: 1 }),
+    // Tabelas só-inserção do produto (SEC-12): a credencial operacional recebe só SELECT e INSERT.
+    appendOnlyTables: Type.Optional(
+      Type.Array(Type.String({ pattern: "^[a-z][a-z0-9_]{0,63}$" }), { uniqueItems: true }),
+    ),
   },
   { additionalProperties: false },
 );

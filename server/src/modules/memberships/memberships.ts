@@ -17,6 +17,7 @@ export type ProductRole = "administrador" | "colaborador";
 /** Linha da lista de vínculos (contrato `Member`). */
 export interface MemberItem {
   membershipId: string | null;
+  accountId: string | null;
   invitationId: string | null;
   displayName: string | null;
   emailMasked: string | null;
@@ -50,12 +51,13 @@ export async function listInstanceMembers(
 ): Promise<MemberItem[]> {
   const { rows: memberships } = await sql<{
     id: Buffer;
+    account_id: Buffer;
     display_name: string;
     email_normalized: string;
     role: ProductRole;
     status: "ativo" | "revogado";
     version: number;
-  }>`SELECT m.id, a.display_name, a.email_normalized, m.role, m.status, m.version
+  }>`SELECT m.id, m.account_id, a.display_name, a.email_normalized, m.role, m.status, m.version
        FROM membership m JOIN account a ON a.id = m.account_id
       WHERE m.instance_id = ${uuidToBin(instanceId)}
       ORDER BY m.status, a.display_name`.execute(ctx.identity);
@@ -67,6 +69,7 @@ export async function listInstanceMembers(
   return [
     ...memberships.map((row) => ({
       membershipId: binToUuid(row.id),
+      accountId: binToUuid(row.account_id),
       invitationId: null,
       displayName: row.display_name,
       emailMasked: emails === "todos" ? maskEmail(row.email_normalized) : null,
@@ -76,6 +79,8 @@ export async function listInstanceMembers(
     })),
     ...pending.map((row) => ({
       membershipId: null,
+      // Convite pendente ainda não tem conta aceita; por isso o campo é anulável.
+      accountId: null,
       invitationId: binToUuid(row.id),
       displayName: null,
       emailMasked: maskEmail(row.email_normalized),

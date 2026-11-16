@@ -33,12 +33,37 @@ export interface InstanceHealthStatus {
   };
 }
 
+/** Situação de uma migração no histórico do banco do produto. */
+export type MigrationItemStatus =
+  "pendente" | "em_execucao" | "aplicada" | "falhou" | "interrompida";
+
+export interface ArtifactMigration {
+  version: number;
+  name: string;
+  /** `null` quando o histórico do banco do produto não pôde ser lido. */
+  status: MigrationItemStatus | null;
+}
+
+export interface MigrationPlan {
+  /** Versão efetiva no banco do produto (ou a registrada no Core, sem histórico). */
+  currentVersion: number | null;
+  /** Versão registrada no Core; diverge da efetiva depois de uma falha parcial. */
+  recordedVersion: number | null;
+  targetVersion: number;
+  source: "historico" | "registro";
+  historyUnavailable: string | null;
+  pending: ArtifactMigration[];
+  blocked: { code: string; message: string } | null;
+}
+
 export interface MigrationTask {
   id: string;
   protocol: string;
   status: TaskStatus;
   fromVersion: number | null;
   toVersion: number;
+  /** Migrações que a tarefa aplica; vazia em tarefas antigas, sem versão de origem registrada. */
+  migrations: ArtifactMigration[];
   currentStep: MigrationStep | null;
   attempt: number;
   createdAt: string;
@@ -190,11 +215,31 @@ export function useInstanceHealth(id: string) {
   });
 }
 
+/** Estados em que a tarefa de migração ainda está sendo processada pelo worker. */
+export const MIGRATION_ACTIVE: ReadonlySet<TaskStatus> = new Set([
+  "pendente",
+  "em_execucao",
+  "aguardando_repeticao",
+]);
+
 export const migrationKey = (id: string) => ["instance", id, "migration"] as const;
 export function useInstanceMigration(id: string, enabled: boolean) {
   return useQuery({
     queryKey: migrationKey(id),
     queryFn: () => requestJson<MigrationTask | null>("GET", `/api/v1/instances/${id}/migration`),
+    enabled,
+    // A tarefa roda no worker; sem polling a tela ficaria presa no estado em que foi criada.
+    refetchInterval: (query) =>
+      query.state.data && MIGRATION_ACTIVE.has(query.state.data.status) ? 2_000 : false,
+    refetchIntervalInBackground: false,
+  });
+}
+
+export const migrationPlanKey = (id: string) => ["instance", id, "migration", "plan"] as const;
+export function useInstanceMigrationPlan(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: migrationPlanKey(id),
+    queryFn: () => requestJson<MigrationPlan>("GET", `/api/v1/instances/${id}/migration/plan`),
     enabled,
   });
 }

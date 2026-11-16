@@ -37,7 +37,7 @@ describe("nenhum segredo em logs, eventos ou respostas (CS-008, SC-033)", () => 
 
     // Credencial de aplicação e login de produto (US3).
     const a = await env.createInstance("ref-a");
-    const credential = await appCredential(env);
+    const credential = await appCredential(env, "sparkref", undefined, a.id);
     secrets.push(credential.split(".")[1] ?? credential);
     const member = await env.insertAccount({ email: "carla@example.test" });
     await env.insertMembership(member.id, a.id, "colaborador");

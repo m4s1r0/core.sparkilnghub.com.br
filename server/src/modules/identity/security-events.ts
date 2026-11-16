@@ -31,6 +31,10 @@ export const SecurityEventTypes = [
   "credencial_aplicacao",
   "projecao_reconciliada",
   "conexao_entregue",
+  // Endurecimento (SEC-01, SEC-14): credencial pediu instância que não é a sua; conta bloqueada
+  // por volume de falhas (aviso ao titular e aos administradores da plataforma).
+  "instancia_divergente",
+  "login_bloqueado",
 ] as const;
 export type SecurityEventType = (typeof SecurityEventTypes)[number];
 

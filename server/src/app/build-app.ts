@@ -1,10 +1,11 @@
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import type { Logger } from "pino";
-import type { Config } from "../platform/config/load.js";
+import { type Config, trustedProxies } from "../platform/config/load.js";
 import { createLogger } from "../platform/logging/logger.js";
 import { correlationServerOptions, registerCorrelation } from "./plugins/correlation.js";
 import { registerErrorHandling } from "./plugins/errors.js";
+import { registerSecurityHeaders } from "./plugins/security-headers.js";
 import { hasWebBuild, registerWeb } from "./plugins/web.js";
 
 export interface AppOptions {
@@ -26,9 +27,12 @@ export async function buildApp(options: AppOptions) {
     // Campos desconhecidos são rejeitados (422) em vez de removidos silenciosamente.
     ajv: { customOptions: { removeAdditional: false, coerceTypes: false, allErrors: true } },
     bodyLimit: 1024 * 1024,
+    // SEC-13: X-Forwarded-For só de proxies listados (salto mais à direita não confiável).
+    trustProxy: trustedProxies(options.config).length > 0 ? trustedProxies(options.config) : false,
   }).withTypeProvider<TypeBoxTypeProvider>();
 
   registerCorrelation(app);
+  registerSecurityHeaders(app, options.config);
   const spaFallback =
     options.webRoot && hasWebBuild(options.webRoot)
       ? await registerWeb(app, options.webRoot)

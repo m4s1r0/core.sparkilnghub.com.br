@@ -49,6 +49,12 @@
       "name": "0008_rename_tuteli",
       "file": "migrations/0008_rename_tuteli.sql",
       "sha256": "5007621cf2af87848725717f66997cfbc0899104dc5f37d7d73cd0409d73a3ae"
+    },
+    {
+      "version": 9,
+      "name": "0009_admin_task_from_version",
+      "file": "migrations/0009_admin_task_from_version.sql",
+      "sha256": "a5fa2d0cd59db033876d302fd53302a534cb9cd5180add6f157bdc00bce1d2ea"
     }
   ]
 }

@@ -92,7 +92,7 @@ describe("nenhum segredo do provisionamento vaza (CS-007, constituição VI)", (
     const inviteToken = issued.json<{ link: string }>().link.split("/").pop() ?? "";
 
     // Contrato de conexão: a senha é a resposta esperada; nada mais pode contê-la.
-    const credential = await appCredential(env, "sparkref", ["connection"]);
+    const credential = await appCredential(env, "sparkref", ["connection"], instance.id);
     const connection = await app.app.inject({
       method: "GET",
       url: `/internal/v1/instances/${instance.slug}/connection`,

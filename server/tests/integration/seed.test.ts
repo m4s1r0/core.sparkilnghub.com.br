@@ -55,14 +55,18 @@ describe("dados sintéticos (US7, NFR-016)", () => {
     expect(Number((emails as { total: number }[])[0]?.total)).toBe(0);
   });
 
+  // Fora do desenvolvimento a configuração exige TLS e host restrito (SEC-15); com eles válidos,
+  // quem recusa é a guarda de ambiente.
+  const HARDENED = { MYSQL_TLS: "required", INSTANCE_DB_USER_HOST: "10.0.%" };
+
   it("SPARK_ENV=production: db:seed sai com 2 e registra env_guard_refused", () => {
-    const result = runCommand("db:seed", { SPARK_ENV: "production" });
+    const result = runCommand("db:seed", { SPARK_ENV: "production", ...HARDENED });
     expect(result.status).toBe(2);
     expect(result.stdout + result.stderr).toMatch(/env_guard_refused/);
   });
 
   it("dev:reset com SPARK_ENV=homologation é recusado", () => {
-    const result = runCommand("dev:reset", { SPARK_ENV: "homologation" });
+    const result = runCommand("dev:reset", { SPARK_ENV: "homologation", ...HARDENED });
     expect(result.status).toBe(2);
     expect(result.stdout + result.stderr).toMatch(/recusado/);
   });

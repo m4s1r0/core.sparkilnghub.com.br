@@ -146,7 +146,7 @@ describe("convite inicial preparado e emissão do link (US5, SC-024, FR-034 a FR
     expect(replica).toEqual([{ role: "administrador" }]);
     expect((await reconcileInstance(env.ctx, instance)).divergences).toBe(0);
 
-    const credential = await appCredential(env);
+    const credential = await appCredential(env, "sparkref", undefined, instance.id);
     const login = await app.app.inject({
       method: "POST",
       url: `/internal/v1/instances/${instance.slug}/sessions`,

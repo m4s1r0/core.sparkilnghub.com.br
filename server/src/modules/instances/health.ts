@@ -1,11 +1,10 @@
-import { createConnection } from "mysql2/promise";
 import { sql } from "kysely";
 import type { AppContext } from "../../platform/context.js";
 import { uuidToBin } from "../../platform/ids.js";
 import { checkHistory, readHistory } from "../../platform/migrations/migrator.js";
 import { resolveProvisioner } from "../catalog/provisioners.js";
-import { getResource, resourceSecret } from "../provisioning/resources.js";
 import type { Instance } from "./instances.js";
+import { withOperationalConnection } from "./operational-connection.js";
 
 export type HealthCheckOrigin = "painel" | "saida_manutencao";
 
@@ -47,50 +46,29 @@ async function probe(
   if (!resolved.ok) {
     return { healthy: false, schemaVersion: null, reason: "artefato do produto indisponível" };
   }
-  const resource = await getResource(ctx.core, instance.id, "usuario_mysql");
-  if (!resource || resource.status !== "verificado") {
-    return { healthy: false, schemaVersion: null, reason: "sem credencial operacional verificada" };
-  }
-  let password: string;
   try {
-    password = resourceSecret(ctx, instance.id, resource);
-  } catch {
-    return { healthy: false, schemaVersion: null, reason: "credencial operacional inválida" };
-  }
-  let connection;
-  try {
-    connection = await createConnection({
-      host: ctx.config.MYSQL_HOST,
-      port: ctx.config.MYSQL_PORT,
-      user: resource.identifier,
-      password,
-      database: instance.databaseName,
-      timezone: "Z",
-      connectTimeout: 5_000,
+    const access = await withOperationalConnection(ctx, instance, async (connection) => {
+      const [rows] = await connection.query("SELECT instance_uuid AS id FROM _spark_instance");
+      const ids = (rows as { id: Buffer }[]).map((r) => r.id);
+      if (ids.length !== 1 || !ids[0]?.equals(uuidToBin(instance.id))) {
+        return { healthy: false, schemaVersion: null, reason: "marcador ausente ou divergente" };
+      }
+      const history = checkHistory(await readHistory(connection), resolved.manifest);
+      const schemaVersion = history.appliedVersion;
+      if (history.problem || schemaVersion !== resolved.manifest.migrations.length) {
+        return { healthy: false, schemaVersion, reason: "versão de schema divergente" };
+      }
+      return { healthy: true, schemaVersion, reason: null };
     });
-  } catch {
-    return { healthy: false, schemaVersion: null, reason: "conexão recusada" };
-  }
-  try {
-    const [rows] = await connection.query("SELECT instance_uuid AS id FROM _spark_instance");
-    const ids = (rows as { id: Buffer }[]).map((r) => r.id);
-    if (ids.length !== 1 || !ids[0]?.equals(uuidToBin(instance.id))) {
-      return { healthy: false, schemaVersion: null, reason: "marcador ausente ou divergente" };
-    }
-    const history = checkHistory(await readHistory(connection), resolved.manifest);
-    const schemaVersion = history.appliedVersion;
-    if (history.problem || schemaVersion !== resolved.manifest.migrations.length) {
-      return { healthy: false, schemaVersion, reason: "versão de schema divergente" };
-    }
-    return { healthy: true, schemaVersion, reason: null };
+    return access.ok
+      ? access.value
+      : { healthy: false, schemaVersion: null, reason: access.reason };
   } catch {
     return {
       healthy: false,
       schemaVersion: null,
       reason: "falha ao consultar o histórico do produto",
     };
-  } finally {
-    await connection.end().catch(() => undefined);
   }
 }
 

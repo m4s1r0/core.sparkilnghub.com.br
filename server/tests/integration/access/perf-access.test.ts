@@ -16,7 +16,7 @@ beforeAll(async () => {
   env = await F01TestEnv.create();
   app = await buildF01App(env);
   const a = await env.createInstance("ref-a");
-  product = await productFor(env, app, a, await appCredential(env));
+  product = await productFor(env, app, a, await appCredential(env, "sparkref", undefined, a.id));
   account = await env.insertAccount();
   await env.insertMembership(account.id, a.id, "colaborador");
 });

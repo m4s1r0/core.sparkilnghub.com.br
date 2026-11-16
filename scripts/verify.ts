@@ -13,6 +13,8 @@ export const STEPS = [
   "gate",
   "check:ds",
   "check:secrets",
+  // SEC-09 / SEC-BASE-09: dependências de produção sem achado moderado ou superior.
+  "audit:deps",
   "check:migrations",
   "ref:validate",
   "test:unit",

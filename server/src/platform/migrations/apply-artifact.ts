@@ -1,6 +1,12 @@
 import { randomBytes } from "node:crypto";
 import type { Connection } from "mysql2/promise";
 import type { Config } from "../config/load.js";
+import {
+  instanceAccount,
+  instanceAccountOf,
+  syncOperationalGrants,
+  tlsClause,
+} from "../db/grants.js";
 import { openAdminConnection } from "../db/pools.js";
 import { mysqlUser } from "../config/schema.js";
 import { grantDatabaseName, instanceDatabaseName, instanceUserName, uuidToBin } from "../ids.js";
@@ -115,13 +121,15 @@ export async function grantAccessProjection(
   admin: Connection,
   accessDatabase: string,
   user: string,
+  host = "%",
 ) {
   const pattern = grantDatabaseName(accessDatabase);
+  const account = instanceAccount(user, host);
   await admin.query(
     `GRANT SELECT, INSERT, UPDATE, DELETE ON \`${pattern}\`.* TO '${mysqlUser.access}'@'%'`,
   );
-  await admin.query(`GRANT SELECT ON \`${pattern}\`.* TO '${user}'@'%'`);
-  await admin.query(`GRANT INSERT ON \`${accessDatabase}\`.access_session_logout TO '${user}'@'%'`);
+  await admin.query(`GRANT SELECT ON \`${pattern}\`.* TO ${account}`);
+  await admin.query(`GRANT INSERT ON \`${accessDatabase}\`.access_session_logout TO ${account}`);
 }
 
 /**
@@ -176,17 +184,24 @@ export async function applyArtifact(
 
     // O provisionador não lê mysql.user; a existência vem do próprio CREATE USER (erro 1396).
     const candidate = randomBytes(24).toString("base64url");
+    const { account, requireTls } = instanceAccountOf(config, user);
     try {
-      await admin.query(`CREATE USER '${user}'@'%' IDENTIFIED BY ?`, [candidate]);
+      await admin.query(`CREATE USER ${account} IDENTIFIED BY ?${tlsClause(requireTls)}`, [
+        candidate,
+      ]);
       password = candidate;
     } catch (error) {
       if ((error as { errno?: number }).errno !== 1396) throw error;
     }
-    await admin.query(
-      `GRANT SELECT, INSERT, UPDATE, DELETE ON \`${grantDatabaseName(database)}\`.* TO '${user}'@'%'`,
-    );
+    // SEC-12: SELECT no banco, DML por tabela, só INSERT nas tabelas só-inserção do artefato.
+    await syncOperationalGrants(admin, {
+      database,
+      account,
+      appendOnlyTables: loaded.manifest.appendOnlyTables ?? [],
+      requireTls,
+    });
     await applyAccessProjection(config, admin, accessDatabase, options.instanceUuid);
-    await grantAccessProjection(admin, accessDatabase, user);
+    await grantAccessProjection(admin, accessDatabase, user, config.INSTANCE_DB_USER_HOST);
   } finally {
     await admin.end();
   }

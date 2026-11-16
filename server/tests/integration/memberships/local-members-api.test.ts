@@ -38,9 +38,9 @@ beforeAll(async () => {
   app = await buildF01App(env);
   a = await env.createInstance("ref-a");
   b = await env.createInstance("ref-b");
-  const credential = await appCredential(env);
-  productA = await productFor(env, app, a, credential);
-  productB = await productFor(env, app, b, credential);
+  // Uma credencial por instância (SEC-01): cada implantação do produto tem a sua.
+  productA = await productFor(env, app, a, await appCredential(env, "sparkref", undefined, a.id));
+  productB = await productFor(env, app, b, await appCredential(env, "sparkref", undefined, b.id));
   const ana = await env.insertAccount({ displayName: "[SINTÉTICO] Ana" });
   const carla = await env.insertAccount({ displayName: "[SINTÉTICO] Carla" });
   const bruno = await env.insertAccount({ displayName: "[SINTÉTICO] Bruno" });
@@ -63,13 +63,27 @@ describe("vínculos locais pelo produto (SP-005, COM-012)", () => {
     const response = check("listLocalMembers", await productA.members(anaToken, "GET", "/members"));
     expect(response.status).toBe(200);
     const items = (
-      response.body as { items: { displayName: string; emailMasked: string | null }[] }
+      response.body as {
+        items: {
+          displayName: string;
+          emailMasked: string | null;
+          accountId: string | null;
+          status: string;
+        }[];
+      }
     ).items;
     expect(items.map((i) => i.displayName).sort()).toEqual([
       "[SINTÉTICO] Ana",
       "[SINTÉTICO] Carla",
     ]);
     expect(items.every((i) => i.emailMasked === null)).toBe(true);
+    // O produto grava este id como autor e o correlaciona com a auditoria: precisa ser UUID real.
+    const active = items.filter((i) => i.status !== "convite_pendente");
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    expect(active.every((i) => typeof i.accountId === "string" && uuid.test(i.accountId))).toBe(
+      true,
+    );
+    expect(new Set(active.map((i) => i.accountId)).size).toBe(active.length);
   });
 
   it("colaborador → 403; sessão inválida → 401", async () => {
@@ -103,9 +117,12 @@ describe("vínculos locais pelo produto (SP-005, COM-012)", () => {
     expect(created.status).toBe(201);
     const list = await productA.members(anaToken, "GET", "/members");
     const pending = (
-      list.body as { items: { status: string; emailMasked: string | null }[] }
+      list.body as {
+        items: { status: string; emailMasked: string | null; accountId: string | null }[];
+      }
     ).items.find((i) => i.status === "convite_pendente");
     expect(pending?.emailMasked).toBe("d***@example.test");
+    expect(pending?.accountId).toBeNull();
   });
 
   it("mudar papel e revogar em A; vínculo de B → 404 sem revelar B", async () => {

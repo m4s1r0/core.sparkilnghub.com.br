@@ -1,6 +1,9 @@
 import {
-  createAppCredential,
+  AppCredentialError,
+  bindAppCredential,
+  issueAppCredential,
   listAppCredentials,
+  needsInstance,
   revokeAppCredential,
 } from "../modules/app-credentials/app-credentials.js";
 import { loadConfig } from "../platform/config/load.js";
@@ -11,19 +14,28 @@ import { isUuid } from "../platform/ids.js";
 import { createLogger } from "../platform/logging/logger.js";
 import { runCli } from "./run.js";
 
-// npm run app-credential -- create <produto> <rótulo> --scopes sessions,members,connection
+// npm run app-credential -- create <produto> <rótulo> --scopes sessions,members,connection --instance <slug|uuid>
+// npm run app-credential -- bind <id> --instance <slug|uuid>
 // npm run app-credential -- revoke <id>
 // npm run app-credential -- list
-// Credenciais dos contratos internos (R-09, contracts/commands-f01.md). O segredo é exibido uma
-// única vez, na criação. Permitido em todos os ambientes.
+// Credenciais dos contratos internos (R-09, contracts/commands.md). O segredo é exibido uma
+// única vez, na criação. Escopos connection/sessions/members exigem instância (SEC-01); `bind`
+// migra credencial por produto sem trocar o segredo. Permitido em todos os ambientes.
 const USAGE = [
   "Uso:",
-  "  npm run app-credential -- create <produto> <rótulo> --scopes sessions,members,connection",
+  "  npm run app-credential -- create <produto> <rótulo> --scopes sessions,members,connection --instance <slug|uuid>",
+  "  npm run app-credential -- create <produto> <rótulo> --scopes utilizacao [--instance <slug|uuid>]",
+  "  npm run app-credential -- bind <id> --instance <slug|uuid>",
   "  npm run app-credential -- revoke <id>",
   "  npm run app-credential -- list",
 ].join("\n");
 
-const SCOPES: readonly AppScope[] = ["sessions", "members", "connection"];
+const SCOPES: readonly AppScope[] = ["sessions", "members", "connection", "utilizacao"];
+
+function option(args: string[], name: string): string | undefined {
+  const index = args.indexOf(name);
+  return index >= 0 ? args[index + 1] : undefined;
+}
 
 function parseScopes(args: string[]): AppScope[] {
   const index = args.indexOf("--scopes");
@@ -36,9 +48,19 @@ function parseScopes(args: string[]): AppScope[] {
   return scopes as AppScope[];
 }
 
+/** Erros de uso viram mensagem simples (sem pilha) para o operador. */
+async function asUsage<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof AppCredentialError) throw new Error(error.message);
+    throw error;
+  }
+}
+
 runCli("app-credential", async () => {
   const [command, ...args] = process.argv.slice(2);
-  if (!command || !["create", "revoke", "list"].includes(command)) throw new Error(USAGE);
+  if (!command || !["create", "bind", "revoke", "list"].includes(command)) throw new Error(USAGE);
   const config = loadConfig({ credentials: ["migrator"] });
   const pools = new PoolRegistry(config);
   try {
@@ -51,13 +73,27 @@ runCli("app-credential", async () => {
       if (!productCode || !/^[a-z][a-z0-9]{1,31}$/.test(productCode) || !label) {
         throw new Error(USAGE);
       }
-      const created = await createAppCredential(ctx, {
-        productCode,
-        label: label.slice(0, 120),
-        scopes: parseScopes(args),
-      });
-      console.log("Credencial de aplicação criada (exibida uma única vez; guarde em cofre):");
+      const created = await asUsage(() =>
+        issueAppCredential(ctx, {
+          productCode,
+          label: label.slice(0, 120),
+          scopes: parseScopes(args),
+          instanceRef: option(args, "--instance") ?? null,
+        }),
+      );
+      console.log(
+        `Credencial de aplicação criada${created.instance ? ` para a instância ${created.instance.slug}` : ""} ` +
+          "(exibida uma única vez; guarde em cofre):",
+      );
       console.log(created.value);
+      return;
+    }
+    if (command === "bind") {
+      const [id] = args;
+      const ref = option(args, "--instance");
+      if (!id || !isUuid(id) || !ref) throw new Error(USAGE);
+      const instance = await asUsage(() => bindAppCredential(ctx, id, ref));
+      console.log(`Credencial ${id} vinculada à instância ${instance.slug} (segredo inalterado).`);
       return;
     }
     if (command === "revoke") {
@@ -77,8 +113,13 @@ runCli("app-credential", async () => {
         : item.expiresAt && item.expiresAt <= new Date()
           ? "vencida"
           : "ativa";
+      const target = item.instanceId
+        ? `instância ${item.instanceSlug ?? item.instanceId}`
+        : needsInstance(item.scopes)
+          ? "POR PRODUTO — recusada; vincule (bind) ou substitua"
+          : "por produto";
       console.log(
-        `${item.id}  ${item.productCode}  [${item.scopes.join(",")}]  ${state}  ${item.label}` +
+        `${item.id}  ${item.productCode}  ${target}  [${item.scopes.join(",")}]  ${state}  ${item.label}` +
           (item.lastUsedAt ? `  último uso ${item.lastUsedAt.toISOString()}` : ""),
       );
     }

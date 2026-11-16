@@ -8,7 +8,51 @@ import { identityErrors, type RequestInfo } from "./errors.js";
 import { hasConfirmedFactor } from "./mfa.js";
 import { burnPasswordCheck, hashPassword, needsRehash, verifyPassword } from "./password.js";
 import { recordSecurityEvent } from "./security-events.js";
-import { clearFailures, registerFailure, throttleRules, throttleStatus } from "./throttle.js";
+import {
+  clearFailures,
+  registerFailureDetailed,
+  throttleRules,
+  throttleStatus,
+} from "./throttle.js";
+
+/**
+ * Aviso de bloqueio total da conta por volume de falhas (SEC-14): evento de segurança dirigido ao
+ * titular (`target_account_id`), listado na consulta de eventos dos administradores da plataforma
+ * (F08), e alerta no log. O Core ainda não tem canal de e-mail; quando houver, o envio parte daqui.
+ * E-mail sem conta não gera aviso (nada a avisar, e a resposta ao chamador é a mesma).
+ */
+export async function notifyAccountLocked(
+  ctx: AppContext,
+  account: { id: string } | null,
+  newlyLocked: readonly string[],
+  emailKey: string,
+  event: {
+    actorKind: "usuario" | "aplicacao";
+    instanceId?: string | null;
+    ip: string;
+    userAgent: string | null;
+    correlationId: string;
+    at: Date;
+  },
+): Promise<void> {
+  if (!account || !newlyLocked.includes(emailKey)) return;
+  await recordSecurityEvent(ctx.identity, {
+    type: "login_bloqueado",
+    actorKind: event.actorKind,
+    targetAccountId: account.id,
+    instanceId: event.instanceId ?? null,
+    result: "negado",
+    detail: { motivo: "volume_de_falhas", minutos: 15 },
+    correlationId: event.correlationId,
+    ip: event.ip,
+    userAgent: event.userAgent,
+    at: event.at,
+  });
+  ctx.logger.warn(
+    { alert: "login_bloqueado", accountId: account.id, correlationId: event.correlationId },
+    "Conta bloqueada por volume de falhas de login",
+  );
+}
 
 export async function isActivePlatformAdmin(ctx: AppContext, accountId: string): Promise<boolean> {
   const { rows } = await sql<{ status: string }>`
@@ -30,7 +74,9 @@ export async function loginWithPassword(
 ): Promise<{ token: string; next: "mfa" | "mfa_enrollment" }> {
   const now = ctx.clock();
   const email = normalizeEmail(input.email);
-  const rules = [throttleRules.loginEmail(email), throttleRules.origin(info.ip)];
+  const emailRule = throttleRules.loginEmail(email);
+  const pairRule = throttleRules.loginPair(email, info.ip);
+  const rules = [emailRule, pairRule, throttleRules.origin(info.ip)];
   const locked = await throttleStatus(ctx, rules);
   if (locked) throw identityErrors.throttled(locked);
 
@@ -43,7 +89,14 @@ export async function loginWithPassword(
     passwordOk && account?.status === "ativa" && (await isActivePlatformAdmin(ctx, account.id));
 
   if (!account || !allowed) {
-    const nowLocked = await registerFailure(ctx, rules);
+    const { lockedSeconds: nowLocked, newlyLocked } = await registerFailureDetailed(ctx, rules);
+    await notifyAccountLocked(ctx, account, newlyLocked, emailRule.key, {
+      actorKind: "usuario",
+      ip: info.ip,
+      userAgent: info.userAgent,
+      correlationId: info.correlationId,
+      at: now,
+    });
     await recordSecurityEvent(ctx.identity, {
       type: "login",
       actorKind: "usuario",
@@ -59,7 +112,8 @@ export async function loginWithPassword(
     throw identityErrors.invalidCredentials();
   }
 
-  await clearFailures(ctx, [throttleRules.loginEmail(email)]);
+  // Sucesso zera o atraso deste (e-mail, origem); o volume da conta vindo de outras origens segue.
+  await clearFailures(ctx, [pairRule]);
   if (stored && needsRehash(stored.paramsVersion)) {
     await updatePasswordHash(ctx.identity, now, account.id, await hashPassword(input.password));
   }

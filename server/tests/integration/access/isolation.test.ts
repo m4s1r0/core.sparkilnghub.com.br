@@ -30,9 +30,10 @@ beforeAll(async () => {
   app = await buildF01App(env);
   a = await env.createInstance("ref-a");
   b = await env.createInstance("ref-b");
-  credential = await appCredential(env);
+  // Cada implantação tem a sua credencial (SEC-01); `credential` é a de A.
+  credential = await appCredential(env, "sparkref", undefined, a.id);
   productA = await productFor(env, app, a, credential);
-  productB = await productFor(env, app, b, credential);
+  productB = await productFor(env, app, b, await appCredential(env, "sparkref", undefined, b.id));
   carla = await env.insertAccount();
   await env.insertMembership(carla.id, a.id, "colaborador");
   await env.insertMembership(carla.id, b.id, "colaborador");

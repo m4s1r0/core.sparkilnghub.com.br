@@ -414,6 +414,49 @@ retenção registrados; banco físico intacto; nenhuma ação de reabertura/excl
 
 ---
 
+## Phase 11: Adendo 2026-11-13 — aba "Migração" revista (FR-033 a FR-035, R-09)
+
+**Purpose**: corrigir o carregamento infinito depois de aplicar e mostrar o que será/está sendo
+aplicado, com situação por migração e pendentes pelo histórico real do banco do produto. Decisão em
+[research.md](./research.md) R-09; contrato `contracts/openapi.yaml` 1.3.3.
+
+- [X] T060 [US6] `web/src/api/instances.ts`: `useInstanceMigration` com `refetchInterval` de 2 s
+  enquanto o status estiver em `MIGRATION_ACTIVE` (`pendente`, `em_execucao`,
+  `aguardando_repeticao`); `InstanceLifecycle.tsx` invalida `instanceKey` (exato), `healthKey` e
+  `migrationPlanKey` quando a tarefa sai de um estado ativo
+- [X] T061 [US6] Migração `server/migrations/spark_core/migrations/0009_admin_task_from_version.sql`
+  (+ `manifest.json`): `admin_task.from_version INT UNSIGNED NULL`; `provisioning/tasks.ts`
+  (`Task.fromVersion`, `TASK_COLUMNS`, `createMigrationTask` grava `currentSchemaVersion`,
+  `TASK_ACTIVE` exportado)
+- [X] T062 [US6] Extrair `server/src/modules/instances/operational-connection.ts`
+  (`withOperationalConnection`, credencial operacional, motivo sanitizado) e usá-lo em
+  `instances/health.ts`
+- [X] T063 [US6] `server/src/modules/instances/migration-view.ts`: `migrations[]` com situação por
+  versão na tarefa; `instanceMigrationPlan` (versão efetiva pelo histórico, `recordedVersion`,
+  `source`, `historyUnavailable`, `pending[]`, `blocked`); `applyInstanceMigration` grava a versão
+  efetiva como origem e recusa com `409 SCHEMA_HISTORY_BLOCKED`
+- [X] T064 [US6] Rota `GET /api/v1/instances/:instanceId/migration/plan` em
+  `instances/routes.ts`; `contracts/openapi.yaml` 1.3.3 (`ArtifactMigration`, `MigrationPlan`,
+  `MigrationTask.migrations`, 409 `SCHEMA_HISTORY_BLOCKED`) e `contracts/CHANGELOG.md`
+- [X] T065 [US6] `web/src/pages/instances/InstanceLifecycle.tsx` (`MigrationPanel`): bloco da
+  tarefa (origem → alvo, status pt-BR, etapa, "Aplicando vN (k de n)", tabela com situação) e bloco
+  "Atualização disponível" (pendentes, avisos de divergência/histórico indisponível, alerta de
+  bloqueio, botão desabilitado sem pendentes ou bloqueado)
+- [X] T066 [US6] `server/tests/integration/provisioning/migration-task.test.ts`: caminho feliz
+  confere plano antes/depois, `fromVersion` e `migrations`; cenário novo com duas pendentes e falha
+  na segunda (aplicada/falhou, versão efetiva × registrada, `SCHEMA_FAILED`,
+  `SCHEMA_HISTORY_BLOCKED`, "interrompida")
+- [X] T067 Documentação: spec (Clarifications 2026-11-13, cenários 5–7 da US6, FR-033 a FR-035,
+  casos de borda), research R-09, data-model, `contracts/ui-f03.md`, `contracts/commands-f03.md`,
+  `contracts/openapi-f03.yaml`, quickstart §6, evidence e `docs/operacao/migracao-instancia.md`
+- [ ] T068 Rodar `npm run verify` completo com o adendo e acrescentar o resultado em
+  `evidence.md`; cobrir a aba revista no E2E (`web/tests/e2e/lifecycle.spec.ts`)
+
+**Checkpoint**: aba "Migração" mostra pendentes, andamento por versão e falha parcial sem
+carregamento infinito
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -432,6 +475,7 @@ retenção registrados; banco físico intacto; nenhuma ação de reabertura/excl
   implementada, usando o suporte de teste (T013) para inserir o registro diretamente
 - **US7 (Phase 9)**: depende só da Foundational (consome `SUSPENSA`, já alcançável desde US2)
 - **Polish (Phase 10)**: depende de todas as histórias desejadas estarem completas
+- **Adendo (Phase 11)**: depende da US6 (Phase 8); T061 antes de T063; T063/T064 antes de T065
 
 ### User Story Dependencies
 

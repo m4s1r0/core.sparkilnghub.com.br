@@ -24,6 +24,11 @@ conhecido no painel de saúde. Console de restauração com um clique fica fora 
 3. `--takenAt <ISO>` registra o instante real da cópia quando o comando roda depois dela (por
    exemplo, num job que só recebe a confirmação ao final de uma janela).
 
+4. `<instanceId>` é o **UUID** da instância (o de `/instancias/:id`), não o slug nem o `sha256` de
+   uma migração do `manifest.json`; valor que não é UUID imprime o uso e sai com código 2 sem
+   gravar nada. Para a migração de instância (F03), só conta o backup com instante igual ou
+   posterior à última entrada em manutenção — ver [migracao-instancia.md](./migracao-instancia.md).
+
 ## Backup do conjunto Core/identidade
 
 `spark_core` e `spark_identity` seguem a mesma política (diária, cifrada, fora do servidor da
